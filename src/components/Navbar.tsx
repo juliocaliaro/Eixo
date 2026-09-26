@@ -4,7 +4,8 @@ import {
   User,
   Bell,
   BellRinging,
-  PenNib
+  PenNib,
+  Gear
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 
@@ -15,6 +16,8 @@ interface NavbarProps {
   onTogglePerfil: (novoPerfil: PerfilUsuario) => void;
   obras: Obra[];
   onNavigateToDecisao?: (obraId: string) => void;
+  onOpenSettings?: () => void;
+  isConfigOpen?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -24,6 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTogglePerfil,
   obras,
   onNavigateToDecisao,
+  onOpenSettings,
+  isConfigOpen = false,
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -282,6 +287,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+
+          {/* Botão de Configurações / Templates (exclusivo para Construtor) */}
+          {perfilAtivo === 'construtor' && onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="btn-icon"
+              style={{
+                width: 36,
+                height: 36,
+                color: isConfigOpen ? 'var(--primary-accent)' : 'var(--text-muted)',
+                background: isConfigOpen ? 'var(--dark-coffee-100)' : 'transparent',
+              }}
+              title="Configurações gerais e modelos de etapas/tarefas"
+            >
+              <Gear size={19} weight={isConfigOpen ? 'fill' : 'bold'} />
+            </button>
+          )}
         </div>
       </div>
     </header>

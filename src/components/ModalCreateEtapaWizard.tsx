@@ -13,11 +13,13 @@ import {
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 import { PresetEtapa, PresetTipoObra } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
+import { loadTemplatesFromStorage } from '../utils/storage';
 
 interface ModalCreateEtapaWizardProps {
   isOpen: boolean;
   onClose: () => void;
   insertAtIndex?: number | null;
+  templates?: PresetTipoObra[];
   onAddEtapa: (etapa: {
     nome: string;
     tarefas: { nome: string }[];
@@ -29,10 +31,12 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   isOpen,
   onClose,
   insertAtIndex,
+  templates,
   onAddEtapa,
 }) => {
+  const availableTemplates = templates && templates.length > 0 ? templates : loadTemplatesFromStorage();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-  const [selectedTipo, setSelectedTipo] = useState<PresetTipoObra | null>(PRESET_TIPOS_OBRA[0]);
+  const [selectedTipo, setSelectedTipo] = useState<PresetTipoObra | null>(availableTemplates[0] || null);
   const [isTipoPersonalizado, setIsTipoPersonalizado] = useState(false);
   const [selectedEtapa, setSelectedEtapa] = useState<PresetEtapa | null>(null);
   const [customEtapaNome, setCustomEtapaNome] = useState('');
@@ -239,33 +243,22 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
           {/* PASSO 1: MODELO */}
           {currentStep === 1 && (
             <div className="choice-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-              <div
-                className={`choice-card ${selectedTipo?.id === 'O01' && !isTipoPersonalizado ? 'selected' : ''}`}
-                onClick={() => handleSelectTipo(PRESET_TIPOS_OBRA[0])}
-                style={{ padding: '16px' }}
-              >
-                <div style={{ color: 'var(--cinnamon-wood-500)', marginBottom: 6 }}>
-                  <Buildings size={28} weight="duotone" />
+              {availableTemplates.map((tipo, idx) => (
+                <div
+                  key={tipo.id}
+                  className={`choice-card ${selectedTipo?.id === tipo.id && !isTipoPersonalizado ? 'selected' : ''}`}
+                  onClick={() => handleSelectTipo(tipo)}
+                  style={{ padding: '16px' }}
+                >
+                  <div style={{ color: idx % 2 === 0 ? 'var(--cinnamon-wood-500)' : 'var(--coral-glow-500)', marginBottom: 6 }}>
+                    {idx % 2 === 0 ? <Buildings size={28} weight="duotone" /> : <PaintBrushHousehold size={28} weight="duotone" />}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>{tipo.nome}</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                    {tipo.etapas.length} {tipo.etapas.length === 1 ? 'etapa cadastrada' : 'etapas cadastradas'}
+                  </div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>Construção</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  Da fundação ao acabamento
-                </div>
-              </div>
-
-              <div
-                className={`choice-card ${selectedTipo?.id === 'O02' && !isTipoPersonalizado ? 'selected' : ''}`}
-                onClick={() => handleSelectTipo(PRESET_TIPOS_OBRA[1])}
-                style={{ padding: '16px' }}
-              >
-                <div style={{ color: 'var(--coral-glow-500)', marginBottom: 6 }}>
-                  <PaintBrushHousehold size={28} weight="duotone" />
-                </div>
-                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>Reforma</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  Demolição e adequações
-                </div>
-              </div>
+              ))}
 
               <div
                 className={`choice-card ${isTipoPersonalizado ? 'selected' : ''}`}

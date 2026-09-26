@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario } from './types/obra';
-import { loadObrasFromStorage, saveObrasToStorage } from './utils/storage';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra } from './types/obra';
+import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
+import { ConfigTemplatesPage } from './components/ConfigTemplatesPage';
 import { ToastContainer } from './components/Toast';
 
 export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
+  const [templates, setTemplates] = useState<PresetTipoObra[]>(() => loadTemplatesFromStorage());
   const [currentObraId, setCurrentObraId] = useState<string | null>(null);
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
+  const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=...)
@@ -55,6 +58,12 @@ export const App: React.FC = () => {
 
   const handleDismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Atualizar modelos padrão de etapas e tarefas
+  const handleUpdateTemplates = (updated: PresetTipoObra[]) => {
+    setTemplates(updated);
+    saveTemplatesToStorage(updated);
   };
 
   // Criar nova obra
@@ -190,11 +199,52 @@ export const App: React.FC = () => {
           ],
         },
       ],
+      projetos: [
+        {
+          id: 'proj_demo_1',
+          titulo: 'Planta de Demolição e Fechamentos em Alvenaria',
+          tipo: 'demolicao',
+          arquivoNome: 'Prancha_01_Demolicao_Layout_R02.pdf',
+          tamanhoBytes: 1480000,
+          dataUpload: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
+          enviadoPor: 'construtor',
+          enviadoPorNome: 'Eng. Roberto Albuquerque',
+          versao: 'Rev. 02',
+          descricao: 'Indicação das paredes a demolir entre sala e cozinha e ampliação da suíte máster.',
+          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
+        },
+        {
+          id: 'proj_demo_2',
+          titulo: 'Diagrama Unifilar e Pontos de Iluminação / Força',
+          tipo: 'eletrico',
+          arquivoNome: 'Projeto_Eletrico_Executivo_Final.pdf',
+          tamanhoBytes: 2250000,
+          dataUpload: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+          enviadoPor: 'construtor',
+          enviadoPorNome: 'Eng. Roberto Albuquerque',
+          versao: 'Final Executivo',
+          descricao: 'Circuito de tomadas da ilha, pontos 220V do cooktop e fita LED dos cortineiros.',
+          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
+        },
+        {
+          id: 'proj_demo_3',
+          titulo: 'Prumada Hidráulica e Isométrico dos Banheiros',
+          tipo: 'hidraulico',
+          arquivoNome: 'Projeto_Hidraulico_Apto402_R01.pdf',
+          tamanhoBytes: 1890000,
+          dataUpload: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
+          enviadoPor: 'cliente',
+          enviadoPorNome: 'Dra. Carolina Mendes (Cliente)',
+          versao: 'Rev. 01',
+          descricao: 'Desvio de tubulação de água fria e rebaixamento do ralo linear.',
+          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
+        },
+      ],
     };
 
     setObras([demoObra, ...obras]);
     setCurrentObraId(demoObra.id);
-    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, o diário e a aba de Decisões com assinaturas digitais.');
+    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, decisões e a nova aba de Projetos (PDF).');
   };
 
   // Excluir obra
@@ -213,10 +263,16 @@ export const App: React.FC = () => {
       {/* Barra de Navegação Superior com Perfis e Notificações */}
       <Navbar
         currentObra={currentObra}
-        onBackToObras={() => setCurrentObraId(null)}
+        onBackToObras={() => {
+          setCurrentObraId(null);
+          setIsConfigOpen(false);
+        }}
         perfilAtivo={perfilAtivo}
         onTogglePerfil={(novo) => {
           setPerfilAtivo(novo);
+          if (novo === 'cliente' && isConfigOpen) {
+            setIsConfigOpen(false);
+          }
           showToast(
             `Perfil alterado para ${novo === 'construtor' ? 'Construtor' : 'Cliente'}`,
             novo === 'construtor' ? 'Acesso pleno à gestão e edição.' : 'Modo de acompanhamento transparente e aprovação de decisões.',
@@ -225,22 +281,38 @@ export const App: React.FC = () => {
         }}
         obras={obras}
         onNavigateToDecisao={(obraId) => {
+          setIsConfigOpen(false);
           setCurrentObraId(obraId);
           setActiveTab('decisoes');
         }}
+        onOpenSettings={() => {
+          setIsConfigOpen((prev) => !prev);
+        }}
+        isConfigOpen={isConfigOpen}
       />
 
       {/* Conteúdo Principal */}
       <main className="main-content">
-        {!currentObra ? (
+        {isConfigOpen ? (
+          <ConfigTemplatesPage
+            templates={templates}
+            onUpdateTemplates={handleUpdateTemplates}
+            onBack={() => setIsConfigOpen(false)}
+            showToast={showToast}
+          />
+        ) : !currentObra ? (
           /* Visão Externa: Empty State ou Lista de Obras */
           <ObraList
             obras={obras}
-            onSelectObra={(id) => setCurrentObraId(id)}
+            onSelectObra={(id) => {
+              setIsConfigOpen(false);
+              setCurrentObraId(id);
+            }}
             onOpenCreateModal={() => setIsCreateObraOpen(true)}
             onDeleteObra={handleDeleteObra}
             onLoadDemo={handleLoadDemo}
             perfilAtivo={perfilAtivo}
+            onOpenSettings={() => setIsConfigOpen(true)}
           />
         ) : (
           /* Visão Interna: Detalhes da Obra com Abas e Timeline */
@@ -256,6 +328,7 @@ export const App: React.FC = () => {
               setPerfilAtivo('cliente');
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
+            templates={templates}
           />
         )}
       </main>

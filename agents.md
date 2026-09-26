@@ -108,3 +108,33 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 - Armazenamento em `localStorage` através do utilitário `src/utils/storage.ts`.
 - Suporte a carga de obra de demonstração completa com histórico realista de etapas, fotos e decisões pré-assinadas.
+
+---
+
+## 8. Gestão de Templates & Modelos de Obra (`ConfigTemplatesPage`)
+
+- **Página de Configuração Geral**:
+  - Acessível pelo ícone de engrenagem (`<Gear />`) no cabeçalho ou pelo botão `[ Modelos de Obra ]` na listagem principal para o perfil Construtor.
+  - Permite criar novos modelos (ex: *Design de Interiores*, *Fachada*, etc.) em branco ou clonados a partir de modelos existentes.
+  - Customização plena de etapas (criação, edição inline de nomes, exclusão com modal de confirmação e reordenação).
+  - Customização de serviços padrão dentro de cada etapa (adição rápida, edição inline, exclusão e reordenação).
+  - Opção de **Restaurar Padrões de Fábrica** para recuperar os conjuntos originais de *Construção* e *Reforma*.
+- **Sincronização com o Wizard de Etapas**:
+  - O `ModalCreateEtapaWizard` consome dinamicamente os modelos ativos em `localStorage`.
+  - Quaisquer alterações ou novos modelos criados ficam imediatamente disponíveis para inclusão em qualquer obra.
+
+---
+
+## 9. Central de Projetos Técnicos em PDF (`ProjetosTab` & `ModalUploadProjeto`)
+
+- **Aba "Projetos (PDF)" na Obra**:
+  - Nova aba integrada na visualização da obra (`ObraDetail`), posicionada estrategicamente entre Decisões e Anexos.
+  - Exibe contador dinâmico de pranchas/projetos anexados.
+- **Upload com Classificação Técnica Obrigatória**:
+  - O modal `ModalUploadProjeto` exige a definição da disciplina do projeto (Elétrico, Hidráulico, Demolição, Arquitetônico, Estrutural, Climatização, Marcenaria ou Outro com digitação livre).
+  - Ícones e cores temáticas exclusivas para cada disciplina (`src/utils/projetoConfig.ts`).
+  - Suporte a drag & drop de arquivos PDF, extração automática de título sugerido a partir do nome do arquivo, versão/revisão (ex: *Rev. 02*) e observações técnicas.
+- **Visualização e Download Integrados**:
+  - Ações rápidas de **Visualizar** (modal com visualizador embutido ou abertura em nova guia) e **Baixar** direto no dispositivo.
+  - Filtros rápidos por chips de categoria e busca textual em tempo real.
+

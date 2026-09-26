@@ -824,6 +824,14 @@ input, textarea, select {
   border: 1px solid var(--border-hairline);
 }
 
+.modal-card > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
