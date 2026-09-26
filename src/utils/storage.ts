@@ -2,7 +2,8 @@ import { Obra, PresetTipoObra } from '../types/obra';
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 
 const STORAGE_KEY = 'diario_obras_app_data_v1';
-const TEMPLATES_STORAGE_KEY = 'eixo_templates_preset_v1';
+const TEMPLATES_STORAGE_KEY = 'eixo_templates_preset_v2';
+const OLD_TEMPLATES_KEY = 'eixo_templates_preset_v1';
 
 export const loadObrasFromStorage = (): Obra[] => {
   try {
@@ -26,11 +27,29 @@ export const saveObrasToStorage = (obras: Obra[]): void => {
 export const loadTemplatesFromStorage = (): PresetTipoObra[] => {
   try {
     const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
-    if (!raw) return PRESET_TIPOS_OBRA;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
+
+    // Se ainda não salvou no v2, verificar se há templates customizados no v1
+    const oldRaw = localStorage.getItem(OLD_TEMPLATES_KEY);
+    if (oldRaw) {
+      try {
+        const oldParsed = JSON.parse(oldRaw);
+        if (Array.isArray(oldParsed)) {
+          // Manter eventuais templates customizados criados pelo usuário
+          const customOnes = oldParsed.filter(t => t.id !== 'O01' && t.id !== 'O02');
+          const merged = [...PRESET_TIPOS_OBRA, ...customOnes];
+          saveTemplatesToStorage(merged);
+          return merged;
+        }
+      } catch {}
+    }
+
+    saveTemplatesToStorage(PRESET_TIPOS_OBRA);
     return PRESET_TIPOS_OBRA;
   } catch (error) {
     console.error('Erro ao carregar templates do localStorage:', error);

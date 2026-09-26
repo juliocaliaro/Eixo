@@ -113,12 +113,12 @@ export const App: React.FC = () => {
       etapas: [
         {
           id: 'etapa_demo_1',
-          nome: 'Proteção e preparação da área',
+          nome: 'Isolamento e Preparação',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
               id: 'task_demo_1',
-              nome: 'Isolamento e proteção de elevadores e corredores do condomínio',
+              nome: 'Proteção de elevadores e áreas comuns.',
               concluida: true,
               concluidaEm: new Date().toISOString(),
               fotos: [
@@ -128,24 +128,24 @@ export const App: React.FC = () => {
             },
             {
               id: 'task_demo_2',
-              nome: 'Proteção de pisos existentes e esquadrias mantidas',
+              nome: 'Proteção do piso existente (se for mantido).',
               concluida: false,
             },
           ],
         },
         {
           id: 'etapa_demo_2',
-          nome: 'Demolição e descarte de materiais',
+          nome: 'Demolição',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
               id: 'task_demo_3',
-              nome: 'Demolição de paredes de alvenaria e divisórias existentes',
+              nome: 'Demolição de alvenarias, pisos e revestimentos.',
               concluida: false,
             },
             {
               id: 'task_demo_4',
-              nome: 'Acondicionamento de entulho e carregamento de caçambas',
+              nome: 'Ensacamento e descarte de entulho.',
               concluida: false,
             },
           ],
