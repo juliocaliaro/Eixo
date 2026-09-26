@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork } from '@phosphor-icons/react';
-import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario } from '../types/obra';
+import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
+import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
 import { DecisoesTab } from './DecisoesTab';
 import { AnexosTab } from './AnexosTab';
+import { ProjetosTab } from './ProjetosTab';
 import { ClientShareTab } from './ClientShareTab';
 import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
@@ -15,10 +16,11 @@ interface ObraDetailProps {
   onUpdateObra: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
   perfilAtivo?: PerfilUsuario;
-  activeTab?: 'etapas' | 'decisoes' | 'anexos' | 'compartilhar';
-  onChangeTab?: (tab: 'etapas' | 'decisoes' | 'anexos' | 'compartilhar') => void;
+  activeTab?: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar';
+  onChangeTab?: (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => void;
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
+  templates?: PresetTipoObra[];
 }
 
 export const ObraDetail: React.FC<ObraDetailProps> = ({
@@ -30,12 +32,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onChangeTab,
   onBackToObras,
   onSwitchToClient,
+  templates,
 }) => {
-  // Controle de Abas: 'etapas' | 'decisoes' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
+  // Controle de Abas: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
   const activeTab = activeTabProp || localActiveTab;
 
-  const handleSelectTab = (tab: 'etapas' | 'decisoes' | 'anexos' | 'compartilhar') => {
+  const handleSelectTab = (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => {
     setLocalActiveTab(tab);
     if (onChangeTab) onChangeTab(tab);
   };
@@ -398,6 +401,47 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     showToast('Decisão Recusada', 'A proposta foi recusada e a contraparte foi avisada para revisão.', 'warning');
   };
 
+  // --- Handlers de Projetos em PDF ---
+  const handleAddProjeto = (dados: {
+    titulo: string;
+    tipo: TipoProjeto;
+    tipoCustomizado?: string;
+    arquivoNome: string;
+    tamanhoBytes: number;
+    url: string;
+    versao?: string;
+    descricao?: string;
+  }) => {
+    const novoProjeto: ProjetoPDF = {
+      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      titulo: dados.titulo,
+      tipo: dados.tipo,
+      tipoCustomizado: dados.tipoCustomizado,
+      arquivoNome: dados.arquivoNome,
+      tamanhoBytes: dados.tamanhoBytes,
+      dataUpload: new Date().toISOString(),
+      enviadoPor: perfilAtivo,
+      enviadoPorNome: perfilAtivo === 'construtor' ? 'Engenheiro Responsável' : obra.cliente,
+      url: dados.url,
+      versao: dados.versao,
+      descricao: dados.descricao,
+    };
+
+    const updatedProjetos = [novoProjeto, ...(obra.projetos || [])];
+    onUpdateObra({
+      ...obra,
+      projetos: updatedProjetos,
+    });
+  };
+
+  const handleDeleteProjeto = (projetoId: string) => {
+    const updatedProjetos = (obra.projetos || []).filter((p) => p.id !== projetoId);
+    onUpdateObra({
+      ...obra,
+      projetos: updatedProjetos,
+    });
+  };
+
   // Contagem de decisões pendentes de assinatura do perfil atual
   const pendenciasDecisao = (obra.decisoes || []).filter(
     (d) => d.status === 'pendente' && d.criadaPor !== perfilAtivo
@@ -482,6 +526,29 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         </button>
 
         <button
+          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
+          onClick={() => handleSelectTab('projetos')}
+        >
+          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
+          <span>Projetos (PDF)</span>
+          {(obra.projetos || []).length > 0 && (
+            <span
+              style={{
+                marginLeft: 4,
+                background: 'var(--dark-coffee-100)',
+                color: 'var(--dark-coffee-800)',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                padding: '1px 6px',
+                borderRadius: 10,
+              }}
+            >
+              {obra.projetos!.length}
+            </span>
+          )}
+        </button>
+
+        <button
           className={`tab-btn ${activeTab === 'anexos' ? 'active' : ''}`}
           onClick={() => handleSelectTab('anexos')}
         >
@@ -528,6 +595,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         />
       )}
 
+      {activeTab === 'projetos' && (
+        <ProjetosTab
+          obra={obra}
+          perfilAtivo={perfilAtivo}
+          onAddProjeto={handleAddProjeto}
+          onDeleteProjeto={handleDeleteProjeto}
+          showToast={showToast}
+        />
+      )}
+
       {activeTab === 'anexos' && (
         <AnexosTab
           obra={obra}
@@ -560,6 +637,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           setWizardInsertIndex(null);
         }}
         insertAtIndex={wizardInsertIndex}
+        templates={templates}
         onAddEtapa={handleAddEtapaFromWizard}
       />
 

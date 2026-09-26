@@ -9,7 +9,8 @@ import {
   ArrowRight,
   Trash,
   CheckCircle,
-  Clock
+  Clock,
+  SlidersHorizontal
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -21,6 +22,7 @@ interface ObraListProps {
   onDeleteObra: (obraId: string) => void;
   onLoadDemo?: () => void;
   perfilAtivo?: PerfilUsuario;
+  onOpenSettings?: () => void;
 }
 
 export const ObraList: React.FC<ObraListProps> = ({
@@ -30,6 +32,7 @@ export const ObraList: React.FC<ObraListProps> = ({
   onDeleteObra,
   onLoadDemo,
   perfilAtivo = 'construtor',
+  onOpenSettings,
 }) => {
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
   // Empty State com âncora visual fotográfica forte (conforme frontend-skill)
@@ -138,10 +141,23 @@ export const ObraList: React.FC<ObraListProps> = ({
         </div>
 
         {perfilAtivo !== 'cliente' && (
-          <button onClick={onOpenCreateModal} className="btn-primary">
-            <Plus size={18} weight="bold" />
-            <span>Nova Obra</span>
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="btn-secondary"
+                title="Personalizar modelos padrão de etapas e tarefas"
+              >
+                <SlidersHorizontal size={17} weight="bold" />
+                <span>Modelos de Obra</span>
+              </button>
+            )}
+            <button onClick={onOpenCreateModal} className="btn-primary">
+              <Plus size={18} weight="bold" />
+              <span>Nova Obra</span>
+            </button>
+          </div>
         )}
       </div>
 

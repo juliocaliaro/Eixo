@@ -43,6 +43,31 @@ export interface Decisao {
   fotos?: string[];
 }
 
+export type TipoProjeto =
+  | 'eletrico'
+  | 'hidraulico'
+  | 'demolicao'
+  | 'arquitetonico'
+  | 'estrutural'
+  | 'climatizacao'
+  | 'marcenaria'
+  | 'outro';
+
+export interface ProjetoPDF {
+  id: string;
+  titulo: string;
+  tipo: TipoProjeto;
+  tipoCustomizado?: string;
+  arquivoNome: string;
+  tamanhoBytes: number;
+  dataUpload: string;
+  enviadoPor: PerfilUsuario;
+  enviadoPorNome: string;
+  url: string; // base64 data URI ou blob URL
+  descricao?: string;
+  versao?: string; // ex: 'Rev. 01', 'Final'
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -53,6 +78,7 @@ export interface Obra {
   etapas: Etapa[];
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];
+  projetos?: ProjetoPDF[];
 }
 
 export interface AnexoItem {
