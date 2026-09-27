@@ -10,7 +10,25 @@ export const loadObrasFromStorage = (): Obra[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed: Obra[] = JSON.parse(raw);
+    let modified = false;
+    parsed.forEach((obra) => {
+      if (obra.punchList && obra.punchList.length > 0) {
+        const cleaned = obra.punchList.filter(
+          (item) =>
+            !item.id.startsWith('punch_demo_') &&
+            !item.id.startsWith('punch_padrao_')
+        );
+        if (cleaned.length !== obra.punchList.length) {
+          obra.punchList = cleaned;
+          modified = true;
+        }
+      }
+    });
+    if (modified) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    }
+    return parsed;
   } catch (error) {
     console.error('Erro ao carregar obras do localStorage:', error);
     return [];

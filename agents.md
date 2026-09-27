@@ -218,8 +218,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Módulo Dedicado de Pré-Entrega (`VistoriaPunchList`)**:
   - Oficialmente denominado **"Vistoria Final"**.
   - Posicionado na aba de Etapas & Cronograma (`ObraDetail`), complementando o encerramento físico da obra.
-  - Permite carregar itens padrão de checklist técnico (`ITENS_PADRAO_VISTORIA`) com foco em testes operacionais e retoques finos (pintura, regulagem de portas/esquadrias, testes hidráulicos/elétricos, climatização, limpeza fina e entrega de chaves).
-  - Inclusão rápida de pendências customizadas por ambiente (ex: "Suíte", "Varanda Gourmet", "Fachada").
+  - **Zero Tarefas Pré-Definidas**: Sem itens ou checklists pré-carregados engessados. A lista inicia 100% limpa, permitindo ao construtor cadastrar livremente pendências customizadas por ambiente (ex: "Suíte", "Varanda Gourmet", "Fachada") através do botão "Adicionar Item".
   - Checkboxes interativos com registro de data/hora de resolução (`concluidoEm`).
   - Exclusão com modal de confirmação no Design System (`ModalConfirm`).
   - Selo visual de conformidade quando 100% das pendências forem sanadas.

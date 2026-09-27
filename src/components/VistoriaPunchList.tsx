@@ -1,15 +1,9 @@
 import React, { useState } from 'react';
 import {
-  CheckSquareOffset,
   Plus,
   Trash,
-  CheckCircle,
-  Clock,
   Key,
   SealCheck,
-  User,
-  WarningCircle,
-  Sparkle
 } from '@phosphor-icons/react';
 import { PunchListItem, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -21,16 +15,6 @@ interface VistoriaPunchListProps {
   clienteNome: string;
   showToast?: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
-
-const ITENS_PADRAO_VISTORIA = [
-  { item: 'Retoques finos de pintura e alinhamento de cantoneiras', ambiente: 'Geral' },
-  { item: 'Regulagem e lubrificação de fechaduras, trincos e esquadrias', ambiente: 'Portas e Janelas' },
-  { item: 'Teste de pressão hidráulica e escoamento em todos os ralos', ambiente: 'Áreas Molhadas' },
-  { item: 'Conferência de funcionamento de todas as tomadas e circuitos de iluminação', ambiente: 'Elétrica' },
-  { item: 'Teste de funcionamento e climatização dos aparelhos de ar-condicionado e aquecedores', ambiente: 'Equipamentos' },
-  { item: 'Limpeza fina pós-obra e remoção de películas e fitas protetoras', ambiente: 'Geral' },
-  { item: 'Entrega formal de manuais técnicos, garantias de equipamentos e chaves', ambiente: 'Entrega' },
-];
 
 export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
   punchList = [],
@@ -83,20 +67,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
     if (showToast) {
       showToast('Item adicionado!', 'Item incluído na Vistoria Final.');
-    }
-  };
-
-  const handleCarregarPadrao = () => {
-    const novos: PunchListItem[] = ITENS_PADRAO_VISTORIA.map((p, idx) => ({
-      id: `punch_padrao_${Date.now()}_${idx}`,
-      item: p.item,
-      ambiente: p.ambiente,
-      concluido: false,
-    }));
-
-    onUpdatePunchList([...punchList, ...novos]);
-    if (showToast) {
-      showToast('Itens padrão carregados!', 'Checklist de Vistoria Final pronto para validação.');
     }
   };
 
@@ -185,18 +155,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
         {perfilAtivo === 'construtor' && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {total === 0 && (
-              <button
-                type="button"
-                onClick={handleCarregarPadrao}
-                className="btn-secondary"
-                style={{ padding: '7px 12px', fontSize: '0.80rem' }}
-                title="Carregar itens técnicos padrão para a Vistoria Final"
-              >
-                <Sparkle size={14} weight="bold" />
-                <span>Carregar Itens Padrão</span>
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setIsAdding((prev) => !prev)}
@@ -291,9 +249,9 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
             border: '1px dashed var(--border-hairline)',
           }}
         >
-          Nenhuma pendência de vistoria cadastrada.{' '}
+          Nenhum item cadastrado na Vistoria Final.{' '}
           {perfilAtivo === 'construtor' && (
-            <span>Clique em <strong>Carregar Itens Padrão</strong> ou adicione itens manualmente.</span>
+            <span>Clique em <strong>Adicionar Item</strong> acima para registrar pendências e testes técnicos.</span>
           )}
         </div>
       ) : (
