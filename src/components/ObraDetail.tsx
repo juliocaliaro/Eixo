@@ -623,6 +623,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       {activeTab === 'anexos' && (
         <AnexosTab
           obra={obra}
+          perfilAtivo={perfilAtivo}
           onAddAnexoGeral={handleAddAnexoGeral}
           onDeleteAnexo={handleDeleteAnexoGeral}
           onNavigateToTask={handleNavigateToTask}

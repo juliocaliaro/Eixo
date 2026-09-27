@@ -392,28 +392,33 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
             )}
           </div>
 
-          {/* BOTÃO LINK DE ENVIO EXTERNO (SEM LOGIN) */}
-          <button
-            type="button"
-            onClick={() => setIsShareModalOpen(true)}
-            className="btn-secondary"
-            style={{ padding: '9px 13px', fontSize: '0.88rem' }}
-            title="Compartilhar link para terceiros enviarem projetos sem necessidade de login"
-          >
-            <ShareNetwork size={17} weight="bold" />
-            <span>Link de Envio</span>
-          </button>
+          {/* AÇÕES DE PROJETO (APENAS CONSTRUTOR) */}
+          {perfilAtivo === 'construtor' && (
+            <>
+              {/* BOTÃO LINK DE ENVIO EXTERNO (SEM LOGIN) */}
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(true)}
+                className="btn-secondary"
+                style={{ padding: '9px 13px', fontSize: '0.88rem' }}
+                title="Compartilhar link para terceiros enviarem projetos sem necessidade de login"
+              >
+                <ShareNetwork size={17} weight="bold" />
+                <span>Link de Envio</span>
+              </button>
 
-          {/* BOTÃO ANEXAR PROJETO */}
-          <button
-            type="button"
-            onClick={() => setIsUploadModalOpen(true)}
-            className="btn-primary"
-            style={{ padding: '9px 16px', fontSize: '0.90rem' }}
-          >
-            <Plus size={18} weight="bold" />
-            <span>Anexar Projeto</span>
-          </button>
+              {/* BOTÃO ANEXAR PROJETO */}
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(true)}
+                className="btn-primary"
+                style={{ padding: '9px 16px', fontSize: '0.90rem' }}
+              >
+                <Plus size={18} weight="bold" />
+                <span>Anexar Projeto</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -542,7 +547,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
               : 'Tente alterar o filtro de disciplina ou o termo de busca.'}
           </p>
 
-          {projetos.length === 0 && (
+          {projetos.length === 0 && perfilAtivo === 'construtor' && (
             <button
               type="button"
               onClick={() => setIsUploadModalOpen(true)}

@@ -18,11 +18,12 @@ import {
   CalendarBlank,
   Paperclip
 } from '@phosphor-icons/react';
-import { Obra, AnexoItem, Etapa, Tarefa } from '../types/obra';
+import { Obra, AnexoItem, Etapa, Tarefa, PerfilUsuario } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 
 interface AnexosTabProps {
   obra: Obra;
+  perfilAtivo?: PerfilUsuario;
   onAddAnexoGeral: (anexo: Omit<AnexoItem, 'id' | 'data'>) => void;
   onDeleteAnexo: (anexoId: string) => void;
   onNavigateToTask?: (etapaId: string, tarefaId: string) => void;
@@ -31,6 +32,7 @@ interface AnexosTabProps {
 
 export const AnexosTab: React.FC<AnexosTabProps> = ({
   obra,
+  perfilAtivo = 'construtor',
   onAddAnexoGeral,
   onDeleteAnexo,
   onNavigateToTask,
@@ -250,15 +252,17 @@ export const AnexosTab: React.FC<AnexosTabProps> = ({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setModalNovoAberto(true)}
-          className="btn-primary"
-          style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-        >
-          <Plus size={16} weight="bold" />
-          <span>Adicionar Anexo</span>
-        </button>
+        {perfilAtivo === 'construtor' && (
+          <button
+            type="button"
+            onClick={() => setModalNovoAberto(true)}
+            className="btn-primary"
+            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+          >
+            <Plus size={16} weight="bold" />
+            <span>Adicionar Anexo</span>
+          </button>
+        )}
       </div>
 
       {/* Barra de Filtros, Busca e Controle */}
@@ -378,15 +382,17 @@ export const AnexosTab: React.FC<AnexosTabProps> = ({
               ? 'Nenhum resultado corresponde à sua busca atual.'
               : 'Conforme as tarefas forem marcadas como concluídas no cronograma, você poderá registrar fotos e anotações técnicas, que ficarão organizadas aqui por etapa e serviço.'}
           </p>
-          <button
-            type="button"
-            onClick={() => setModalNovoAberto(true)}
-            className="btn-secondary"
-            style={{ padding: '8px 16px', fontSize: '0.85rem', margin: '0 auto' }}
-          >
-            <Plus size={16} weight="bold" />
-            <span>Adicionar primeiro anexo</span>
-          </button>
+          {perfilAtivo === 'construtor' && (
+            <button
+              type="button"
+              onClick={() => setModalNovoAberto(true)}
+              className="btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.85rem', margin: '0 auto' }}
+            >
+              <Plus size={16} weight="bold" />
+              <span>Adicionar primeiro anexo</span>
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -806,15 +812,17 @@ export const AnexosTab: React.FC<AnexosTabProps> = ({
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => onDeleteAnexo(item.id)}
-                        className="btn-icon"
-                        style={{ width: 28, height: 28, color: 'var(--coral-glow-600)' }}
-                        title="Excluir anexo geral"
-                      >
-                        <Trash size={14} />
-                      </button>
+                      {perfilAtivo === 'construtor' && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteAnexo(item.id)}
+                          className="btn-icon"
+                          style={{ width: 28, height: 28, color: 'var(--coral-glow-600)' }}
+                          title="Excluir anexo geral"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -47,11 +47,11 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - Proposta e assinatura de decisões.
 
 ### 3.2 Perfil Cliente (`perfilAtivo === 'cliente'`)
-- Modo de acompanhamento transparente (cronograma físico em **Read-Only**).
-- **Restrição de Criação/Exclusão**: O cliente **não visualiza** botões de criar nova obra nem ícones de lixeira para excluir projetos ou etapas.
-- **Read-Only no Cronograma**: Checkboxes de serviços e botões de edição ficam desabilitados, impedindo alterações não autorizadas no planejamento técnico.
-- **Acesso Completo às Evidências**: Visualização irrestrita de fotos, anotações do diário e datas de conclusão de cada serviço.
-- **Participação Plena em Decisões**: O cliente pode propor alterações, aprovar/assinar decisões e recusar propostas.
+- Modo de acompanhamento transparente (cronograma físico, anexos e projetos em **Read-Only**).
+- **Apenas Decisões e Aprovações com Interação Ativa**: A **única** seção onde o cliente tem permissão de acrescentar ou interagir ativamente é na aba **Decisões & Aprovações** (propor alterações, aprovar/assinar decisões e recusar propostas). Todo o restante da plataforma opera estritamente em modo de acompanhamento.
+- **Restrição de Criação/Exclusão Geral**: O cliente **não visualiza** botões de criar nova obra, adicionar anexos no diário, anexar projetos em PDF, gerar links externos de upload, nem ícones de lixeira para exclusão.
+- **Read-Only no Cronograma e Tarefas**: Checkboxes de serviços, botões de edição, drag and drop e botões de adicionar fotos/anotações nos detalhes da tarefa ficam integralmente ocultos/desabilitados.
+- **Acesso Completo às Evidências e Documentos**: Visualização irrestrita de fotos ampliadas, anotações do diário, datas de conclusão de cada serviço e download/visualização de projetos em PDF.
 
 ### 3.3 Compartilhamento e Sincronização
 - Parâmetros de URL sincronizados automaticamente (`?perfil=cliente&obra=ID_DA_OBRA`).
