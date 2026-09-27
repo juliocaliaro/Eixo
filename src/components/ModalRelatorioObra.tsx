@@ -6,7 +6,7 @@ import {
   EnvelopeSimple,
   PaperPlaneTilt,
   Buildings,
-  Info
+  CheckCircle
 } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 
@@ -48,14 +48,14 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
 
       showToast(
         'Solicitação registrada!',
-        `O envio do dossiê para ${emailLimpo} foi configurado com sucesso.`,
+        `O envio do relatório para ${emailLimpo} foi configurado com sucesso.`,
         'success'
       );
       onClose();
     } else {
       showToast(
         'Solicitação registrada!',
-        'Os parâmetros do dossiê final foram salvos para download.',
+        'Os parâmetros do relatório final foram configurados para download.',
         'success'
       );
       onClose();
@@ -66,33 +66,63 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal-card"
-        style={{ maxWidth: '460px' }}
+        style={{
+          maxWidth: '440px',
+          padding: '22px 24px',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-floating)',
+        }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="modal-relatorio-title"
       >
-        {/* Cabeçalho Minimalista */}
-        <div className="modal-header" style={{ marginBottom: 16 }}>
+        {/* Cabeçalho Minimalista e Executivo */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginBottom: 16,
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
               style={{
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--radius-sm)',
                 background: 'var(--coral-glow-50)',
                 color: 'var(--primary-accent)',
-                padding: 7,
-                borderRadius: 'var(--radius-sm)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
               <FileText size={20} weight="bold" />
             </div>
             <div>
-              <h2 id="modal-relatorio-title" style={{ fontSize: '1.08rem', margin: 0, fontWeight: 700 }}>
+              <h2
+                id="modal-relatorio-title"
+                style={{
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  color: 'var(--text-main)',
+                  margin: 0,
+                  lineHeight: 1.25,
+                }}
+              >
                 Relatório de Conclusão
               </h2>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Dossiê final da obra • {obra.nome}
+              <p
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--text-muted)',
+                  margin: '3px 0 0 0',
+                }}
+              >
+                {obra.nome} • Cliente: {obra.cliente}
               </p>
             </div>
           </div>
@@ -102,11 +132,15 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
             onClick={onClose}
             style={{
               color: 'var(--text-muted)',
+              background: 'transparent',
+              border: 'none',
               padding: 4,
               borderRadius: 'var(--radius-xs)',
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'color 0.15s ease',
             }}
             aria-label="Fechar"
           >
@@ -115,16 +149,15 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Seletor Compacto de Modo */}
+          {/* Seletor Segmentado Moderno (Canal de Entrega) */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
-              gap: 4,
-              background: 'var(--dark-coffee-50)',
+              background: 'var(--dark-coffee-100)',
               padding: 3,
               borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-hairline)',
+              gap: 4,
               marginBottom: 16,
             }}
           >
@@ -136,20 +169,24 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
-                padding: '7px 10px',
+                padding: '8px 12px',
                 borderRadius: 'var(--radius-xs)',
                 border: 'none',
                 background: metodo === 'download' ? '#ffffff' : 'transparent',
-                color: metodo === 'download' ? 'var(--primary-accent)' : 'var(--text-muted)',
+                color: metodo === 'download' ? 'var(--text-main)' : 'var(--text-muted)',
                 fontWeight: metodo === 'download' ? 700 : 500,
                 fontSize: '0.80rem',
-                boxShadow: metodo === 'download' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                boxShadow: metodo === 'download' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 cursor: 'pointer',
-                transition: 'all 0.14s ease',
+                transition: 'all 0.15s ease',
               }}
             >
-              <DownloadSimple size={15} weight={metodo === 'download' ? 'bold' : 'regular'} />
-              <span>Baixar Dossiê</span>
+              <DownloadSimple
+                size={15}
+                weight={metodo === 'download' ? 'bold' : 'regular'}
+                color={metodo === 'download' ? 'var(--primary-accent)' : undefined}
+              />
+              <span>Baixar Relatório</span>
             </button>
 
             <button
@@ -160,19 +197,23 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
-                padding: '7px 10px',
+                padding: '8px 12px',
                 borderRadius: 'var(--radius-xs)',
                 border: 'none',
                 background: metodo === 'email' ? '#ffffff' : 'transparent',
-                color: metodo === 'email' ? 'var(--primary-accent)' : 'var(--text-muted)',
+                color: metodo === 'email' ? 'var(--text-main)' : 'var(--text-muted)',
                 fontWeight: metodo === 'email' ? 700 : 500,
                 fontSize: '0.80rem',
-                boxShadow: metodo === 'email' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                boxShadow: metodo === 'email' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 cursor: 'pointer',
-                transition: 'all 0.14s ease',
+                transition: 'all 0.15s ease',
               }}
             >
-              <EnvelopeSimple size={15} weight={metodo === 'email' ? 'bold' : 'regular'} />
+              <EnvelopeSimple
+                size={15}
+                weight={metodo === 'email' ? 'bold' : 'regular'}
+                color={metodo === 'email' ? 'var(--primary-accent)' : undefined}
+              />
               <span>Enviar por E-mail</span>
             </button>
           </div>
@@ -181,7 +222,15 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
           <div style={{ marginBottom: 14 }}>
             <label
               htmlFor="empresa-empreiteiro-input"
-              style={{ display: 'block', fontSize: '0.80rem', fontWeight: 600, marginBottom: 5, color: 'var(--text-main)' }}
+              style={{
+                display: 'block',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: 'var(--text-muted)',
+                marginBottom: 6,
+              }}
             >
               Empresa ou Empreiteiro Responsável
             </label>
@@ -196,7 +245,9 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 style={{
                   width: '100%',
                   paddingLeft: '34px',
-                  fontSize: '0.84rem',
+                  fontSize: '0.85rem',
+                  height: '38px',
+                  borderRadius: 'var(--radius-sm)',
                 }}
               />
               <div
@@ -220,9 +271,17 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
             <div style={{ marginBottom: 14 }}>
               <label
                 htmlFor="email-destino-input"
-                style={{ display: 'block', fontSize: '0.80rem', fontWeight: 600, marginBottom: 5, color: 'var(--text-main)' }}
+                style={{
+                  display: 'block',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  color: 'var(--text-muted)',
+                  marginBottom: 6,
+                }}
               >
-                E-mail do Destinatário *
+                E-mail de Destino *
               </label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -238,7 +297,9 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   style={{
                     width: '100%',
                     paddingLeft: '34px',
-                    fontSize: '0.84rem',
+                    fontSize: '0.85rem',
+                    height: '38px',
+                    borderRadius: 'var(--radius-sm)',
                     borderColor: emailError ? '#dc2626' : undefined,
                   }}
                   autoFocus
@@ -258,40 +319,40 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 </div>
               </div>
               {emailError && (
-                <span style={{ fontSize: '0.72rem', color: '#dc2626', marginTop: 3, display: 'block' }}>
+                <span style={{ fontSize: '0.72rem', color: '#dc2626', marginTop: 4, display: 'block' }}>
                   {emailError}
                 </span>
               )}
             </div>
           )}
 
-          {/* Aviso Sutil: Anexo Integral Obrigatório */}
+          {/* Destaque Sutil: Conteúdo Completo Anexado */}
           <div
             style={{
               display: 'flex',
-              alignItems: 'flex-start',
+              alignItems: 'center',
               gap: 8,
-              padding: '9px 12px',
-              borderRadius: 'var(--radius-xs)',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-sm)',
               background: 'var(--dark-coffee-50)',
               border: '1px solid var(--border-hairline)',
               marginBottom: 18,
             }}
           >
-            <Info size={15} color="var(--primary-accent)" style={{ flexShrink: 0, marginTop: 2 }} />
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              O dossiê anexa automaticamente o cronograma físico completo, diário com fotos, decisões assinadas, projetos técnicos e termo de entrega.
+            <CheckCircle size={16} weight="fill" color="#16a34a" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-body)', lineHeight: 1.35 }}>
+              O relatório consolida integralmente o cronograma, diário com fotos, decisões assinadas e projetos técnicos.
             </span>
           </div>
 
-          {/* Ações */}
+          {/* Rodapé de Ações */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
               gap: 8,
-              paddingTop: 10,
+              paddingTop: 12,
               borderTop: '1px solid var(--border-hairline)',
             }}
           >
@@ -299,7 +360,11 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               type="button"
               onClick={onClose}
               className="btn-secondary"
-              style={{ padding: '6px 14px', fontSize: '0.80rem' }}
+              style={{
+                padding: '7px 14px',
+                fontSize: '0.82rem',
+                borderRadius: 'var(--radius-xs)',
+              }}
             >
               Cancelar
             </button>
@@ -308,8 +373,9 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               type="submit"
               className="btn-primary"
               style={{
-                padding: '6px 16px',
-                fontSize: '0.80rem',
+                padding: '7px 16px',
+                fontSize: '0.82rem',
+                borderRadius: 'var(--radius-xs)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
@@ -318,7 +384,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               {metodo === 'download' ? (
                 <>
                   <DownloadSimple size={15} weight="bold" />
-                  <span>Baixar Dossiê</span>
+                  <span>Baixar Relatório</span>
                 </>
               ) : (
                 <>
