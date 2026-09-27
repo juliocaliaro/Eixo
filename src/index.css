@@ -1282,4 +1282,45 @@ input, textarea, select {
   background: var(--dark-coffee-50);
 }
 
+/* ========================================================
+   Bloqueio estrito de notificações na versão mobile durante
+   qualquer registro, preenchimento ou modal aberto
+   ======================================================== */
+@media (max-width: 768px) {
+  /* Se houver qualquer modal, backdrop ou diálogo ativo */
+  body:has(.modal-backdrop) .toast-container,
+  body:has(.modal-card) .toast-container,
+  body:has([role="dialog"]) .toast-container,
+  body:has(.modal-novo-anexo) .toast-container,
+  /* Se houver qualquer campo de formulário com foco ou interação */
+  body:has(input:focus) .toast-container,
+  body:has(textarea:focus) .toast-container,
+  body:has(select:focus) .toast-container,
+  body:has([contenteditable="true"]:focus) .toast-container,
+  body:has(.form-input:focus) .toast-container,
+  body:has(.form-textarea:focus) .toast-container {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(100%) !important;
+  }
+
+  /* No mobile geral, notificações nunca sobem a partir do rodapé */
+  .toast-container {
+    bottom: auto !important;
+    top: 16px !important;
+    left: 16px !important;
+    right: 16px !important;
+    align-items: center !important;
+  }
+
+  .toast-item {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: 0 8px 24px rgba(30, 24, 6, 0.2) !important;
+  }
+}
+
+
 

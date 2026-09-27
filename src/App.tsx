@@ -45,6 +45,26 @@ export const App: React.FC = () => {
     descricao?: string,
     tipo: ToastType = 'success'
   ) => {
+    // Regra: Durante qualquer registro ou preenchimento, nenhuma notificação pode subir no mobile
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      const activeEl = document.activeElement;
+      const isInputActive = Boolean(
+        activeEl &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+          activeEl.getAttribute('contenteditable') === 'true' ||
+          activeEl.classList.contains('form-input') ||
+          activeEl.classList.contains('form-textarea'))
+      );
+      const isModalOpen = Boolean(
+        document.querySelector('.modal-backdrop, .modal-card, [role="dialog"], .modal-novo-anexo')
+      );
+
+      if (isInputActive || isModalOpen) {
+        // Bloquear completamente a notificação durante preenchimento ou registro no mobile
+        return;
+      }
+    }
+
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newToast: ToastMessage = { id, titulo, descricao, tipo };
 
