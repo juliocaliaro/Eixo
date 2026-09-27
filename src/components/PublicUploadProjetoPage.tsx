@@ -4,19 +4,11 @@ import {
   UploadSimple,
   CheckCircle,
   X,
-  FileText,
-  User,
-  Tag,
-  NotePencil,
-  ArrowRight,
-  ShieldCheck,
-  BuildingApartment,
-  MapPin,
-  Sparkle,
+  WarningCircle,
   Plus
 } from '@phosphor-icons/react';
 import { Obra, TipoProjeto } from '../types/obra';
-import { TIPOS_PROJETO_LISTA, getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
+import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
 
 interface PublicUploadProjetoPageProps {
   obra: Obra;
@@ -40,7 +32,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
   onBackToApp,
 }) => {
   const [remetenteNome, setRemetenteNome] = useState('');
-  const [tipo, setTipo] = useState<TipoProjeto>('arquitetonico');
+  const [tipo, setTipo] = useState<TipoProjeto>('eletrico');
   const [tipoCustomizado, setTipoCustomizado] = useState('');
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [arquivoBase64, setArquivoBase64] = useState<string>('');
@@ -48,15 +40,19 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
   const [versao, setVersao] = useState('');
   const [descricao, setDescricao] = useState('');
   const [erro, setErro] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const [sucesso, setSucesso] = useState(false);
-  const [ultimoEnviado, setUltimoEnviado] = useState<string>('');
 
-  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileProcess = (file: File) => {
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setErro('Apenas arquivos em formato PDF são aceitos.');
+      return;
+    }
+
     if (file.size > 25 * 1024 * 1024) {
-      setErro('O arquivo não pode ultrapassar 25MB.');
+      setErro('Arquivo acima de 25MB.');
       return;
     }
 
@@ -77,26 +73,9 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       }
     };
     reader.onerror = () => {
-      setErro('Falha ao processar o arquivo. Tente novamente.');
+      setErro('Falha ao processar arquivo.');
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFileProcess(file);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,22 +87,22 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
     e.preventDefault();
 
     if (!remetenteNome.trim()) {
-      setErro('Informe seu nome ou empresa para identificação.');
+      setErro('Informe seu nome ou empresa.');
       return;
     }
 
     if (!arquivo || !arquivoBase64) {
-      setErro('Selecione um arquivo ou prancha para enviar.');
+      setErro('Selecione um arquivo PDF.');
       return;
     }
 
     if (!titulo.trim()) {
-      setErro('Informe o título da prancha ou projeto.');
+      setErro('Informe o título do projeto.');
       return;
     }
 
     if (tipo === 'outro' && !tipoCustomizado.trim()) {
-      setErro('Informe o nome da disciplina do projeto.');
+      setErro('Informe a disciplina do projeto.');
       return;
     }
 
@@ -139,11 +118,10 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       remetenteNome: remetenteNome.trim(),
     });
 
-    setUltimoEnviado(titulo.trim());
     setSucesso(true);
   };
 
-  const handleResetForm = () => {
+  const handleReset = () => {
     setArquivo(null);
     setArquivoBase64('');
     setTitulo('');
@@ -158,149 +136,105 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       style={{
         minHeight: '100vh',
         background: 'var(--bg-app)',
-        padding: '24px 16px 48px',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px 16px',
       }}
     >
-      {/* Topo com Marca e Identificação da Obra */}
-      <div style={{ maxWidth: '640px', width: '100%', marginBottom: 20, textAlign: 'center' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'var(--pitch-black-950)',
-              color: 'var(--pitch-black-500)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '1rem',
-              letterSpacing: '-0.5px',
-            }}
-          >
-            E
-          </div>
-          <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--pitch-black-950)', letterSpacing: '-0.3px' }}>
-            Eixo
-          </span>
-        </div>
-
-        {/* Card de Identificação da Obra Destino */}
-        <div
-          style={{
-            background: '#ffffff',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px 20px',
-            textAlign: 'left',
-            boxShadow: 'var(--shadow-subtle)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-                color: 'var(--primary-accent)',
-                background: 'var(--coral-glow-50)',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-full)',
-              }}
-            >
-              Envio Direto • Sem Login
-            </span>
-
-            {onBackToApp && (
-              <button
-                type="button"
-                onClick={onBackToApp}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  padding: 0,
-                }}
-              >
-                Voltar ao Sistema
-              </button>
-            )}
-          </div>
-
-          <h1 style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-main)', margin: '8px 0 4px 0' }}>
-            {obra.nome}
-          </h1>
-
-          <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
-            {obra.endereco && <span>• {obra.endereco}</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Conteúdo: Tela de Sucesso OU Formulário */}
       <div
+        className="modal-card"
         style={{
-          maxWidth: '640px',
+          maxWidth: '480px',
           width: '100%',
+          boxShadow: 'var(--shadow-floating)',
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
           background: '#ffffff',
           border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-floating)',
-          overflow: 'hidden',
         }}
       >
+        {/* Header Minimalista (mesmo estilo do Modal interno) */}
+        <div
+          className="modal-header"
+          style={{
+            padding: '16px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--border-subtle)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <FilePdf size={20} weight="fill" color="#b91c1c" style={{ flexShrink: 0 }} />
+            <div style={{ minWidth: 0 }}>
+              <h2 className="modal-title" style={{ fontSize: '1.05rem', margin: 0 }}>
+                Anexar Projeto (PDF)
+              </h2>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  marginTop: 1,
+                }}
+              >
+                Obra: <strong>{obra.nome}</strong>
+              </div>
+            </div>
+          </div>
+
+          {onBackToApp && (
+            <button
+              type="button"
+              onClick={onBackToApp}
+              className="btn-icon"
+              title="Voltar ao sistema"
+              aria-label="Voltar"
+            >
+              <X size={18} weight="bold" />
+            </button>
+          )}
+        </div>
+
         {sucesso ? (
-          /* Estado de Sucesso */
-          <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+          /* Estado de Sucesso Minimalista */
+          <div style={{ padding: '32px 24px', textAlign: 'center' }}>
             <div
               style={{
-                width: 60,
-                height: 60,
+                width: 50,
+                height: 50,
                 borderRadius: '50%',
                 background: '#dcfce7',
                 color: '#16a34a',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 16px',
+                margin: '0 auto 12px',
               }}
             >
-              <CheckCircle size={36} weight="fill" />
+              <CheckCircle size={30} weight="fill" />
             </div>
 
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 8 }}>
-              Projeto Enviado com Sucesso!
-            </h2>
-
-            <p style={{ fontSize: '0.92rem', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 auto 24px', lineHeight: 1.5 }}>
-              O arquivo <strong>"{ultimoEnviado}"</strong> já foi anexado à obra de <strong>{obra.nome}</strong>. O construtor e a equipe já têm acesso à prancha.
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 6 }}>
+              Projeto Enviado!
+            </h3>
+            <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', margin: '0 auto 20px', lineHeight: 1.4 }}>
+              O arquivo foi anexado com sucesso à obra de <strong>{obra.nome}</strong>.
             </p>
 
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button
                 type="button"
-                onClick={handleResetForm}
+                onClick={handleReset}
                 className="btn-primary"
-                style={{ padding: '12px 22px' }}
+                style={{ padding: '9px 16px', fontSize: '0.88rem' }}
               >
-                <Plus size={18} weight="bold" />
-                <span>Enviar Mais um Projeto</span>
+                <Plus size={16} weight="bold" />
+                <span>Enviar outro</span>
               </button>
 
               {onBackToApp && (
@@ -308,7 +242,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
                   type="button"
                   onClick={onBackToApp}
                   className="btn-secondary"
-                  style={{ padding: '12px 20px' }}
+                  style={{ padding: '9px 16px', fontSize: '0.88rem' }}
                 >
                   <span>Concluir</span>
                 </button>
@@ -316,332 +250,266 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
             </div>
           </div>
         ) : (
-          /* Formulário de Upload Direto */
-          <form onSubmit={handleSubmit} style={{ padding: '24px' }}>
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0' }}>
-                Anexar Projeto ou Prancha Técnica
-              </h2>
-              <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', margin: 0 }}>
-                Preencha os dados abaixo e anexe seu arquivo em PDF.
-              </p>
-            </div>
-
-            {/* Alerta de Erro se houver */}
-            {erro && (
-              <div
-                role="alert"
-                style={{
-                  background: '#fee2e2',
-                  border: '1px solid #fca5a5',
-                  color: '#991b1b',
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.86rem',
-                  fontWeight: 600,
-                  marginBottom: 18,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <span>•</span>
-                <span>{erro}</span>
-              </div>
-            )}
-
-            {/* 1. Identificação do Remetente */}
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <User size={16} color="var(--primary-accent)" weight="bold" />
-                  Seu Nome ou Empresa *
-                </span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Arq. Fernanda Rocha, Engenharia Silva, etc."
-                value={remetenteNome}
-                onChange={(e) => {
-                  setRemetenteNome(e.target.value);
-                  if (erro) setErro('');
-                }}
-                required
-              />
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                O construtor saberá quem disponibilizou a prancha.
-              </span>
-            </div>
-
-            {/* 2. Seleção de Disciplina Técnica */}
-            <div className="form-group" style={{ marginBottom: 18 }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Tag size={16} color="var(--primary-accent)" weight="bold" />
-                  Disciplina do Projeto *
-                </span>
-              </label>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                  gap: 8,
-                  marginTop: 6,
-                }}
-              >
-                {TIPOS_PROJETO_LISTA.map((item) => {
-                  const Icon = item.Icon;
-                  const isSelected = tipo === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setTipo(item.id);
-                        if (erro) setErro('');
-                      }}
-                      style={{
-                        padding: '10px 10px',
-                        borderRadius: 'var(--radius-sm)',
-                        border: isSelected ? `2px solid ${item.color}` : '1px solid var(--border-hairline)',
-                        background: isSelected ? item.bg : '#ffffff',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 6,
-                        textAlign: 'center',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <Icon size={20} weight={isSelected ? 'fill' : 'regular'} color={item.color} />
-                      <span
-                        style={{
-                          fontSize: '0.80rem',
-                          fontWeight: isSelected ? 700 : 500,
-                          color: isSelected ? item.color : 'var(--text-body)',
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {tipo === 'outro' && (
-                <div style={{ marginTop: 10 }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Digite o nome da disciplina (ex: Automação, Acústica...)"
-                    value={tipoCustomizado}
-                    onChange={(e) => setTipoCustomizado(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* 3. Área de Dropzone e Upload de Arquivo */}
-            <div className="form-group" style={{ marginBottom: 18 }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <FilePdf size={16} color="var(--primary-accent)" weight="bold" />
-                  Arquivo do Projeto (PDF até 25MB) *
-                </span>
-              </label>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-
-              {!arquivo ? (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `2px dashed ${isDragOver ? 'var(--primary-accent)' : 'var(--border-hairline)'}`,
-                    borderRadius: 'var(--radius-md)',
-                    padding: '28px 18px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: isDragOver ? 'var(--coral-glow-50)' : 'var(--dark-coffee-50)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <UploadSimple
-                    size={32}
-                    color={isDragOver ? 'var(--primary-accent)' : 'var(--dark-coffee-600)'}
-                    weight="bold"
-                    style={{ marginBottom: 8 }}
-                  />
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)', marginBottom: 4 }}>
-                    Toque para escolher ou arraste o arquivo PDF aqui
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Tamanho máximo: 25MB por arquivo
-                  </div>
-                </div>
-              ) : (
+          /* Formulário Minimalista idêntico ao Modal da Plataforma */
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-body" style={{ padding: '18px 20px' }}>
+              {erro && (
                 <div
                   style={{
-                    border: '1px solid var(--border-hairline)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '12px 14px',
+                    background: 'var(--coral-glow-50)',
+                    border: '1px solid var(--coral-glow-300)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 12px',
+                    color: 'var(--coral-glow-700)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    marginBottom: 14,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: 'var(--dark-coffee-50)',
-                    gap: 12,
+                    gap: 6,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 6,
-                        background: '#fee2e2',
-                        color: '#b91c1c',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <FilePdf size={20} weight="fill" />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          color: 'var(--text-main)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {arquivo.name}
-                      </div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                        {formatBytes(arquivo.size)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setArquivo(null);
-                      setArquivoBase64('');
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: 6,
-                      display: 'flex',
-                    }}
-                    title="Remover arquivo"
-                  >
-                    <X size={18} weight="bold" />
-                  </button>
+                  <WarningCircle size={16} weight="bold" />
+                  <span>{erro}</span>
                 </div>
               )}
-            </div>
 
-            {/* 4. Título da Prancha e Versão */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>
-                  Título da Prancha *
+              {/* SEU NOME OU EMPRESA */}
+              <div className="form-group" style={{ marginBottom: 14 }}>
+                <label className="form-label" style={{ fontSize: '0.80rem' }}>
+                  Seu nome ou empresa *
                 </label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Ex: Planta Baixa e Layout"
-                  value={titulo}
+                  placeholder="Ex: Arq. Fernanda, Engenharia Silva..."
+                  value={remetenteNome}
                   onChange={(e) => {
-                    setTitulo(e.target.value);
+                    setRemetenteNome(e.target.value);
                     if (erro) setErro('');
                   }}
+                  style={{ fontSize: '0.88rem' }}
                   required
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>
-                  Versão / Rev.
+              {/* SELETOR DE ARQUIVO MINIMALISTA */}
+              <div style={{ marginBottom: 14 }}>
+                {!arquivo ? (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleFileProcess(file);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: `1.5px dashed ${isDragging ? 'var(--primary-accent)' : 'var(--border-hairline)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '14px',
+                      textAlign: 'center',
+                      background: isDragging ? 'var(--coral-glow-50)' : 'var(--dark-coffee-50)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      style={{ display: 'none' }}
+                      onChange={handleFileChange}
+                    />
+                    <UploadSimple size={18} color="var(--primary-accent)" weight="bold" />
+                    <span style={{ fontSize: '0.86rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                      Selecionar arquivo PDF
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: 'var(--dark-coffee-50)',
+                      border: '1px solid var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <FilePdf size={18} weight="fill" color="#b91c1c" style={{ flexShrink: 0 }} />
+                      <span
+                        style={{
+                          fontSize: '0.84rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '280px',
+                        }}
+                      >
+                        {arquivo.name}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        ({formatBytes(arquivo.size)})
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setArquivo(null);
+                        setArquivoBase64('');
+                      }}
+                      className="btn-icon"
+                      title="Remover"
+                      style={{ padding: 4 }}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* CLASSIFICAÇÃO / DISCIPLINA (PILLS COMPACTOS) */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label" style={{ marginBottom: 6, fontSize: '0.80rem' }}>
+                  Classificação *
                 </label>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {TIPOS_PROJETO_LISTA.map((t) => {
+                    const isSelected = tipo === t.id;
+                    const IconComp = t.Icon;
+
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setTipo(t.id);
+                          if (erro) setErro('');
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '5px 9px',
+                          borderRadius: 'var(--radius-full)',
+                          border: isSelected ? `1.5px solid ${t.color}` : '1px solid var(--border-hairline)',
+                          background: isSelected ? t.bg : '#ffffff',
+                          color: isSelected ? t.color : 'var(--text-body)',
+                          fontSize: '0.78rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.12s ease',
+                        }}
+                      >
+                        <IconComp size={13} weight={isSelected ? 'fill' : 'bold'} />
+                        <span>{t.label.split('&')[0].trim()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {tipo === 'outro' && (
+                  <div style={{ marginTop: 8 }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Nome da disciplina (ex: Paisagismo, Gás...)"
+                      value={tipoCustomizado}
+                      onChange={(e) => setTipoCustomizado(e.target.value)}
+                      autoFocus
+                      style={{ fontSize: '0.85rem', padding: '7px 10px' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* TÍTULO E VERSÃO */}
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.80rem' }}>Título *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Planta de Iluminação"
+                    value={titulo}
+                    onChange={(e) => {
+                      setTitulo(e.target.value);
+                      if (erro) setErro('');
+                    }}
+                    style={{ fontSize: '0.88rem' }}
+                    required
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.80rem' }}>Versão</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Rev. 02"
+                    value={versao}
+                    onChange={(e) => setVersao(e.target.value)}
+                    style={{ fontSize: '0.88rem' }}
+                  />
+                </div>
+              </div>
+
+              {/* OBSERVAÇÕES COMPACTAS */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.80rem' }}>Notas (opcional)</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Ex: Rev. 02"
-                  value={versao}
-                  onChange={(e) => setVersao(e.target.value)}
+                  placeholder="Ex: Atualização dos pontos de tomada."
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  style={{ fontSize: '0.85rem' }}
                 />
               </div>
             </div>
 
-            {/* 5. Observações / Mensagem */}
-            <div className="form-group" style={{ marginBottom: 24 }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>
-                Observações Técnicas (opcional)
-              </label>
-              <textarea
-                className="form-textarea"
-                rows={2}
-                placeholder="Ex: Atualização dos pontos de tomada da bancada da cozinha conforme aprovação do cliente."
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-              />
-            </div>
-
-            {/* Botão de Envio */}
-            <button
-              type="submit"
-              className="btn-primary"
+            <div
+              className="modal-footer"
               style={{
-                width: '100%',
-                padding: '13px',
-                fontSize: '1rem',
-                justifyContent: 'center',
-                minHeight: '46px',
+                padding: '12px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: 10,
+                borderTop: '1px solid var(--border-subtle)',
+                background: 'var(--dark-coffee-50)',
               }}
             >
-              <UploadSimple size={20} weight="bold" />
-              <span>Enviar Projeto para a Obra</span>
-            </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!arquivo}
+                style={{
+                  opacity: !arquivo ? 0.6 : 1,
+                  padding: '9px 18px',
+                  fontSize: '0.88rem',
+                  fontWeight: 600,
+                }}
+              >
+                <Plus size={16} weight="bold" />
+                <span>Enviar Projeto</span>
+              </button>
+            </div>
           </form>
         )}
-      </div>
-
-      {/* Rodapé com garantia de segurança */}
-      <div
-        style={{
-          marginTop: 24,
-          fontSize: '0.78rem',
-          color: 'var(--text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <ShieldCheck size={16} color="#16a34a" weight="fill" />
-        <span>Ambiente seguro Eixo • Arquivos armazenados diretamente no projeto da obra</span>
       </div>
     </div>
   );
