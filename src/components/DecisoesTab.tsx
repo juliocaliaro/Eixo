@@ -285,7 +285,6 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
               const isRecusada = decisao.status === 'recusada';
               const isPendente = decisao.status === 'pendente';
               const pendenteParaMim = isPendente && decisao.criadaPor !== perfilAtivo;
-              const contraparteNome = decisao.criadaPor === 'construtor' ? 'Cliente' : 'Construtor';
 
               return (
                 <div key={decisao.id} className="timeline-entry-row" style={{ marginBottom: 18 }}>
@@ -303,31 +302,31 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                     ) : isRecusada ? (
                       <XCircle size={18} weight="bold" />
                     ) : (
-                      <Clock size={16} weight="bold" />
+                      <PenNib size={16} weight="bold" />
                     )}
                   </div>
 
-                  {/* Conteúdo do Cartão da Decisão (Minimalista & Intuitivo) */}
+                  {/* Conteúdo do Cartão da Decisão */}
                   <div className="timeline-entry-content">
                     <div
                       style={{
                         background: '#ffffff',
                         border: '1px solid var(--border-hairline)',
                         borderRadius: 'var(--radius-md)',
-                        padding: '16px 20px',
+                        padding: '20px 22px',
                         boxShadow: 'var(--shadow-subtle)',
                         transition: 'all 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
                       }}
                     >
-                      {/* Top Bar do Card: Categoria, Autor/Data e Badge de Status */}
+                      {/* Top Bar do Card */}
                       <div
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'flex-start',
                           justifyContent: 'space-between',
                           gap: 12,
                           flexWrap: 'wrap',
-                          marginBottom: 8,
+                          marginBottom: 10,
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -347,7 +346,8 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                           </span>
 
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            Proposta por <strong>{decisao.criadorNome}</strong> ({decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'}) • {formatarDataHora(decisao.criadaEm)}
+                            Proposta em {formatarDataHora(decisao.criadaEm)} por{' '}
+                            <strong>{decisao.criadorNome}</strong> ({decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'})
                           </span>
                         </div>
 
@@ -356,82 +356,65 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                           {isAprovada ? (
                             <span
                               style={{
-                                fontSize: '0.74rem',
+                                fontSize: '0.75rem',
                                 fontWeight: 700,
                                 color: '#16a34a',
                                 background: '#dcfce7',
-                                padding: '2px 9px',
-                                borderRadius: 999,
+                                padding: '3px 10px',
+                                borderRadius: 12,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 5,
                               }}
                             >
-                              <CheckCircle size={13} weight="fill" />
-                              Aprovada
+                              <CheckCircle size={14} weight="bold" />
+                              Assinada por Ambos
                             </span>
                           ) : isRecusada ? (
                             <span
                               style={{
-                                fontSize: '0.74rem',
+                                fontSize: '0.75rem',
                                 fontWeight: 700,
                                 color: '#dc2626',
                                 background: '#fee2e2',
-                                padding: '2px 9px',
-                                borderRadius: 999,
+                                padding: '3px 10px',
+                                borderRadius: 12,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 5,
                               }}
                             >
-                              <XCircle size={13} weight="fill" />
-                              Recusada
-                            </span>
-                          ) : pendenteParaMim ? (
-                            <span
-                              style={{
-                                fontSize: '0.74rem',
-                                fontWeight: 700,
-                                color: 'var(--primary-accent)',
-                                background: 'var(--coral-glow-100)',
-                                padding: '2px 9px',
-                                borderRadius: 999,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              <Clock size={13} weight="bold" />
-                              Aguardando sua assinatura
+                              <XCircle size={14} weight="bold" />
+                              Recusada / Ajuste Solicitado
                             </span>
                           ) : (
                             <span
                               style={{
-                                fontSize: '0.74rem',
-                                fontWeight: 600,
-                                color: 'var(--text-muted)',
-                                background: 'var(--dark-coffee-100)',
-                                padding: '2px 9px',
-                                borderRadius: 999,
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                color: 'var(--primary-accent)',
+                                background: 'var(--coral-glow-100)',
+                                padding: '3px 10px',
+                                borderRadius: 12,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 5,
                               }}
                             >
-                              <Clock size={13} />
-                              Aguardando {contraparteNome}
+                              <Clock size={14} weight="bold" />
+                              Aguardando {decisao.criadaPor === 'construtor' ? 'Cliente' : 'Construtor'}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Título da Decisão */}
+                      {/* Título */}
                       <h3
                         style={{
-                          fontSize: '1.05rem',
+                          fontSize: '1.15rem',
                           fontWeight: 700,
                           color: 'var(--text-main)',
-                          margin: '0 0 6px 0',
+                          margin: '0 0 8px 0',
                           lineHeight: 1.3,
                         }}
                       >
@@ -441,9 +424,9 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                       {/* Descrição */}
                       <p
                         style={{
-                          fontSize: '0.88rem',
-                          color: 'var(--text-body)',
-                          margin: '0 0 10px 0',
+                          fontSize: '0.9rem',
+                          color: 'var(--text-main)',
+                          margin: '0 0 14px 0',
                           lineHeight: 1.5,
                           whiteSpace: 'pre-wrap',
                         }}
@@ -451,149 +434,269 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                         {decisao.descricao}
                       </p>
 
-                      {/* Linha Compacta de Custo e Prazo (se existirem) */}
+                      {/* Impactos de Custo e Prazo (se existirem) */}
                       {(decisao.impactoFinanceiro !== undefined || decisao.impactoPrazoDias !== undefined) && (
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
                           {decisao.impactoFinanceiro !== undefined && (
                             <span
                               style={{
-                                fontSize: '0.76rem',
+                                fontSize: '0.8rem',
                                 fontWeight: 600,
                                 color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : '#16a34a',
                                 background: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-50)' : '#dcfce7',
-                                border: `1px solid ${decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-200)' : '#bbf7d0'}`,
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 borderRadius: 6,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 5,
                               }}
                             >
-                              <Money size={13} weight="bold" />
+                              <Money size={15} weight="bold" />
                               {decisao.impactoFinanceiro > 0
-                                ? `+ R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                : 'Sem custo extra'}
+                                ? `Impacto: +R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : 'Sem custo financeiro adicional'}
                             </span>
                           )}
 
                           {decisao.impactoPrazoDias !== undefined && (
                             <span
                               style={{
-                                fontSize: '0.76rem',
+                                fontSize: '0.8rem',
                                 fontWeight: 600,
                                 color: 'var(--primary-accent)',
                                 background: 'var(--coral-glow-50)',
-                                border: '1px solid var(--coral-glow-200)',
-                                padding: '3px 8px',
+                                padding: '4px 10px',
                                 borderRadius: 6,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 5,
                               }}
                             >
-                              <CalendarBlank size={13} weight="bold" />
+                              <CalendarBlank size={15} weight="bold" />
                               {decisao.impactoPrazoDias > 0
-                                ? `+ ${decisao.impactoPrazoDias} dias úteis`
-                                : 'Sem alteração no prazo'}
+                                ? `Prazo: +${decisao.impactoPrazoDias} dias úteis`
+                                : 'Sem alteração no prazo previsto'}
                             </span>
                           )}
                         </div>
                       )}
 
-                      {/* Amostras / Fotos anexadas */}
+                      {/* Fotos / Amostras */}
                       {decisao.fotos && decisao.fotos.length > 0 && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                            Amostras ({decisao.fotos.length}):
+                        <div style={{ marginBottom: 16 }}>
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              color: 'var(--text-muted)',
+                              display: 'block',
+                              marginBottom: 6,
+                            }}
+                          >
+                            Amostras de Referência:
                           </span>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {decisao.fotos.map((foto, fIdx) => (
                               <div
                                 key={fIdx}
                                 onClick={() => setLightboxFoto(foto)}
                                 style={{
-                                  width: 54,
-                                  height: 54,
-                                  borderRadius: 6,
+                                  width: 80,
+                                  height: 80,
+                                  borderRadius: 'var(--radius-sm)',
                                   overflow: 'hidden',
                                   border: '1px solid var(--border-hairline)',
                                   cursor: 'pointer',
                                   position: 'relative',
                                 }}
-                                title="Clique para ampliar amostra"
                               >
                                 <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'rgba(30,24,6,0.35)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: 0,
+                                    transition: 'opacity 0.15s ease',
+                                    color: '#ffffff',
+                                  }}
+                                  className="thumb-hover-overlay"
+                                >
+                                  <ArrowsOut size={16} weight="bold" />
+                                </div>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      {/* Rodapé Minimalista: Assinaturas Digitais e Ações */}
+                      {/* Box de Assinaturas Digitais (Auditoria e Validade) */}
                       <div
                         style={{
-                          marginTop: 8,
-                          paddingTop: 12,
-                          borderTop: '1px solid var(--border-hairline)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: 10,
+                          background: 'var(--bg-app)',
+                          border: '1px solid var(--border-hairline)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '14px 16px',
+                          marginTop: 6,
                         }}
                       >
-                        {/* Status de Assinatura Auditável */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                          {isAprovada ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#16a34a', fontWeight: 600 }}>
-                              <ShieldCheck size={16} weight="fill" />
-                              <span>
-                                Assinada por <strong>{decisao.assinaturaCriador.nomeSignatario}</strong> e <strong>{decisao.assinaturaContraparte?.nomeSignatario}</strong> em {formatarDataHora(decisao.assinaturaContraparte?.assinadoEm)}
-                              </span>
-                            </div>
-                          ) : isRecusada ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#dc2626', fontWeight: 600 }}>
-                              <XCircle size={16} weight="fill" />
-                              <span>Proposta recusada</span>
-                            </div>
-                          ) : pendenteParaMim ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--coral-glow-700)', fontWeight: 600 }}>
-                              <PenNib size={15} weight="bold" />
-                              <span>Aguardando sua validação formal</span>
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <Clock size={14} />
-                              <span>Aguardando assinatura digital de {contraparteNome}</span>
-                            </div>
-                          )}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: 10,
+                            paddingBottom: 8,
+                            borderBottom: '1px solid var(--border-hairline)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.5,
+                              color: 'var(--text-muted)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                            }}
+                          >
+                            <ShieldCheck size={16} color="var(--primary-accent)" />
+                            Termo de Aceite & Assinatura Digital
+                          </span>
+
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            ID: {decisao.id}
+                          </span>
                         </div>
 
-                        {/* Botões de Ação Imediata (quando pendente para o perfil ativo) */}
-                        {pendenteParaMim && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmRecusarDecisao(decisao)}
-                              className="btn-secondary"
-                              style={{
-                                padding: '6px 12px',
-                                fontSize: '0.80rem',
-                                color: 'var(--coral-glow-700)',
-                              }}
-                            >
-                              Recusar
-                            </button>
+                        {/* Grid com as duas assinaturas */}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                            gap: 12,
+                          }}
+                        >
+                          {/* Assinatura 1: Criador */}
+                          <div
+                            style={{
+                              background: '#ffffff',
+                              border: '1px solid var(--border-hairline)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '10px 12px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                Propositor ({decisao.assinaturaCriador.autor === 'construtor' ? 'Construtor' : 'Cliente'})
+                              </span>
+                              <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                <Check size={12} weight="bold" /> Assinado
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                              {decisao.assinaturaCriador.nomeSignatario}
+                            </div>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                              Carimbo: {formatarDataHora(decisao.assinaturaCriador.assinadoEm)}
+                            </div>
+                          </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setConfirmSignDecisao(decisao)}
-                              className="btn-primary"
-                              style={{ padding: '6px 14px', fontSize: '0.80rem' }}
-                            >
-                              <PenNib size={13} weight="bold" />
-                              <span>Concordar e Assinar</span>
-                            </button>
+                          {/* Assinatura 2: Contraparte */}
+                          <div
+                            style={{
+                              background: '#ffffff',
+                              border: '1px solid var(--border-hairline)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '10px 12px',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                Contraparte ({decisao.criadaPor === 'construtor' ? 'Cliente' : 'Construtor'})
+                              </span>
+
+                              {decisao.assinaturaContraparte ? (
+                                <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                  <Check size={12} weight="bold" /> Assinado
+                                </span>
+                              ) : isRecusada ? (
+                                <span style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <XCircle size={13} weight="bold" />
+                                  <span>Recusado</span>
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.72rem', color: 'var(--primary-accent)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <Clock size={13} weight="bold" />
+                                  <span>Pendente</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {decisao.assinaturaContraparte ? (
+                              <>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                                  {decisao.assinaturaContraparte.nomeSignatario}
+                                </div>
+                                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                  Carimbo: {formatarDataHora(decisao.assinaturaContraparte.assinadoEm)}
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 4 }}>
+                                Aguardando manifestação e assinatura digital.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* CTA de Ação se estiver pendente para o perfil logado */}
+                        {pendenteParaMim && (
+                          <div
+                            style={{
+                              marginTop: 14,
+                              paddingTop: 12,
+                              borderTop: '1px solid var(--border-hairline)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span style={{ fontSize: '0.82rem', color: 'var(--coral-glow-700)', fontWeight: 600 }}>
+                              Esta decisão aguarda sua validação formal.
+                            </span>
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRecusarDecisao(decisao)}
+                                className="btn-secondary"
+                                style={{
+                                  padding: '7px 12px',
+                                  fontSize: '0.8rem',
+                                  color: 'var(--coral-glow-700)',
+                                }}
+                              >
+                                Recusar
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setConfirmSignDecisao(decisao)}
+                                className="btn-primary"
+                                style={{ padding: '7px 16px', fontSize: '0.82rem' }}
+                              >
+                                <PenNib size={14} weight="bold" />
+                                <span>Concordar e Assinar Decisão</span>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
