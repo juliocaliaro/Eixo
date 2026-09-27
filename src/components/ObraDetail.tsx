@@ -626,6 +626,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onAddAnexoGeral={handleAddAnexoGeral}
           onDeleteAnexo={handleDeleteAnexoGeral}
           onNavigateToTask={handleNavigateToTask}
+          onUpdateTaskMedia={handleUpdateTaskMedia}
         />
       )}
 
