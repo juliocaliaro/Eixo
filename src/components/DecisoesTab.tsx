@@ -13,7 +13,9 @@ import {
   ArrowsOut,
   X,
   WarningCircle,
-  Check
+  Check,
+  User,
+  Tag
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
@@ -48,13 +50,16 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
     if (!isoStr) return '';
     try {
       const d = new Date(isoStr);
-      return d.toLocaleString('pt-BR', {
+      const data = d.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+      });
+      const hora = d.toLocaleTimeString('pt-BR', {
         hour: '2-digit',
         minute: '2-digit',
       });
+      return `${data} às ${hora}`;
     } catch {
       return isoStr;
     }
@@ -329,25 +334,73 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                           marginBottom: 10,
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          {/* Badge de Categoria */}
                           <span
                             style={{
-                              fontSize: '0.72rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              fontSize: '0.74rem',
                               fontWeight: 700,
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.5,
-                              padding: '2px 8px',
-                              borderRadius: 4,
+                              padding: '3px 9px',
+                              borderRadius: 'var(--radius-sm)',
                               background: 'var(--dark-coffee-100)',
-                              color: 'var(--dark-coffee-800)',
+                              color: 'var(--dark-coffee-900)',
+                              letterSpacing: 0.3,
                             }}
                           >
+                            <Tag size={13} weight="bold" color="var(--primary-accent)" />
                             {getCategoriaLabel(decisao.categoria)}
                           </span>
 
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            Proposta em {formatarDataHora(decisao.criadaEm)} por{' '}
-                            <strong>{decisao.criadorNome}</strong> ({decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'})
+                          {/* Divisor */}
+                          <span style={{ color: 'var(--border-hairline)', fontSize: '0.8rem' }}>•</span>
+
+                          {/* Autor identificado */}
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: '0.80rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            <User size={14} weight="bold" color="var(--dark-coffee-600)" />
+                            <span>
+                              Proposto por <strong style={{ color: 'var(--text-main)' }}>{decisao.criadorNome}</strong>
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.70rem',
+                                fontWeight: 600,
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                background: 'var(--dark-coffee-50)',
+                                border: '1px solid var(--border-hairline)',
+                                color: 'var(--dark-coffee-700)',
+                              }}
+                            >
+                              {decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'}
+                            </span>
+                          </span>
+
+                          {/* Divisor */}
+                          <span style={{ color: 'var(--border-hairline)', fontSize: '0.8rem' }}>•</span>
+
+                          {/* Data e Hora */}
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              fontSize: '0.80rem',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            <CalendarBlank size={14} weight="bold" color="var(--dark-coffee-600)" />
+                            <span>{formatarDataHora(decisao.criadaEm)}</span>
                           </span>
                         </div>
 
@@ -385,7 +438,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                               }}
                             >
                               <XCircle size={14} weight="bold" />
-                              Recusada / Ajuste Solicitado
+                              Recusada
                             </span>
                           ) : (
                             <span
