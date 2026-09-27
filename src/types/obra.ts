@@ -44,12 +44,14 @@ export interface Decisao {
 }
 
 export type TipoProjeto =
-  | 'eletrico'
-  | 'hidraulico'
-  | 'demolicao'
   | 'arquitetonico'
-  | 'estrutural'
   | 'climatizacao'
+  | 'demolicao'
+  | 'eletrico'
+  | 'estrutural'
+  | 'gesso'
+  | 'hidraulico'
+  | 'luminotecnico'
   | 'marcenaria'
   | 'outro';
 
