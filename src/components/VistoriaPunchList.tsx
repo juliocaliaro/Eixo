@@ -82,7 +82,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
     setIsAdding(false);
 
     if (showToast) {
-      showToast('Item de vistoria adicionado!', 'Pendência incluída na lista de entrega.');
+      showToast('Item adicionado!', 'Item incluído na Vistoria Final.');
     }
   };
 
@@ -96,7 +96,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
     onUpdatePunchList([...punchList, ...novos]);
     if (showToast) {
-      showToast('Itens de vistoria carregados!', 'Checklist técnico de entrega pronto para inspeção.');
+      showToast('Itens padrão carregados!', 'Checklist de Vistoria Final pronto para validação.');
     }
   };
 
@@ -160,7 +160,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h3 style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                Vistoria Final & Entrega de Chaves (Punch List)
+                Vistoria Final
               </h3>
               {total > 0 && (
                 <span
@@ -178,7 +178,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
               )}
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-              Checklist de retoques finais para entrega formal das chaves a {clienteNome}
+              Checklist de conformidade técnica e validação final da obra para entrega a {clienteNome}
             </p>
           </div>
         </div>
@@ -191,7 +191,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
                 onClick={handleCarregarPadrao}
                 className="btn-secondary"
                 style={{ padding: '7px 12px', fontSize: '0.80rem' }}
-                title="Carregar itens técnicos sugeridos para vistoria de entrega"
+                title="Carregar itens técnicos padrão para a Vistoria Final"
               >
                 <Sparkle size={14} weight="bold" />
                 <span>Carregar Itens Padrão</span>
@@ -204,7 +204,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
               style={{ padding: '7px 13px', fontSize: '0.80rem' }}
             >
               <Plus size={14} weight="bold" />
-              <span>Adicionar Pendência</span>
+              <span>Adicionar Item</span>
             </button>
           </div>
         )}
@@ -384,8 +384,8 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
       {deleteTargetId && (
         <ModalConfirm
           isOpen={true}
-          title="Excluir Item de Vistoria"
-          message="Tem certeza que deseja remover esta pendência da lista de entrega?"
+          title="Excluir Item da Vistoria Final"
+          message="Tem certeza que deseja remover este item da Vistoria Final?"
           confirmText="Sim, excluir"
           cancelText="Cancelar"
           variant="danger"

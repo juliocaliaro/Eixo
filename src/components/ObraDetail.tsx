@@ -475,7 +475,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     });
   };
 
-  // --- Handler da Vistoria Final / Punch List ---
+  // --- Handler da Vistoria Final ---
   const handleUpdatePunchList = (newItems: PunchListItem[]) => {
     onUpdateObra({
       ...obra,

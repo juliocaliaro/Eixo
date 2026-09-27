@@ -730,18 +730,18 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 O presente relatório consolida o histórico integral físico, fotográfico e de decisões técnicas da obra.
               </p>
 
-              {/* Checklist de Vistoria Final / Punch List */}
+              {/* Checklist de Vistoria Final */}
               {obra.punchList && obra.punchList.length > 0 && (
                 <div style={{ margin: '18px 0', borderTop: '1px solid #e2cfb6', paddingTop: 14 }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1a130a', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <CheckCircle size={16} weight="fill" color="#16a34a" />
-                    <span>Checklist de Vistoria Final & Retoques (Punch List)</span>
+                    <span>Vistoria Final</span>
                   </div>
                   <table className="relatorio-table">
                     <thead>
                       <tr>
                         <th style={{ width: '85px' }}>Status</th>
-                        <th>Item Vistoriado / Retoque</th>
+                        <th>Item Vistoriado</th>
                         <th style={{ width: '130px' }}>Ambiente</th>
                         <th style={{ width: '150px', textAlign: 'right' }}>Validação</th>
                       </tr>

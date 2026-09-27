@@ -213,11 +213,12 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 15. Checklist de Vistoria Final / Punch List de Entrega (Sugestão 11)
+## 15. Checklist de Vistoria Final (Sugestão 11)
 
 - **Módulo Dedicado de Pré-Entrega (`VistoriaPunchList`)**:
+  - Oficialmente denominado **"Vistoria Final"**.
   - Posicionado na aba de Etapas & Cronograma (`ObraDetail`), complementando o encerramento físico da obra.
-  - Permite carregar itens padrão de checklist técnico (`ITENS_PADRAO_VISTORIA`) com foco em retoques finos (pintura, regulagem de portas/esquadrias, testes hidráulicos/elétricos, limpeza fina e entrega de chaves).
+  - Permite carregar itens padrão de checklist técnico (`ITENS_PADRAO_VISTORIA`) com foco em testes operacionais e retoques finos (pintura, regulagem de portas/esquadrias, testes hidráulicos/elétricos, climatização, limpeza fina e entrega de chaves).
   - Inclusão rápida de pendências customizadas por ambiente (ex: "Suíte", "Varanda Gourmet", "Fachada").
   - Checkboxes interativos com registro de data/hora de resolução (`concluidoEm`).
   - Exclusão com modal de confirmação no Design System (`ModalConfirm`).
