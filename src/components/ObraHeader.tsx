@@ -37,7 +37,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.8px',
-                color: percentual === 100 ? '#16a34a' : 'var(--bright-teal-blue)',
+                color: percentual === 100 ? '#16a34a' : 'var(--primary-accent)',
               }}
             >
               {percentual === 100 ? 'Obra Concluída' : 'Obra Ativa'}
@@ -53,17 +53,17 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
           {/* Faixa de Metadados Diretos */}
           <div className="obra-meta-strip">
             <div className="obra-meta-item">
-              <User size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <User size={16} color="var(--primary-accent)" weight="bold" />
               <span>Cliente: <strong>{obra.cliente}</strong></span>
             </div>
 
             <div className="obra-meta-item">
-              <MapPin size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <MapPin size={16} color="var(--primary-accent)" weight="bold" />
               <span>{obra.endereco}</span>
             </div>
 
             <div className="obra-meta-item">
-              <CalendarBlank size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <CalendarBlank size={16} color="var(--primary-accent)" weight="bold" />
               <span>Término previsto: <strong>{formatarData(obra.dataPrevista)}</strong></span>
             </div>
           </div>
@@ -119,11 +119,11 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
       <div className="progress-strip-wrapper">
         <div className="progress-strip-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', color: 'var(--text-body)' }}>
-            <CheckCircle size={17} weight="fill" color="var(--bright-teal-blue)" />
+            <CheckCircle size={17} weight="fill" color="var(--primary-accent)" />
             <span>Avanço Físico</span>
           </div>
           <div>
-            <strong style={{ color: 'var(--bright-teal-blue)', fontSize: '1rem' }}>{percentual}%</strong>
+            <strong style={{ color: 'var(--primary-accent)', fontSize: '1rem' }}>{percentual}%</strong>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
               ({concluidas} de {totalTarefas} tarefas concluídas)
             </span>

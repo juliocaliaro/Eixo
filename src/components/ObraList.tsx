@@ -193,8 +193,8 @@ export const ObraList: React.FC<ObraListProps> = ({
                       fontWeight: 600,
                       padding: '2px 8px',
                       borderRadius: 4,
-                      background: 'rgba(33, 118, 174, 0.08)',
-                      color: 'var(--bright-teal-blue)',
+                      background: 'var(--dark-coffee-100)',
+                      color: 'var(--dark-coffee-800)',
                     }}
                   >
                     {obra.etapas.length} etapas
@@ -221,7 +221,7 @@ export const ObraList: React.FC<ObraListProps> = ({
               <div style={{ minWidth: '150px', flex: 0.8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
-                  <strong style={{ color: 'var(--bright-teal-blue)' }}>{percentual}%</strong>
+                  <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
                 </div>
                 <div className="progress-strip-track" style={{ height: 5 }}>
                   <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
