@@ -71,6 +71,13 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
   const projetos = obra.projetos || [];
 
+  // Cálculos Financeiros
+  const orcamentoInicial = obra.orcamentoInicial || 0;
+  const totalAditivosAprovados = decisoesAprovadas
+    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+  const investimentoTotal = orcamentoInicial + totalAditivosAprovados;
+
   // Nome da Empresa Cadastrada
   const nomeEmpresa =
     obra.empresaResponsavel && obra.empresaResponsavel.trim()
@@ -260,6 +267,20 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                   <span>{percentual === 100 ? '100% Concluída' : `${percentual}% em Execução`}</span>
                 </span>
               </div>
+
+              {orcamentoInicial > 0 && (
+                <div className="relatorio-meta-box" style={{ gridColumn: 'span 2' }}>
+                  <span className="relatorio-meta-label">Resumo Financeiro Contratual</span>
+                  <div style={{ fontSize: '0.86rem', color: '#1a130a' }}>
+                    Orçamento Base: <strong>{formatarMoeda(orcamentoInicial)}</strong>
+                    {totalAditivosAprovados > 0 && (
+                      <span style={{ color: '#c2350a', marginLeft: 8 }}>
+                        (+{formatarMoeda(totalAditivosAprovados)} em aditivos = <strong>{formatarMoeda(investimentoTotal)}</strong>)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Resumo de Indicadores Técnicos */}
@@ -284,6 +305,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 <span className="relatorio-kpi-num">{totalFotos}</span>
                 <span className="relatorio-kpi-desc">Registros Fotográficos</span>
               </div>
+              {orcamentoInicial > 0 && (
+                <div className="relatorio-kpi-item">
+                  <span className="relatorio-kpi-num" style={{ fontSize: '1.02rem' }}>{formatarMoeda(investimentoTotal)}</span>
+                  <span className="relatorio-kpi-desc">Investimento Total</span>
+                </div>
+              )}
             </div>
           </header>
 
@@ -478,6 +505,27 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 Histórico de alinhamentos e alterações aprovadas com carimbos e validade de assinatura digital
               </p>
             </div>
+
+            {(orcamentoInicial > 0 || totalAditivosAprovados > 0) && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                {orcamentoInicial > 0 && (
+                  <div style={{ padding: '8px 12px', background: '#f8f3ed', border: '1px solid #e2cfb6', borderRadius: 6, fontSize: '0.80rem' }}>
+                    <span style={{ color: '#6e512b', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Orçamento Base</span>
+                    <strong style={{ color: '#1a130a' }}>{formatarMoeda(orcamentoInicial)}</strong>
+                  </div>
+                )}
+                {totalAditivosAprovados > 0 && (
+                  <div style={{ padding: '8px 12px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '0.80rem' }}>
+                    <span style={{ color: '#16a34a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Aditivos Aprovados</span>
+                    <strong style={{ color: '#16a34a' }}>+{formatarMoeda(totalAditivosAprovados)}</strong>
+                  </div>
+                )}
+                <div style={{ padding: '8px 12px', background: '#fff1ec', border: '1px solid #fbc9b7', borderRadius: 6, fontSize: '0.80rem' }}>
+                  <span style={{ color: '#c2350a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Total Investimento</span>
+                  <strong style={{ color: '#c2350a' }}>{formatarMoeda(investimentoTotal)}</strong>
+                </div>
+              </div>
+            )}
 
             {decisoes.length === 0 ? (
               <div className="relatorio-empty-box print-avoid-break">
@@ -681,6 +729,46 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 observância aos projetos, especificações e alinhamentos validados bilateralmente entre as partes na plataforma Eixo.
                 O presente relatório consolida o histórico integral físico, fotográfico e de decisões técnicas da obra.
               </p>
+
+              {/* Checklist de Vistoria Final / Punch List */}
+              {obra.punchList && obra.punchList.length > 0 && (
+                <div style={{ margin: '18px 0', borderTop: '1px solid #e2cfb6', paddingTop: 14 }}>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1a130a', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle size={16} weight="fill" color="#16a34a" />
+                    <span>Checklist de Vistoria Final & Retoques (Punch List)</span>
+                  </div>
+                  <table className="relatorio-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '85px' }}>Status</th>
+                        <th>Item Vistoriado / Retoque</th>
+                        <th style={{ width: '130px' }}>Ambiente</th>
+                        <th style={{ width: '150px', textAlign: 'right' }}>Validação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {obra.punchList.map((item) => (
+                        <tr key={item.id} className={item.concluido ? 'row-concluida' : 'row-pendente'}>
+                          <td>
+                            <span className={`relatorio-status-badge ${item.concluido ? 'badge-ok' : 'badge-pendente'}`}>
+                              {item.concluido ? '✓ OK' : 'Pendente'}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ fontSize: '0.82rem', color: '#1a130a' }}>{item.item}</strong>
+                          </td>
+                          <td style={{ fontSize: '0.78rem', color: '#49361d' }}>
+                            {item.ambiente || 'Geral'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontSize: '0.74rem', color: '#6e512b' }}>
+                            {item.concluidoEm ? formatarDataHora(item.concluidoEm) : 'Pendente'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               <div className="relatorio-assinaturas-grid">
                 <div className="relatorio-linha-assinatura">

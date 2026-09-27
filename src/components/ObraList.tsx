@@ -14,6 +14,7 @@ import {
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
+import { calcularTermometroPrazo } from '../utils/cronogramaTermometro';
 
 interface ObraListProps {
   obras: Obra[];
@@ -167,6 +168,7 @@ export const ObraList: React.FC<ObraListProps> = ({
           const totalTarefas = todasTarefas.length;
           const concluidas = todasTarefas.filter((t) => t.concluida).length;
           const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+          const termometro = calcularTermometroPrazo(obra.criadaEm, obra.dataPrevista, percentual);
 
           return (
             <div
@@ -176,7 +178,7 @@ export const ObraList: React.FC<ObraListProps> = ({
             >
               {/* Identificação da Obra */}
               <div style={{ minWidth: '220px', flex: 1.2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span
                     style={{
                       fontWeight: 700,
@@ -199,6 +201,20 @@ export const ObraList: React.FC<ObraListProps> = ({
                   >
                     {obra.etapas.length} etapas
                   </span>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-full)',
+                      background: termometro.bg,
+                      color: termometro.cor,
+                      border: `1px solid ${termometro.border}`,
+                    }}
+                    title={termometro.descricao}
+                  >
+                    {termometro.label}
+                  </span>
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 12 }}>
                   <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
@@ -218,13 +234,22 @@ export const ObraList: React.FC<ObraListProps> = ({
               </div>
 
               {/* Barra de Progresso Compacta */}
-              <div style={{ minWidth: '150px', flex: 0.8 }}>
+              <div style={{ minWidth: '160px', flex: 0.8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
                   <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
                 </div>
                 <div className="progress-strip-track" style={{ height: 5 }}>
                   <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                  <span>{concluidas}/{totalTarefas} serviços</span>
+                  {termometro.status !== 'concluida' && termometro.diasRestantes > 0 && (
+                    <span>{termometro.diasRestantes}d restantes</span>
+                  )}
+                  {termometro.status === 'vencido' && termometro.diasAtraso && (
+                    <span style={{ color: '#dc2626', fontWeight: 700 }}>{termometro.diasAtraso}d atraso</span>
+                  )}
                 </div>
               </div>
 

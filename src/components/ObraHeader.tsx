@@ -1,6 +1,7 @@
 import React from 'react';
-import { PencilSimple, MapPin, User, CalendarBlank, CheckCircle, Clock, FileText } from '@phosphor-icons/react';
+import { PencilSimple, MapPin, User, CalendarBlank, CheckCircle, Clock, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
+import { calcularTermometroPrazo } from '../utils/cronogramaTermometro';
 
 interface ObraHeaderProps {
   obra: Obra;
@@ -14,6 +15,18 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
   const totalTarefas = todasTarefas.length;
   const concluidas = todasTarefas.filter((t) => t.concluida).length;
   const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+
+  const termometro = calcularTermometroPrazo(obra.criadaEm, obra.dataPrevista, percentual);
+
+  const aditivosAprovados = (obra.decisoes || [])
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+
+  const totalInvestimento = (obra.orcamentoInicial || 0) + aditivosAprovados;
+
+  const formatarMoeda = (val: number) => {
+    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  };
 
   const formatarData = (dataStr: string) => {
     if (!dataStr) return 'Não definida';
@@ -30,7 +43,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
     <div className="obra-header-panel">
       <div className="obra-header-top">
         <div className="obra-title-block">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span
               style={{
                 fontSize: '0.75rem',
@@ -45,6 +58,31 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
             <span style={{ color: 'var(--border-hairline)' }}>•</span>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
               {obra.etapas.length} {obra.etapas.length === 1 ? 'etapa' : 'etapas'} no cronograma
+            </span>
+            <span style={{ color: 'var(--border-hairline)' }}>•</span>
+            {/* Termômetro de Prazo */}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '2px 9px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.73rem',
+                fontWeight: 700,
+                color: termometro.cor,
+                backgroundColor: termometro.bg,
+                border: `1px solid ${termometro.border}`,
+              }}
+              title={termometro.descricao}
+            >
+              {termometro.label}
+              {termometro.status !== 'concluida' && termometro.diasRestantes > 0 && (
+                <span style={{ opacity: 0.85, fontWeight: 500 }}>({termometro.diasRestantes}d)</span>
+              )}
+              {termometro.status === 'vencido' && termometro.diasAtraso && (
+                <span style={{ opacity: 0.95, fontWeight: 800 }}>({termometro.diasAtraso}d atraso)</span>
+              )}
             </span>
           </div>
 
@@ -66,6 +104,20 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
               <CalendarBlank size={16} color="var(--primary-accent)" weight="bold" />
               <span>Término previsto: <strong>{formatarData(obra.dataPrevista)}</strong></span>
             </div>
+
+            {obra.orcamentoInicial !== undefined && obra.orcamentoInicial > 0 && (
+              <div className="obra-meta-item">
+                <CurrencyDollar size={16} color="var(--primary-accent)" weight="bold" />
+                <span>
+                  Orçamento: <strong>{formatarMoeda(obra.orcamentoInicial)}</strong>
+                  {aditivosAprovados > 0 && (
+                    <span style={{ color: 'var(--primary-accent)', marginLeft: 5, fontSize: '0.78rem' }}>
+                      (+{formatarMoeda(aditivosAprovados)} = <strong>{formatarMoeda(totalInvestimento)}</strong>)
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -122,11 +174,19 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
             <CheckCircle size={17} weight="fill" color="var(--primary-accent)" />
             <span>Avanço Físico</span>
           </div>
-          <div>
-            <strong style={{ color: 'var(--primary-accent)', fontSize: '1rem' }}>{percentual}%</strong>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
-              ({concluidas} de {totalTarefas} tarefas concluídas)
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {termometro.status !== 'concluida' && termometro.tempoDecorridoPct > 0 && (
+              <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Clock size={13} weight="bold" />
+                <span>Tempo: <strong>{termometro.tempoDecorridoPct}%</strong> do prazo decorrido</span>
+              </span>
+            )}
+            <div>
+              <strong style={{ color: 'var(--primary-accent)', fontSize: '1rem' }}>{percentual}%</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
+                ({concluidas} de {totalTarefas} tarefas concluídas)
+              </span>
+            </div>
           </div>
         </div>
 

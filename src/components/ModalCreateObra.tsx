@@ -9,6 +9,7 @@ import {
   CalendarBlank,
   WarningCircle,
   Plus,
+  CurrencyDollar,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
 
@@ -21,6 +22,7 @@ interface ModalCreateObraProps {
     endereco: string;
     dataPrevista: string;
     empresaResponsavel?: string;
+    orcamentoInicial?: number;
   }) => void;
 }
 
@@ -34,6 +36,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
+  const [orcamentoInicial, setOrcamentoInicial] = useState('');
   const [erro, setErro] = useState('');
 
   // Guarda temporal para evitar que duplo toque ou click residual no celular submeta o passo 3 acidentalmente
@@ -102,6 +105,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || '',
       empresaResponsavel: savedEmpresa,
+      orcamentoInicial: orcamentoInicial ? Number(orcamentoInicial) : undefined,
     });
 
     // Reset de estado
@@ -109,6 +113,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
     setCliente('');
     setEndereco('');
     setDataPrevista('');
+    setOrcamentoInicial('');
     setStep(1);
     setErro('');
   };
@@ -345,6 +350,24 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   label="Data Prevista de Conclusão"
                   helperText="Permitido apenas datas futuras (a partir de amanhã)."
                 />
+
+                <div className="form-group" style={{ marginTop: 14 }}>
+                  <label className="form-label">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <CurrencyDollar size={18} color="var(--primary-accent)" weight="bold" />
+                      Orçamento Inicial Previsto (R$ - Opcional)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Ex: 185000"
+                    value={orcamentoInicial}
+                    onChange={(e) => setOrcamentoInicial(e.target.value)}
+                    min="0"
+                    step="100"
+                  />
+                </div>
               </div>
             )}
           </div>

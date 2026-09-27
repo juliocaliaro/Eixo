@@ -180,5 +180,61 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
   - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
 
+---
+
+## 12. Notificação e Cobrança via WhatsApp (Sugestão 7)
+
+- **Acionamento em 1 Clique**:
+  - Botão dedicado `[ Avisar no WhatsApp ]` integrado diretamente nos cartões de decisões pendentes de validação na aba `DecisoesTab`.
+  - Utiliza o esquema universal `https://wa.me/?text=...` com codificação segura de caracteres (`encodeURIComponent`).
+- **Mensagem Pré-Formatada Executiva**:
+  - Título oficial da decisão em negrito.
+  - Resumo contextual da descrição da pendência.
+  - Impacto financeiro (se houver, ex: `+R$ 1.250,00`) e impacto em dias no prazo (se houver, ex: `+3 dias úteis`).
+  - Link direto e inteligente para a aba da obra com o perfil destinatário correto (`?obra=ID&perfil=...&tab=decisoes`).
+
+---
+
+## 13. Painel Financeiro de Aditivos Contratuais (Sugestão 8)
+
+- **Gestão Contratual Transparente**:
+  - Campo opcional `orcamentoInicial` cadastrado na criação ou edição da obra (`ModalCreateObra`, `ModalEditObra`).
+  - Soma automática e auditável de todos os aditivos e alterações técnicas aprovados bilateralmente (`status === 'aprovada'`).
+- **Visualização em Pílulas e Cards**:
+  - **Painel em `DecisoesTab`**: Grid executivo com 4 indicadores: *Orçamento Contratual Base*, *Aditivos Aprovados*, *Investimento Atualizado* e *Propostas em Análise*.
+  - **Faixa de Metadados em `ObraHeader`**: Exibição compacta do orçamento base e do incremento acumulado.
+  - **Dossiê em `ModalPreviewRelatorio`**: Registro formal do orçamento base, aditivos aprovados e investimento final nos metadados, KPIs e no Capítulo 3 do relatório impresso/PDF.
+
+---
+
+## 14. Termômetro de Prazo e Ritmo de Cronograma (Sugestão 9)
+
+- **Cálculo Inteligente de Defasagem (`calcularTermometroPrazo`)**:
+  - Compara a porcentagem de tempo de calendário decorrido (`tempoDecorridoPct`) com o avanço físico real de tarefas concluídas (`percentualConcluido`).
+- **Classificação Visual Padronizada**:
+  - `concluida`: 100% concluída (Verde esmeralda).
+  - `em_dia`: Avanço alinhado ao cronograma planejado (Verde).
+  - `atencao`: Defasagem entre 10% e 20% (Âmbar / Dourado).
+  - `atrasado`: Defasagem superior a 20% do tempo gasto vs avanço físico (Coral glow / Laranja escuro).
+  - `vencido`: Data prevista de entrega ultrapassada com serviços pendentes (Vermelho com contagem de dias em atraso).
+- **Presença na Interface**:
+  - Badges escaneáveis na listagem geral de obras (`ObraList`) e no cabeçalho detalhado (`ObraHeader`).
+  - Indicador de dias restantes ou dias em atraso ao lado do progresso.
+
+---
+
+## 15. Checklist de Vistoria Final / Punch List de Entrega (Sugestão 11)
+
+- **Módulo Dedicado de Pré-Entrega (`VistoriaPunchList`)**:
+  - Posicionado na aba de Etapas & Cronograma (`ObraDetail`), complementando o encerramento físico da obra.
+  - Permite carregar itens padrão de checklist técnico (`ITENS_PADRAO_VISTORIA`) com foco em retoques finos (pintura, regulagem de portas/esquadrias, testes hidráulicos/elétricos, limpeza fina e entrega de chaves).
+  - Inclusão rápida de pendências customizadas por ambiente (ex: "Suíte", "Varanda Gourmet", "Fachada").
+  - Checkboxes interativos com registro de data/hora de resolução (`concluidoEm`).
+  - Exclusão com modal de confirmação no Design System (`ModalConfirm`).
+  - Selo visual de conformidade quando 100% das pendências forem sanadas.
+- **Inclusão no Dossiê de Conclusão**:
+  - Seção integrada no Capítulo 5 do Relatório de Conclusão (`ModalPreviewRelatorio`), servindo como termo de vistoria técnica e aceite de entrega de chaves.
+
+
 
 

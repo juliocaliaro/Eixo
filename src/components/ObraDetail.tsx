@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
-import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from '../types/obra';
+import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
+import { VistoriaPunchList } from './VistoriaPunchList';
 import { DecisoesTab } from './DecisoesTab';
 import { AnexosTab } from './AnexosTab';
 import { ProjetosTab } from './ProjetosTab';
@@ -474,6 +475,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     });
   };
 
+  // --- Handler da Vistoria Final / Punch List ---
+  const handleUpdatePunchList = (newItems: PunchListItem[]) => {
+    onUpdateObra({
+      ...obra,
+      punchList: newItems,
+    });
+  };
+
   // Contagem de decisões pendentes de assinatura do perfil atual
   const pendenciasDecisao = (obra.decisoes || []).filter(
     (d) => d.status === 'pendente' && d.criadaPor !== perfilAtivo
@@ -600,21 +609,33 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
       {/* Conteúdo da Aba Ativa */}
       {activeTab === 'etapas' && (
-        <TimelineEtapas
-          obra={obra}
-          onOpenWizard={handleOpenWizard}
-          onToggleTask={handleToggleTask}
-          onDeleteEtapa={handleDeleteEtapa}
-          onEditEtapaNome={handleEditEtapaNome}
-          onReorderEtapas={handleReorderEtapas}
-          onDeleteTask={handleDeleteTask}
-          onEditTaskNome={handleEditTaskNome}
-          onReorderTasks={handleReorderTasks}
-          onAddTaskToEtapa={handleAddTaskToEtapa}
-          onUpdateTaskMedia={handleUpdateTaskMedia}
-          isReadOnly={perfilAtivo === 'cliente'}
-          targetTaskNavigation={targetTaskNavigation}
-        />
+        <>
+          <TimelineEtapas
+            obra={obra}
+            onOpenWizard={handleOpenWizard}
+            onToggleTask={handleToggleTask}
+            onDeleteEtapa={handleDeleteEtapa}
+            onEditEtapaNome={handleEditEtapaNome}
+            onReorderEtapas={handleReorderEtapas}
+            onDeleteTask={handleDeleteTask}
+            onEditTaskNome={handleEditTaskNome}
+            onReorderTasks={handleReorderTasks}
+            onAddTaskToEtapa={handleAddTaskToEtapa}
+            onUpdateTaskMedia={handleUpdateTaskMedia}
+            isReadOnly={perfilAtivo === 'cliente'}
+            targetTaskNavigation={targetTaskNavigation}
+          />
+
+          <div style={{ marginTop: 28 }}>
+            <VistoriaPunchList
+              punchList={obra.punchList || []}
+              onUpdatePunchList={handleUpdatePunchList}
+              perfilAtivo={perfilAtivo}
+              clienteNome={obra.cliente}
+              showToast={showToast}
+            />
+          </div>
+        </>
       )}
 
       {activeTab === 'decisoes' && (

@@ -70,6 +70,14 @@ export interface ProjetoPDF {
   versao?: string; // ex: 'Rev. 01', 'Final'
 }
 
+export interface PunchListItem {
+  id: string;
+  item: string;
+  concluido: boolean;
+  concluidoEm?: string;
+  ambiente?: string; // ex: 'Geral', 'Sala', 'Cozinha', 'Banheiros', 'Fachada'
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -78,6 +86,8 @@ export interface Obra {
   dataPrevista: string;
   criadaEm: string;
   empresaResponsavel?: string; // Nome da empresa ou empreiteiro cadastrado que registrou a obra
+  orcamentoInicial?: number; // Valor Contratado Inicial em Reais (R$)
+  punchList?: PunchListItem[]; // Lista de Vistoria Final & Entrega de Chaves
   etapas: Etapa[];
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];
