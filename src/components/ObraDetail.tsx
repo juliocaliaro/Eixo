@@ -10,6 +10,7 @@ import { ClientShareTab } from './ClientShareTab';
 import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
+import { ModalRelatorioObra } from './ModalRelatorioObra';
 
 interface ObraDetailProps {
   obra: Obra;
@@ -59,6 +60,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   const [isEditObraOpen, setIsEditObraOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardInsertIndex, setWizardInsertIndex] = useState<number | null>(null);
+  const [isRelatorioOpen, setIsRelatorioOpen] = useState(false);
 
   // Modal pós-conclusão de tarefa para foto/anotação
   const [mediaModalData, setMediaModalData] = useState<{
@@ -503,6 +505,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       <ObraHeader
         obra={obra}
         onEdit={() => setIsEditObraOpen(true)}
+        onOpenRelatorio={() => setIsRelatorioOpen(true)}
         perfilAtivo={perfilAtivo}
       />
 
@@ -667,6 +670,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onSaveMedia={handleSaveMediaOnTask}
         />
       )}
+
+      <ModalRelatorioObra
+        isOpen={isRelatorioOpen}
+        onClose={() => setIsRelatorioOpen(false)}
+        obra={obra}
+        showToast={showToast}
+      />
     </div>
   );
 };
