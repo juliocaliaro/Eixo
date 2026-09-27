@@ -12,12 +12,14 @@ import {
   X,
   User,
   CalendarBlank,
-  Check
+  Check,
+  ShareNetwork,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario, ProjetoPDF, TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
 import { ModalUploadProjeto } from './ModalUploadProjeto';
 import { ModalConfirm } from './ModalConfirm';
+import { ModalShareUploadProjeto } from './ModalShareUploadProjeto';
 
 interface ProjetosTabProps {
   obra: Obra;
@@ -48,6 +50,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
   const [buscaTexto, setBuscaTexto] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ProjetoPDF | null>(null);
   const [previewProjeto, setPreviewProjeto] = useState<ProjetoPDF | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // Estados dos Popups de Lupa e Filtro
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -388,6 +391,18 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
               </div>
             )}
           </div>
+
+          {/* BOTÃO LINK DE ENVIO EXTERNO (SEM LOGIN) */}
+          <button
+            type="button"
+            onClick={() => setIsShareModalOpen(true)}
+            className="btn-secondary"
+            style={{ padding: '9px 13px', fontSize: '0.88rem' }}
+            title="Compartilhar link para terceiros enviarem projetos sem necessidade de login"
+          >
+            <ShareNetwork size={17} weight="bold" />
+            <span>Link de Envio</span>
+          </button>
 
           {/* BOTÃO ANEXAR PROJETO */}
           <button
@@ -830,6 +845,14 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+
+      {/* Modal de Compartilhamento do Link de Upload Externo */}
+      <ModalShareUploadProjeto
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        obra={obra}
+        showToast={showToast}
+      />
     </div>
   );
 };

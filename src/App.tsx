@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra } from './types/obra';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from './types/obra';
 import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
 import { ConfigTemplatesPage } from './components/ConfigTemplatesPage';
+import { PublicUploadProjetoPage } from './components/PublicUploadProjetoPage';
 import { ToastContainer } from './components/Toast';
 
 export const App: React.FC = () => {
@@ -17,14 +18,19 @@ export const App: React.FC = () => {
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
   const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
 
-  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=...)
+  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=... ou ?upload=projeto&obra=...)
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const perfilParam = params.get('perfil');
       const obraParam = params.get('obra');
+      const uploadParam = params.get('upload');
 
+      if (uploadParam === 'projeto' && obraParam) {
+        setPublicUploadObraId(obraParam);
+      }
       if (perfilParam === 'cliente' || perfilParam === 'construtor') {
         setPerfilAtivo(perfilParam);
       }
@@ -297,6 +303,80 @@ export const App: React.FC = () => {
       setCurrentObraId(null);
     }
   };
+
+  // Handler para upload público de projetos (sem login)
+  const handlePublicUploadProjeto = (dados: {
+    titulo: string;
+    tipo: TipoProjeto;
+    tipoCustomizado?: string;
+    arquivoNome: string;
+    tamanhoBytes: number;
+    url: string;
+    versao?: string;
+    descricao?: string;
+    remetenteNome: string;
+  }) => {
+    if (!publicUploadObraId) return;
+
+    const novoProjeto: ProjetoPDF = {
+      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      titulo: dados.titulo,
+      tipo: dados.tipo,
+      tipoCustomizado: dados.tipoCustomizado,
+      arquivoNome: dados.arquivoNome,
+      tamanhoBytes: dados.tamanhoBytes,
+      dataUpload: new Date().toISOString(),
+      enviadoPor: 'externo',
+      enviadoPorNome: dados.remetenteNome,
+      url: dados.url,
+      versao: dados.versao,
+      descricao: dados.descricao,
+    };
+
+    setObras((prev) =>
+      prev.map((o) => {
+        if (o.id === publicUploadObraId) {
+          const projetosAtuais = o.projetos || [];
+          return {
+            ...o,
+            projetos: [novoProjeto, ...projetosAtuais],
+          };
+        }
+        return o;
+      })
+    );
+
+    showToast(
+      'Projeto Recebido!',
+      `O arquivo "${dados.titulo}" enviado por ${dados.remetenteNome} foi anexado com sucesso.`
+    );
+  };
+
+  // Se o link foi aberto especificamente para upload externo de pranchas sem login
+  if (publicUploadObraId) {
+    const obraDestino = obras.find((o) => o.id === publicUploadObraId);
+    if (obraDestino) {
+      return (
+        <div className="app-container">
+          <PublicUploadProjetoPage
+            obra={obraDestino}
+            onUploadProjeto={handlePublicUploadProjeto}
+            onBackToApp={() => {
+              setPublicUploadObraId(null);
+              setCurrentObraId(obraDestino.id);
+              setActiveTab('projetos');
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('upload');
+                window.history.replaceState({}, '', url.toString());
+              } catch {}
+            }}
+          />
+          <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+        </div>
+      );
+    }
+  }
 
   // Obra atualmente aberta
   const currentObra = obras.find((o) => o.id === currentObraId) || null;

@@ -61,7 +61,7 @@ export interface ProjetoPDF {
   arquivoNome: string;
   tamanhoBytes: number;
   dataUpload: string;
-  enviadoPor: PerfilUsuario;
+  enviadoPor: PerfilUsuario | 'externo';
   enviadoPorNome: string;
   url: string; // base64 data URI ou blob URL
   descricao?: string;
