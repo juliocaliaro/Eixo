@@ -10,6 +10,7 @@ import {
   WarningCircle,
   Plus,
 } from '@phosphor-icons/react';
+import { DatePickerInput } from './DatePickerInput';
 
 interface ModalCreateObraProps {
   isOpen: boolean;
@@ -331,27 +332,16 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <CalendarBlank size={18} color="var(--primary-accent)" weight="bold" />
-                      Data Prevista de Conclusão
-                    </span>
-                  </label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    min={minDate}
-                    value={dataPrevista}
-                    onChange={(e) => {
-                      setDataPrevista(e.target.value);
-                      if (erro) setErro('');
-                    }}
-                  />
-                  <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    Permitido apenas datas futuras (a partir de amanhã).
-                  </span>
-                </div>
+                <DatePickerInput
+                  value={dataPrevista}
+                  onChange={(val) => {
+                    setDataPrevista(val);
+                    if (erro) setErro('');
+                  }}
+                  minDate={minDate}
+                  label="Data Prevista de Conclusão"
+                  helperText="Permitido apenas datas futuras (a partir de amanhã)."
+                />
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
+import { DatePickerInput } from './DatePickerInput';
 
 interface ModalEditObraProps {
   isOpen: boolean;
@@ -144,20 +145,12 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <CalendarBlank size={18} color="var(--primary-accent)" weight="bold" />
-                  Data Prevista de Término
-                </span>
-              </label>
-              <input
-                type="date"
-                className="form-input"
-                value={dataPrevista}
-                onChange={(e) => setDataPrevista(e.target.value)}
-              />
-            </div>
+            <DatePickerInput
+              value={dataPrevista}
+              onChange={(val) => setDataPrevista(val)}
+              label="Data Prevista de Término"
+              helperText="Você pode digitar a data (DD/MM/AAAA) ou escolher pelo calendário."
+            />
           </div>
 
           <div className="modal-footer">
