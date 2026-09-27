@@ -16,6 +16,7 @@ interface ModalRelatorioObraProps {
   obra: Obra;
   onUpdateObra?: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
+  onEmitirRelatorio?: (metodo: 'download' | 'email', email?: string) => void;
 }
 
 export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
@@ -24,6 +25,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
   obra,
   onUpdateObra,
   showToast,
+  onEmitirRelatorio,
 }) => {
   const [metodo, setMetodo] = useState<'download' | 'email'>('download');
 
@@ -82,18 +84,26 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
       }
       setEmailError('');
 
-      showToast(
-        'Solicitação registrada!',
-        `O envio do relatório para ${emailLimpo} foi configurado com sucesso.`,
-        'success'
-      );
+      if (onEmitirRelatorio) {
+        onEmitirRelatorio('email', emailLimpo);
+      } else {
+        showToast(
+          'Solicitação registrada!',
+          `O envio do relatório para ${emailLimpo} foi configurado com sucesso.`,
+          'success'
+        );
+      }
       onClose();
     } else {
-      showToast(
-        'Solicitação registrada!',
-        'Os parâmetros do relatório final foram configurados para download.',
-        'success'
-      );
+      if (onEmitirRelatorio) {
+        onEmitirRelatorio('download');
+      } else {
+        showToast(
+          'Solicitação registrada!',
+          'Os parâmetros do relatório final foram configurados para download.',
+          'success'
+        );
+      }
       onClose();
     }
   };

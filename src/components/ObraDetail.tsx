@@ -11,6 +11,7 @@ import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
+import { ModalPreviewRelatorio } from './ModalPreviewRelatorio';
 
 interface ObraDetailProps {
   obra: Obra;
@@ -61,6 +62,40 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardInsertIndex, setWizardInsertIndex] = useState<number | null>(null);
   const [isRelatorioOpen, setIsRelatorioOpen] = useState(false);
+  const [isPreviewRelatorioOpen, setIsPreviewRelatorioOpen] = useState(false);
+  const [autoPrintRelatorio, setAutoPrintRelatorio] = useState(false);
+
+  const handleEmitirRelatorio = (metodo: 'download' | 'email', email?: string) => {
+    if (metodo === 'download') {
+      setAutoPrintRelatorio(true);
+      setIsPreviewRelatorioOpen(true);
+      showToast('Gerando Relatório...', 'Preparando visualização executiva e janela de impressão A4 / PDF.', 'info');
+    } else if (metodo === 'email' && email) {
+      const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
+      const concluidas = todasTarefas.filter((t) => t.concluida).length;
+      const percentual = todasTarefas.length > 0 ? Math.round((concluidas / todasTarefas.length) * 100) : 0;
+
+      const assunto = encodeURIComponent(`Relatório de Conclusão de Obra - ${obra.nome}`);
+      const corpo = encodeURIComponent(
+        `Olá,\n\nSegue o resumo oficial do relatório de conclusão da obra:\n\n` +
+          `• Obra: ${obra.nome}\n` +
+          `• Cliente: ${obra.cliente}\n` +
+          `• Endereço: ${obra.endereco}\n` +
+          `• Avanço Físico Cumprido: ${percentual}% (${concluidas} de ${todasTarefas.length} serviços)\n` +
+          `• Total de Etapas: ${obra.etapas.length}\n` +
+          `• Decisões Aprovadas: ${(obra.decisoes || []).filter((d) => d.status === 'aprovada').length}\n` +
+          `• Pranchas de Projetos: ${(obra.projetos || []).length}\n\n` +
+          `Você pode acompanhar o dossiê completo e salvar o relatório em PDF acessando o link:\n` +
+          `${window.location.origin}${window.location.pathname}?perfil=cliente&obra=${obra.id}\n\n` +
+          `Atenciosamente,\n${obra.empresaResponsavel || 'Equipe Eixo'}`
+      );
+
+      window.location.href = `mailto:${email}?subject=${assunto}&body=${corpo}`;
+      showToast('E-mail preparado!', `Cliente de e-mail acionado para ${email}. Você também pode salvar o PDF.`, 'success');
+      setAutoPrintRelatorio(false);
+      setIsPreviewRelatorioOpen(true);
+    }
+  };
 
   // Modal pós-conclusão de tarefa para foto/anotação
   const [mediaModalData, setMediaModalData] = useState<{
@@ -683,6 +718,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         obra={obra}
         onUpdateObra={onUpdateObra}
         showToast={showToast}
+        onEmitirRelatorio={handleEmitirRelatorio}
+      />
+
+      <ModalPreviewRelatorio
+        isOpen={isPreviewRelatorioOpen}
+        onClose={() => setIsPreviewRelatorioOpen(false)}
+        obra={obra}
+        autoPrint={autoPrintRelatorio}
       />
     </div>
   );
