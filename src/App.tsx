@@ -121,13 +121,21 @@ export const App: React.FC = () => {
     cliente: string;
     endereco: string;
     dataPrevista: string;
+    empresaResponsavel?: string;
   }) => {
+    if (dados.empresaResponsavel) {
+      try {
+        localStorage.setItem('eixo_empresa_cadastrada', dados.empresaResponsavel);
+      } catch {}
+    }
+
     const novaObra: Obra = {
       id: `obra_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       nome: dados.nome,
       cliente: dados.cliente,
       endereco: dados.endereco,
       dataPrevista: dados.dataPrevista,
+      empresaResponsavel: dados.empresaResponsavel,
       criadaEm: new Date().toISOString(),
       etapas: [],
       anexosGerais: [],
@@ -155,6 +163,7 @@ export const App: React.FC = () => {
     const demoObra: Obra = {
       id: `obra_demo_${Date.now()}`,
       nome: 'Reforma Apto 402 - Jardins',
+      empresaResponsavel: 'Albuquerque Engenharia & Reformas',
       cliente: 'Dra. Carolina Mendes',
       endereco: 'Alameda Santos, 1820 - Apto 402, São Paulo - SP',
       dataPrevista: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],

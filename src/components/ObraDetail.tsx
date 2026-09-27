@@ -74,7 +74,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     cliente: string;
     endereco: string;
     dataPrevista: string;
+    empresaResponsavel?: string;
   }) => {
+    if (updatedData.empresaResponsavel) {
+      try {
+        localStorage.setItem('eixo_empresa_cadastrada', updatedData.empresaResponsavel);
+      } catch {}
+    }
     onUpdateObra({
       ...obra,
       ...updatedData,
@@ -675,6 +681,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         isOpen={isRelatorioOpen}
         onClose={() => setIsRelatorioOpen(false)}
         obra={obra}
+        onUpdateObra={onUpdateObra}
         showToast={showToast}
       />
     </div>

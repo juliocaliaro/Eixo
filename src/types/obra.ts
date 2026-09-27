@@ -77,6 +77,7 @@ export interface Obra {
   endereco: string;
   dataPrevista: string;
   criadaEm: string;
+  empresaResponsavel?: string; // Nome da empresa ou empreiteiro cadastrado que registrou a obra
   etapas: Etapa[];
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];

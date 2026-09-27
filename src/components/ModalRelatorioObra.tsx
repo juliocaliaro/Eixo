@@ -14,6 +14,7 @@ interface ModalRelatorioObraProps {
   isOpen: boolean;
   onClose: () => void;
   obra: Obra;
+  onUpdateObra?: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
@@ -21,17 +22,52 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
   isOpen,
   onClose,
   obra,
+  onUpdateObra,
   showToast,
 }) => {
   const [metodo, setMetodo] = useState<'download' | 'email'>('download');
-  const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState('');
+
+  // Preencher automaticamente com os dados da empresa cadastrada que registrou a obra
+  const getEmpresaCadastrada = () => {
+    if (obra.empresaResponsavel && obra.empresaResponsavel.trim()) {
+      return obra.empresaResponsavel.trim();
+    }
+    try {
+      const saved = localStorage.getItem('eixo_empresa_cadastrada');
+      if (saved && saved.trim()) return saved.trim();
+    } catch {}
+    return '';
+  };
+
+  const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState(getEmpresaCadastrada);
   const [emailDestino, setEmailDestino] = useState('');
   const [emailError, setEmailError] = useState('');
+
+  // Sincronizar ao abrir o modal com a empresa cadastrada na obra
+  React.useEffect(() => {
+    if (isOpen) {
+      setEmpresaEmpreiteiro(getEmpresaCadastrada());
+    }
+  }, [isOpen, obra]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Persistir os dados da empresa caso tenham sido preenchidos/ajustados
+    if (empresaEmpreiteiro.trim()) {
+      try {
+        localStorage.setItem('eixo_empresa_cadastrada', empresaEmpreiteiro.trim());
+      } catch {}
+
+      if (onUpdateObra && obra.empresaResponsavel !== empresaEmpreiteiro.trim()) {
+        onUpdateObra({
+          ...obra,
+          empresaResponsavel: empresaEmpreiteiro.trim(),
+        });
+      }
+    }
 
     if (metodo === 'email') {
       const emailLimpo = emailDestino.trim();
@@ -220,20 +256,27 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
 
           {/* Campo: Empresa ou Empreiteiro Responsável */}
           <div style={{ marginBottom: 14 }}>
-            <label
-              htmlFor="empresa-empreiteiro-input"
-              style={{
-                display: 'block',
-                fontSize: '0.74rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                color: 'var(--text-muted)',
-                marginBottom: 6,
-              }}
-            >
-              Empresa ou Empreiteiro Responsável
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label
+                htmlFor="empresa-empreiteiro-input"
+                style={{
+                  display: 'block',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  color: 'var(--text-muted)',
+                  margin: 0,
+                }}
+              >
+                Empresa ou Empreiteiro Responsável
+              </label>
+              {(obra.empresaResponsavel || empresaEmpreiteiro) && (
+                <span style={{ fontSize: '0.68rem', color: '#16a34a', fontWeight: 600 }}>
+                  Preenchido do cadastro
+                </span>
+              )}
+            </div>
             <div style={{ position: 'relative' }}>
               <input
                 id="empresa-empreiteiro-input"

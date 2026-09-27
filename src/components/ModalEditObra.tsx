@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle } from '@phosphor-icons/react';
+import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, Buildings } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
 
@@ -12,6 +12,7 @@ interface ModalEditObraProps {
     cliente: string;
     endereco: string;
     dataPrevista: string;
+    empresaResponsavel?: string;
   }) => void;
 }
 
@@ -22,6 +23,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   onSave,
 }) => {
   const [nome, setNome] = useState('');
+  const [empresaResponsavel, setEmpresaResponsavel] = useState('');
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
@@ -30,6 +32,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   useEffect(() => {
     if (obra) {
       setNome(obra.nome);
+      setEmpresaResponsavel(obra.empresaResponsavel || '');
       setCliente(obra.cliente);
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
@@ -52,6 +55,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
 
     onSave({
       nome: nome.trim(),
+      empresaResponsavel: empresaResponsavel.trim() || undefined,
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || obra.dataPrevista,
@@ -112,6 +116,22 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
                 className="form-input"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Buildings size={18} color="var(--primary-accent)" weight="bold" />
+                  Empresa ou Empreiteiro Responsável
+                </span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: Construtora Silva ou Empreiteiro João"
+                value={empresaResponsavel}
+                onChange={(e) => setEmpresaResponsavel(e.target.value)}
               />
             </div>
 
