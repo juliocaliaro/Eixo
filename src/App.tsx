@@ -301,7 +301,27 @@ export const App: React.FC = () => {
           url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
         },
       ],
-      punchList: [],
+      punchList: [
+        {
+          id: 'punch_demo_1',
+          item: 'Retoque de pintura na quina direita da parede da varanda gourmet',
+          ambiente: 'Varanda Gourmet',
+          concluido: true,
+          concluidoEm: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: 'punch_demo_2',
+          item: 'Ajuste de pressão e vedação do registro mono-comando da suíte máster',
+          ambiente: 'Banheiro Suíte',
+          concluido: false,
+        },
+        {
+          id: 'punch_demo_3',
+          item: 'Calafetação de silicone incolor entre rodapé e piso da sala de jantar',
+          ambiente: 'Sala de Jantar',
+          concluido: false,
+        },
+      ],
     };
 
     setObras([demoObra, ...obras]);
