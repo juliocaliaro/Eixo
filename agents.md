@@ -205,19 +205,11 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 14. Termômetro de Prazo e Ritmo de Cronograma (Sugestão 9)
+## 14. Remoção do Termômetro de Prazo e Ritmo de Cronograma
 
-- **Cálculo Inteligente de Defasagem (`calcularTermometroPrazo`)**:
-  - Compara a porcentagem de tempo de calendário decorrido (`tempoDecorridoPct`) com o avanço físico real de tarefas concluídas (`percentualConcluido`).
-- **Classificação Visual Padronizada**:
-  - `concluida`: 100% concluída (Verde esmeralda).
-  - `em_dia`: Avanço alinhado ao cronograma planejado (Verde).
-  - `atencao`: Defasagem entre 10% e 20% (Âmbar / Dourado).
-  - `atrasado`: Defasagem superior a 20% do tempo gasto vs avanço físico (Coral glow / Laranja escuro).
-  - `vencido`: Data prevista de entrega ultrapassada com serviços pendentes (Vermelho com contagem de dias em atraso).
-- **Presença na Interface**:
-  - Badges escaneáveis na listagem geral de obras (`ObraList`) e no cabeçalho detalhado (`ObraHeader`).
-  - Indicador de dias restantes ou dias em atraso ao lado do progresso.
+- **Decisão de Simplificação ("Menos é mais")**:
+  - Removido da listagem geral (`ObraList`) e do cabeçalho detalhado (`ObraHeader`) para preservar a sobriedade executiva da interface e evitar ruídos visuais desnecessários.
+  - O controle de cronograma permanece centrado na data prevista de entrega e no avanço físico real das etapas e tarefas.
 
 ---
 

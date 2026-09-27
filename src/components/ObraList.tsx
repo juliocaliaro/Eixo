@@ -14,7 +14,6 @@ import {
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
-import { calcularTermometroPrazo } from '../utils/cronogramaTermometro';
 
 interface ObraListProps {
   obras: Obra[];
@@ -168,7 +167,6 @@ export const ObraList: React.FC<ObraListProps> = ({
           const totalTarefas = todasTarefas.length;
           const concluidas = todasTarefas.filter((t) => t.concluida).length;
           const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
-          const termometro = calcularTermometroPrazo(obra.criadaEm, obra.dataPrevista, percentual);
 
           return (
             <div
@@ -201,20 +199,6 @@ export const ObraList: React.FC<ObraListProps> = ({
                   >
                     {obra.etapas.length} etapas
                   </span>
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-full)',
-                      background: termometro.bg,
-                      color: termometro.cor,
-                      border: `1px solid ${termometro.border}`,
-                    }}
-                    title={termometro.descricao}
-                  >
-                    {termometro.label}
-                  </span>
                 </div>
                 <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 12 }}>
                   <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
@@ -244,12 +228,6 @@ export const ObraList: React.FC<ObraListProps> = ({
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
                   <span>{concluidas}/{totalTarefas} serviços</span>
-                  {termometro.status !== 'concluida' && termometro.diasRestantes > 0 && (
-                    <span>{termometro.diasRestantes}d restantes</span>
-                  )}
-                  {termometro.status === 'vencido' && termometro.diasAtraso && (
-                    <span style={{ color: '#dc2626', fontWeight: 700 }}>{termometro.diasAtraso}d atraso</span>
-                  )}
                 </div>
               </div>
 
