@@ -65,7 +65,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Tanto o Construtor quanto o Cliente podem registrar decisões técnicas ou de acabamento (escolha de pisos, pontos de tomada, aditivos de contrato).
   - O proponente assina a decisão automaticamente no ato da criação.
   - A decisão fica em estado `pendente` (com selo e ícone `<Clock />`) até a contraparte analisar.
-  - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar / Pedir Ajuste**.
+  - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar**.
   - Uma vez assinada pela contraparte, a decisão torna-se `aprovada` e exibe carimbo digital auditável com nome, perfil e data/hora exatos de ambas as assinaturas.
 - **Timeline Vertical**: Exibição cronológica das decisões com linha espinhal conectando os eventos.
 - **Modal de Criação Minimalista**: Apenas título, descrição, linha compacta de categoria/custo/prazo e upload opcional de fotos de amostra, sem textos redundantes.

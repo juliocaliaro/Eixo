@@ -684,7 +684,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                                   color: 'var(--coral-glow-700)',
                                 }}
                               >
-                                Recusar / Pedir Ajuste
+                                Recusar
                               </button>
 
                               <button
@@ -735,12 +735,12 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         />
       )}
 
-      {/* Confirmação de Recusa / Ajuste */}
+      {/* Confirmação de Recusa */}
       {confirmRecusarDecisao && (
         <ModalConfirm
           isOpen={true}
-          title="Recusar ou Solicitar Ajuste"
-          message={`Tem certeza que deseja recusar a proposta "${confirmRecusarDecisao.titulo}"? A contraparte será notificada para revisar a escolha.`}
+          title="Recusar Decisão"
+          message={`Tem certeza que deseja recusar a proposta "${confirmRecusarDecisao.titulo}"? A contraparte será notificada.`}
           confirmText="Recusar Decisão"
           cancelText="Voltar"
           variant="danger"
