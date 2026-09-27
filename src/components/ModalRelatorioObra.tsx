@@ -269,11 +269,11 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   margin: 0,
                 }}
               >
-                Empresa ou Empreiteiro Responsável
+                Nome da Empresa
               </label>
               {(obra.empresaResponsavel || empresaEmpreiteiro) && (
                 <span style={{ fontSize: '0.68rem', color: '#16a34a', fontWeight: 600 }}>
-                  Preenchido do cadastro
+                  Preenchido da conta
                 </span>
               )}
             </div>
@@ -283,7 +283,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 type="text"
                 value={empresaEmpreiteiro}
                 onChange={(e) => setEmpresaEmpreiteiro(e.target.value)}
-                placeholder="Ex: Construtora Silva ou Empreiteiro João"
+                placeholder="Ex: Construtora Silva"
                 className="input-field"
                 style={{
                   width: '100%',

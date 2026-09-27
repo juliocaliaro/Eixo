@@ -123,13 +123,13 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               <label className="form-label">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <Buildings size={18} color="var(--primary-accent)" weight="bold" />
-                  Empresa ou Empreiteiro Responsável
+                  Nome da Empresa
                 </span>
               </label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="Ex: Construtora Silva ou Empreiteiro João"
+                placeholder="Ex: Construtora Silva"
                 value={empresaResponsavel}
                 onChange={(e) => setEmpresaResponsavel(e.target.value)}
               />

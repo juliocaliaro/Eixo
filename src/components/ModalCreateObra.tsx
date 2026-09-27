@@ -9,7 +9,6 @@ import {
   CalendarBlank,
   WarningCircle,
   Plus,
-  Buildings,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
 
@@ -32,13 +31,6 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [nome, setNome] = useState('');
-  const [empresaResponsavel, setEmpresaResponsavel] = useState(() => {
-    try {
-      return localStorage.getItem('eixo_empresa_cadastrada') || '';
-    } catch {
-      return '';
-    }
-  });
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
@@ -103,12 +95,13 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       return;
     }
 
+    const savedEmpresa = typeof window !== 'undefined' ? localStorage.getItem('eixo_empresa_cadastrada') || undefined : undefined;
     onSubmit({
       nome: nome.trim(),
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || '',
-      empresaResponsavel: empresaResponsavel.trim() || undefined,
+      empresaResponsavel: savedEmpresa,
     });
 
     // Reset de estado
@@ -233,7 +226,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   Identificação principal do projeto utilizada pela sua equipe.
                 </p>
 
-                <div className="form-group" style={{ marginBottom: 14 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" />
@@ -257,33 +250,6 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                     }}
                     autoFocus
                   />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <Buildings size={18} color="var(--primary-accent)" weight="bold" />
-                      Empresa ou Empreiteiro Responsável
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Ex: Construtora Silva ou Empreiteiro João"
-                    value={empresaResponsavel}
-                    onChange={(e) => {
-                      setEmpresaResponsavel(e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleNextFrom1();
-                      }
-                    }}
-                  />
-                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                    Sua empresa cadastrada como responsável técnica pela execução da obra.
-                  </span>
                 </div>
               </div>
             )}
