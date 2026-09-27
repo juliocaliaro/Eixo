@@ -9,6 +9,7 @@ Este documento consolida todas as decisões arquiteturais, de experiência do us
 - **Público-alvo**: Construtores, arquitetos, mestres de obras e seus clientes finais (muitas vezes pessoas com pouco contato diário com ferramentas tecnológicas complexas).
 - **Diretriz primordial**: **"Menos é mais"** (usabilidade extrema, estratégias de wizard passo a passo, ausência de poluição visual, remoção de labels repetitivas e de banners informativos desnecessários).
 - **Sem Alerts Nativos**: Todas as confirmações de exclusão e alertas do sistema usam modais desenhados no design system (`ModalConfirm`), banindo `window.alert()` e `window.confirm()`.
+- **Supressão Estrita de Notificações em Mobile Durante Preenchimento/Registro**: Durante qualquer fluxo de cadastro, preenchimento de campos, foco em formulários ou modais/assistentes abertos no dispositivo móvel, nenhuma notificação (toast) pode subir ou ser exibida, impedindo a sobreposição de botões de ação ("Avançar", "Salvar"), obstrução do teclado virtual ou cliques residuais acidentais.
 
 ---
 
@@ -46,11 +47,11 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - Proposta e assinatura de decisões.
 
 ### 3.2 Perfil Cliente (`perfilAtivo === 'cliente'`)
-- Modo de acompanhamento transparente (cronograma físico em **Read-Only**).
-- **Restrição de Criação/Exclusão**: O cliente **não visualiza** botões de criar nova obra nem ícones de lixeira para excluir projetos ou etapas.
-- **Read-Only no Cronograma**: Checkboxes de serviços e botões de edição ficam desabilitados, impedindo alterações não autorizadas no planejamento técnico.
-- **Acesso Completo às Evidências**: Visualização irrestrita de fotos, anotações do diário e datas de conclusão de cada serviço.
-- **Participação Plena em Decisões**: O cliente pode propor alterações, aprovar/assinar decisões e recusar propostas.
+- Modo de acompanhamento transparente (cronograma físico, anexos e projetos em **Read-Only**).
+- **Apenas Decisões e Aprovações com Interação Ativa**: A **única** seção onde o cliente tem permissão de acrescentar ou interagir ativamente é na aba **Decisões & Aprovações** (propor alterações, aprovar/assinar decisões e recusar propostas). Todo o restante da plataforma opera estritamente em modo de acompanhamento.
+- **Restrição de Criação/Exclusão Geral**: O cliente **não visualiza** botões de criar nova obra, adicionar anexos no diário, anexar projetos em PDF, gerar links externos de upload, nem ícones de lixeira para exclusão.
+- **Read-Only no Cronograma e Tarefas**: Checkboxes de serviços, botões de edição, drag and drop e botões de adicionar fotos/anotações nos detalhes da tarefa ficam integralmente ocultos/desabilitados.
+- **Acesso Completo às Evidências e Documentos**: Visualização irrestrita de fotos ampliadas, anotações do diário, datas de conclusão de cada serviço e download/visualização de projetos em PDF.
 
 ### 3.3 Compartilhamento e Sincronização
 - Parâmetros de URL sincronizados automaticamente (`?perfil=cliente&obra=ID_DA_OBRA`).
@@ -64,7 +65,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Tanto o Construtor quanto o Cliente podem registrar decisões técnicas ou de acabamento (escolha de pisos, pontos de tomada, aditivos de contrato).
   - O proponente assina a decisão automaticamente no ato da criação.
   - A decisão fica em estado `pendente` (com selo e ícone `<Clock />`) até a contraparte analisar.
-  - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar / Pedir Ajuste**.
+  - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar**.
   - Uma vez assinada pela contraparte, a decisão torna-se `aprovada` e exibe carimbo digital auditável com nome, perfil e data/hora exatos de ambas as assinaturas.
 - **Timeline Vertical**: Exibição cronológica das decisões com linha espinhal conectando os eventos.
 - **Modal de Criação Minimalista**: Apenas título, descrição, linha compacta de categoria/custo/prazo e upload opcional de fotos de amostra, sem textos redundantes.
@@ -137,4 +138,47 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Visualização e Download Integrados**:
   - Ações rápidas de **Visualizar** (modal com visualizador embutido ou abertura em nova guia) e **Baixar** direto no dispositivo.
   - Filtros rápidos por chips de categoria e busca textual em tempo real.
+
+---
+
+## 10. Listas Padrão Oficiais de Construção e Reforma
+
+### 10.1 Construção (13 Etapas Técnicas)
+1. **Projetos e Legalização**: Levantamento topográfico/sondagem, elaboração de projetos arquitetônicos e complementares, aprovação em prefeitura/alvará, ligações provisórias de água e energia.
+2. **Terreno e Canteiro**: Limpeza e nivelamento do terreno, montagem de tapume/portões, canteiro de obras (banheiro, almoxarifado, refeitório), locação da obra (gabarito).
+3. **Fundação e Contenção**: Cortes, aterros e muros de arrimo, escavação das fundações, concretagem de sapatas/estacas e vigas baldrame, impermeabilização das fundações.
+4. **Estrutura**: Fôrmas e ferragens para pilares e vigas, concretagem de pilares, vigas e lajes, desforma e cura do concreto.
+5. **Alvenaria e Vedação**: Elevação de paredes, vergas e contravergas, chumbamento de contramarcos.
+6. **Cobertura e Aquecimento**: Estrutura do telhado, boiler e caixas d'água, telhas e subcobertura (manta térmica), calhas, rufos e condutores pluviais.
+7. **Infraestrutura e Instalações Brutas**: Rasgos nas paredes, eletrodutos, quadros e fotovoltaica, cabeamento de rede/automação/CFTV, tubulações hidráulicas (água fria/quente/esgoto), infraestrutura de ar-condicionado, fechamento de rasgos.
+8. **Revestimentos Brutos**: Chapisco, emboço e reboco, execução de contrapiso, impermeabilização de áreas molhadas e varandas.
+9. **Revestimentos e Gesso**: Forros de gesso, assentamento de pisos e revestimentos, bancadas, soleiras e nichos.
+10. **Acabamentos e Pintura**: Preparação, emassamento e lixamento, pintura, pisos quentes (laminado/vinílico) e rodapés, portas e esquadrias finais (vidro/alumínio).
+11. **Área Externa e Paisagismo**: Piscina (escavação/revestimento), pavimentação externa, portões e grades, preparo de solo e plantio.
+12. **Finalização**: Placas solares/inversor, aquecimento solar de boiler, louças/metais/espelhos, luminárias e tomadas, ar-condicionado, limpeza fina.
+13. **Testes, Desmobilização e Entrega**: Testes elétricos/solar, testes de vazão/pressão hidráulica, testes de ar-condicionado, vistoria geral de acabamentos, desmobilização de canteiro, Habite-se e entrega de chaves.
+
+### 10.2 Reforma (7 Etapas Técnicas)
+1. **Isolamento e Preparação**: Proteção de elevadores e áreas comuns, proteção de pisos existentes, isolamento de móveis, desmontagem e armazenamento de itens reutilizáveis.
+2. **Demolição**: Demolição de alvenarias e revestimentos, remoção de forros/drywall, descarte de louças antigas, ensacamento de entulho.
+3. **Infraestrutura e Construção**: Novas paredes, adequação de pontos elétricos/iluminação, pontos hidráulicos/esgoto, fechamento de rasgos.
+4. **Revestimentos e Gesso**: Forros de gesso, impermeabilização de áreas molhadas, assentamento de novos revestimentos, bancadas e nichos.
+5. **Acabamentos e Pintura**: Preparação, emassamento e lixamento, pintura, pisos quentes e rodapés, portas.
+6. **Finalização**: Louças, metais e espelhos, luminárias e espelhos de tomada, limpeza fina.
+7. **Testes**: Teste de elétrica/iluminação, teste de pressão/vazão de água, teste de equipamentos (ar-condicionado, aquecedores), vistoria geral de portas, esquadrias e acabamentos.
+
+---
+
+## 11. Relatório de Conclusão da Obra e Futura Autenticação (Login)
+
+- **Relatório de Conclusão (Dossiê Integral)**:
+  - Disponível após o encerramento da obra através do botão `[ Relatório de Conclusão ]` no topo da página.
+  - Anexo integral obrigatório: consolidação direta de todo o histórico da obra (cronograma físico cumprido, diário fotográfico com observações, decisões aprovadas com carimbos digitais, projetos técnicos e termo de entrega).
+  - Canais de entrega: **Baixar Relatório** ou **Enviar por E-mail**.
+- **Vinculação de Empresa/Empreiteiro e Transição para Login**:
+  - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
+  - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
+  - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
+
+
 

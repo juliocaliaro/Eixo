@@ -703,7 +703,8 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         tarefa={viewingTaskDetails?.tarefa || null}
         etapaNome={viewingTaskDetails?.etapaNome || ''}
         etapaId={viewingTaskDetails?.etapaId || ''}
-        onUpdateTaskMedia={handleUpdateTaskMediaInternal}
+        onUpdateTaskMedia={isReadOnly ? undefined : handleUpdateTaskMediaInternal}
+        isReadOnly={isReadOnly}
       />
     </div>
   );

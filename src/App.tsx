@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra } from './types/obra';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from './types/obra';
 import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
 import { ConfigTemplatesPage } from './components/ConfigTemplatesPage';
+import { PublicUploadProjetoPage } from './components/PublicUploadProjetoPage';
 import { ToastContainer } from './components/Toast';
 
 export const App: React.FC = () => {
@@ -17,14 +18,19 @@ export const App: React.FC = () => {
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
   const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
 
-  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=...)
+  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=... ou ?upload=projeto&obra=...)
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const perfilParam = params.get('perfil');
       const obraParam = params.get('obra');
+      const uploadParam = params.get('upload');
 
+      if (uploadParam === 'projeto' && obraParam) {
+        setPublicUploadObraId(obraParam);
+      }
       if (perfilParam === 'cliente' || perfilParam === 'construtor') {
         setPerfilAtivo(perfilParam);
       }
@@ -39,12 +45,55 @@ export const App: React.FC = () => {
     saveObrasToStorage(obras);
   }, [obras]);
 
+  // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleVisualViewportResize = () => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (
+        activeEl &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+          activeEl.getAttribute('contenteditable') === 'true')
+      ) {
+        setTimeout(() => {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 120);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleVisualViewportResize);
+    };
+  }, []);
+
   // Função para exibir Toast notification
   const showToast = (
     titulo: string,
     descricao?: string,
     tipo: ToastType = 'success'
   ) => {
+    // Regra: Durante qualquer registro ou preenchimento, nenhuma notificação pode subir no mobile
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      const activeEl = document.activeElement;
+      const isInputActive = Boolean(
+        activeEl &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+          activeEl.getAttribute('contenteditable') === 'true' ||
+          activeEl.classList.contains('form-input') ||
+          activeEl.classList.contains('form-textarea'))
+      );
+      const isModalOpen = Boolean(
+        document.querySelector('.modal-backdrop, .modal-card, [role="dialog"], .modal-novo-anexo')
+      );
+
+      if (isInputActive || isModalOpen) {
+        // Bloquear completamente a notificação durante preenchimento ou registro no mobile
+        return;
+      }
+    }
+
     const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const newToast: ToastMessage = { id, titulo, descricao, tipo };
 
@@ -72,13 +121,21 @@ export const App: React.FC = () => {
     cliente: string;
     endereco: string;
     dataPrevista: string;
+    empresaResponsavel?: string;
   }) => {
+    if (dados.empresaResponsavel) {
+      try {
+        localStorage.setItem('eixo_empresa_cadastrada', dados.empresaResponsavel);
+      } catch {}
+    }
+
     const novaObra: Obra = {
       id: `obra_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       nome: dados.nome,
       cliente: dados.cliente,
       endereco: dados.endereco,
       dataPrevista: dados.dataPrevista,
+      empresaResponsavel: dados.empresaResponsavel,
       criadaEm: new Date().toISOString(),
       etapas: [],
       anexosGerais: [],
@@ -106,6 +163,7 @@ export const App: React.FC = () => {
     const demoObra: Obra = {
       id: `obra_demo_${Date.now()}`,
       nome: 'Reforma Apto 402 - Jardins',
+      empresaResponsavel: 'Albuquerque Engenharia & Reformas',
       cliente: 'Dra. Carolina Mendes',
       endereco: 'Alameda Santos, 1820 - Apto 402, São Paulo - SP',
       dataPrevista: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -113,12 +171,12 @@ export const App: React.FC = () => {
       etapas: [
         {
           id: 'etapa_demo_1',
-          nome: 'Proteção e preparação da área',
+          nome: 'Isolamento e Preparação',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
               id: 'task_demo_1',
-              nome: 'Isolamento e proteção de elevadores e corredores do condomínio',
+              nome: 'Proteção de elevadores e áreas comuns.',
               concluida: true,
               concluidaEm: new Date().toISOString(),
               fotos: [
@@ -128,24 +186,24 @@ export const App: React.FC = () => {
             },
             {
               id: 'task_demo_2',
-              nome: 'Proteção de pisos existentes e esquadrias mantidas',
+              nome: 'Proteção do piso existente (se for mantido).',
               concluida: false,
             },
           ],
         },
         {
           id: 'etapa_demo_2',
-          nome: 'Demolição e descarte de materiais',
+          nome: 'Demolição',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
               id: 'task_demo_3',
-              nome: 'Demolição de paredes de alvenaria e divisórias existentes',
+              nome: 'Demolição de alvenarias, pisos e revestimentos.',
               concluida: false,
             },
             {
               id: 'task_demo_4',
-              nome: 'Acondicionamento de entulho e carregamento de caçambas',
+              nome: 'Ensacamento e descarte de entulho.',
               concluida: false,
             },
           ],
@@ -254,6 +312,80 @@ export const App: React.FC = () => {
       setCurrentObraId(null);
     }
   };
+
+  // Handler para upload público de projetos (sem login)
+  const handlePublicUploadProjeto = (dados: {
+    titulo: string;
+    tipo: TipoProjeto;
+    tipoCustomizado?: string;
+    arquivoNome: string;
+    tamanhoBytes: number;
+    url: string;
+    versao?: string;
+    descricao?: string;
+    remetenteNome: string;
+  }) => {
+    if (!publicUploadObraId) return;
+
+    const novoProjeto: ProjetoPDF = {
+      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      titulo: dados.titulo,
+      tipo: dados.tipo,
+      tipoCustomizado: dados.tipoCustomizado,
+      arquivoNome: dados.arquivoNome,
+      tamanhoBytes: dados.tamanhoBytes,
+      dataUpload: new Date().toISOString(),
+      enviadoPor: 'externo',
+      enviadoPorNome: dados.remetenteNome,
+      url: dados.url,
+      versao: dados.versao,
+      descricao: dados.descricao,
+    };
+
+    setObras((prev) =>
+      prev.map((o) => {
+        if (o.id === publicUploadObraId) {
+          const projetosAtuais = o.projetos || [];
+          return {
+            ...o,
+            projetos: [novoProjeto, ...projetosAtuais],
+          };
+        }
+        return o;
+      })
+    );
+
+    showToast(
+      'Projeto Recebido!',
+      `O arquivo "${dados.titulo}" enviado por ${dados.remetenteNome} foi anexado com sucesso.`
+    );
+  };
+
+  // Se o link foi aberto especificamente para upload externo de pranchas sem login
+  if (publicUploadObraId) {
+    const obraDestino = obras.find((o) => o.id === publicUploadObraId);
+    if (obraDestino) {
+      return (
+        <div className="app-container">
+          <PublicUploadProjetoPage
+            obra={obraDestino}
+            onUploadProjeto={handlePublicUploadProjeto}
+            onBackToApp={() => {
+              setPublicUploadObraId(null);
+              setCurrentObraId(obraDestino.id);
+              setActiveTab('projetos');
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('upload');
+                window.history.replaceState({}, '', url.toString());
+              } catch {}
+            }}
+          />
+          <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+        </div>
+      );
+    }
+  }
 
   // Obra atualmente aberta
   const currentObra = obras.find((o) => o.id === currentObraId) || null;

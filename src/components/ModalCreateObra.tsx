@@ -9,7 +9,9 @@ import {
   CalendarBlank,
   WarningCircle,
   Plus,
+  Buildings,
 } from '@phosphor-icons/react';
+import { DatePickerInput } from './DatePickerInput';
 
 interface ModalCreateObraProps {
   isOpen: boolean;
@@ -19,6 +21,7 @@ interface ModalCreateObraProps {
     cliente: string;
     endereco: string;
     dataPrevista: string;
+    empresaResponsavel?: string;
   }) => void;
 }
 
@@ -29,6 +32,13 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [nome, setNome] = useState('');
+  const [empresaResponsavel, setEmpresaResponsavel] = useState(() => {
+    try {
+      return localStorage.getItem('eixo_empresa_cadastrada') || '';
+    } catch {
+      return '';
+    }
+  });
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
@@ -98,6 +108,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || '',
+      empresaResponsavel: empresaResponsavel.trim() || undefined,
     });
 
     // Reset de estado
@@ -222,7 +233,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   Identificação principal do projeto utilizada pela sua equipe.
                 </p>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
+                <div className="form-group" style={{ marginBottom: 14 }}>
                   <label className="form-label">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" />
@@ -246,6 +257,33 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                     }}
                     autoFocus
                   />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Buildings size={18} color="var(--primary-accent)" weight="bold" />
+                      Empresa ou Empreiteiro Responsável
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Construtora Silva ou Empreiteiro João"
+                    value={empresaResponsavel}
+                    onChange={(e) => {
+                      setEmpresaResponsavel(e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleNextFrom1();
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                    Sua empresa cadastrada como responsável técnica pela execução da obra.
+                  </span>
                 </div>
               </div>
             )}
@@ -331,27 +369,16 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <CalendarBlank size={18} color="var(--primary-accent)" weight="bold" />
-                      Data Prevista de Conclusão
-                    </span>
-                  </label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    min={minDate}
-                    value={dataPrevista}
-                    onChange={(e) => {
-                      setDataPrevista(e.target.value);
-                      if (erro) setErro('');
-                    }}
-                  />
-                  <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    Permitido apenas datas futuras (a partir de amanhã).
-                  </span>
-                </div>
+                <DatePickerInput
+                  value={dataPrevista}
+                  onChange={(val) => {
+                    setDataPrevista(val);
+                    if (erro) setErro('');
+                  }}
+                  minDate={minDate}
+                  label="Data Prevista de Conclusão"
+                  helperText="Permitido apenas datas futuras (a partir de amanhã)."
+                />
               </div>
             )}
           </div>

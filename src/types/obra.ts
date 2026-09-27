@@ -44,12 +44,14 @@ export interface Decisao {
 }
 
 export type TipoProjeto =
-  | 'eletrico'
-  | 'hidraulico'
-  | 'demolicao'
   | 'arquitetonico'
-  | 'estrutural'
   | 'climatizacao'
+  | 'demolicao'
+  | 'eletrico'
+  | 'estrutural'
+  | 'gesso'
+  | 'hidraulico'
+  | 'luminotecnico'
   | 'marcenaria'
   | 'outro';
 
@@ -61,7 +63,7 @@ export interface ProjetoPDF {
   arquivoNome: string;
   tamanhoBytes: number;
   dataUpload: string;
-  enviadoPor: PerfilUsuario;
+  enviadoPor: PerfilUsuario | 'externo';
   enviadoPorNome: string;
   url: string; // base64 data URI ou blob URL
   descricao?: string;
@@ -75,6 +77,7 @@ export interface Obra {
   endereco: string;
   dataPrevista: string;
   criadaEm: string;
+  empresaResponsavel?: string; // Nome da empresa ou empreiteiro cadastrado que registrou a obra
   etapas: Etapa[];
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];

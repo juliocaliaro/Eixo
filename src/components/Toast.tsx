@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ToastMessage } from '../types/obra';
 import { CheckCircle, Info, Warning, XCircle, X } from '@phosphor-icons/react';
 
@@ -8,6 +8,74 @@ interface ToastProps {
 }
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  });
+
+  const [isRegisteringOrFilling, setIsRegisteringOrFilling] = useState<boolean>(false);
+
+  // Monitorar tamanho da janela
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Monitorar se há preenchimento ou registro ativo
+  useEffect(() => {
+    const checkState = () => {
+      if (typeof document === 'undefined') return;
+
+      const activeEl = document.activeElement;
+      const isInputActive = Boolean(
+        activeEl &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+          activeEl.getAttribute('contenteditable') === 'true' ||
+          activeEl.classList.contains('form-input') ||
+          activeEl.classList.contains('form-textarea'))
+      );
+
+      const isModalOpen = Boolean(
+        document.querySelector('.modal-backdrop, .modal-card, [role="dialog"], .modal-novo-anexo')
+      );
+
+      setIsRegisteringOrFilling(isInputActive || isModalOpen);
+    };
+
+    checkState();
+
+    window.addEventListener('focusin', checkState);
+    window.addEventListener('focusout', checkState);
+    window.addEventListener('input', checkState);
+
+    const observer = new MutationObserver(() => {
+      checkState();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+    });
+
+    return () => {
+      window.removeEventListener('focusin', checkState);
+      window.removeEventListener('focusout', checkState);
+      window.removeEventListener('input', checkState);
+      observer.disconnect();
+    };
+  }, []);
+
+  // REGRA: Durante qualquer registro ou preenchimento, nenhuma notificação pode subir no mobile
+  if (isMobile && isRegisteringOrFilling) {
+    return null;
+  }
+
   if (toasts.length === 0) return null;
 
   return (

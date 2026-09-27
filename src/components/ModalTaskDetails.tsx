@@ -19,6 +19,7 @@ interface ModalTaskDetailsProps {
   etapaNome: string;
   etapaId: string;
   onUpdateTaskMedia?: (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => void;
+  isReadOnly?: boolean;
 }
 
 export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
@@ -28,12 +29,15 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   etapaNome,
   etapaId,
   onUpdateTaskMedia,
+  isReadOnly = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'tudo' | 'fotos' | 'notas'>('tudo');
   const [novaNota, setNovaNota] = useState('');
   const [isAddingNota, setIsAddingNota] = useState(false);
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canEdit = !isReadOnly && Boolean(onUpdateTaskMedia);
 
   if (!isOpen || !tarefa) return null;
 
@@ -59,15 +63,22 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onUpdateTaskMedia) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const novasFotos = [...fotos, base64];
-        onUpdateTaskMedia(etapaId, tarefa.id, novasFotos, anotacoes);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0 && onUpdateTaskMedia) {
+      const fileList = Array.from(files);
+      const readPromises = fileList.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(readPromises).then((novasImgs) => {
+        onUpdateTaskMedia(etapaId, tarefa.id, [...fotos, ...novasImgs], anotacoes);
+      });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -271,20 +282,23 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     type="file"
                     ref={fileInputRef}
                     accept="image/*"
+                    multiple
                     onChange={handleFileUpload}
                     style={{ display: 'none' }}
                   />
 
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="btn-secondary"
-                    style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                    title="Tirar foto ou anexar imagem"
-                  >
-                    <Plus size={12} weight="bold" />
-                    <span>Adicionar Foto</span>
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-secondary"
+                      style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                      title="Tirar foto ou anexar imagens"
+                    >
+                      <Plus size={12} weight="bold" />
+                      <span>Adicionar Fotos</span>
+                    </button>
+                  )}
                 </div>
 
                 {temFotos ? (
@@ -341,31 +355,33 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                         </div>
 
                         {/* Botão Excluir Foto */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteFoto(idx);
-                          }}
-                          title="Remover foto"
-                          style={{
-                            position: 'absolute',
-                            top: 6,
-                            right: 6,
-                            width: 24,
-                            height: 24,
-                            borderRadius: '50%',
-                            background: 'rgba(30, 24, 6, 0.75)',
-                            color: '#ffffff',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <Trash size={12} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFoto(idx);
+                            }}
+                            title="Remover foto"
+                            style={{
+                              position: 'absolute',
+                              top: 6,
+                              right: 6,
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              background: 'rgba(30, 24, 6, 0.75)',
+                              color: '#ffffff',
+                              border: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Trash size={12} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -383,15 +399,17 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
                       Nenhuma foto registrada para este serviço.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', margin: '0 auto' }}
-                    >
-                      <Camera size={13} weight="bold" />
-                      <span>Anexar primeira foto</span>
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', margin: '0 auto' }}
+                      >
+                        <Camera size={13} weight="bold" />
+                        <span>Anexar fotos</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
@@ -415,7 +433,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     </h3>
                   </div>
 
-                  {!isAddingNota && (
+                  {canEdit && !isAddingNota && (
                     <button
                       type="button"
                       onClick={() => setIsAddingNota(true)}
@@ -429,7 +447,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                 </div>
 
                 {/* Formulário para Nova Anotação */}
-                {isAddingNota && (
+                {canEdit && isAddingNota && (
                   <form
                     onSubmit={handleAddNota}
                     style={{
@@ -517,15 +535,17 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                           </p>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteNota(idx)}
-                          className="btn-icon"
-                          style={{ width: 26, height: 26, color: 'var(--coral-glow-600)', flexShrink: 0 }}
-                          title="Excluir anotação"
-                        >
-                          <Trash size={13} />
-                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNota(idx)}
+                            className="btn-icon"
+                            style={{ width: 26, height: 26, color: 'var(--coral-glow-600)', flexShrink: 0 }}
+                            title="Excluir anotação"
+                          >
+                            <Trash size={13} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
