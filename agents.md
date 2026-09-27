@@ -174,7 +174,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Relatório de Conclusão (Dossiê Integral)**:
   - Disponível após o encerramento da obra através do botão `[ Relatório de Conclusão ]` no topo da página.
   - Anexo integral obrigatório: consolidação direta de todo o histórico da obra (cronograma físico cumprido, diário fotográfico com observações, decisões aprovadas com carimbos digitais, projetos técnicos e termo de entrega).
-  - Canais de entrega: **Baixar Relatório** ou **Enviar por E-mail**.
+  - Emissão e Entrega: **Baixar Relatório** (visualização executiva e impressão nativa A4 / Salvar como PDF via motor do navegador, 100% gratuita).
 - **Vinculação de Empresa/Empreiteiro e Transição para Login**:
   - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
   - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
