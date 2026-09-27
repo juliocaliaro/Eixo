@@ -39,6 +39,29 @@ export const App: React.FC = () => {
     saveObrasToStorage(obras);
   }, [obras]);
 
+  // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleVisualViewportResize = () => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (
+        activeEl &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
+          activeEl.getAttribute('contenteditable') === 'true')
+      ) {
+        setTimeout(() => {
+          activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 120);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleVisualViewportResize);
+    };
+  }, []);
+
   // Função para exibir Toast notification
   const showToast = (
     titulo: string,
