@@ -272,17 +272,22 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
 
   // --- Handlers de Mídia (Fotos e Anotações) ---
-  const handleSaveMediaOnTask = (data: { fotoBase64?: string; anotacao?: string }) => {
+  const handleSaveMediaOnTask = (data: { fotoBase64?: string; fotosBase64?: string[]; anotacao?: string }) => {
     if (!mediaModalData) return;
     const { tarefa, etapa } = mediaModalData;
+
+    const fotosToAdd = data.fotosBase64 && data.fotosBase64.length > 0
+      ? data.fotosBase64
+      : data.fotoBase64
+        ? [data.fotoBase64]
+        : [];
 
     const updatedEtapas = obra.etapas.map((e) => {
       if (e.id !== etapa.id) return e;
       const tarefas = e.tarefas.map((t) => {
         if (t.id !== tarefa.id) return t;
-        const fotos = t.fotos ? [...t.fotos] : [];
+        const fotos = t.fotos ? [...t.fotos, ...fotosToAdd] : [...fotosToAdd];
         const anotacoes = t.anotacoes ? [...t.anotacoes] : [];
-        if (data.fotoBase64) fotos.push(data.fotoBase64);
         if (data.anotacao) anotacoes.push(data.anotacao);
         return {
           ...t,
@@ -298,7 +303,17 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       etapas: updatedEtapas,
     });
 
-    showToast('Registro salvo no Diário!', 'Sua foto e/ou anotação foi registrada com sucesso.');
+    const qtdFotos = fotosToAdd.length;
+    let desc = 'Registro salvo com sucesso.';
+    if (qtdFotos > 0 && data.anotacao) {
+      desc = `${qtdFotos} ${qtdFotos === 1 ? 'foto' : 'fotos'} e observação registradas no Diário.`;
+    } else if (qtdFotos > 0) {
+      desc = `${qtdFotos} ${qtdFotos === 1 ? 'foto registrada' : 'fotos registradas'} no Diário.`;
+    } else if (data.anotacao) {
+      desc = 'Observação registrada no Diário.';
+    }
+
+    showToast('Registro salvo no Diário!', desc);
   };
 
   const handleUpdateTaskMedia = (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => {

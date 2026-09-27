@@ -59,15 +59,22 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onUpdateTaskMedia) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const novasFotos = [...fotos, base64];
-        onUpdateTaskMedia(etapaId, tarefa.id, novasFotos, anotacoes);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files && files.length > 0 && onUpdateTaskMedia) {
+      const fileList = Array.from(files);
+      const readPromises = fileList.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all(readPromises).then((novasImgs) => {
+        onUpdateTaskMedia(etapaId, tarefa.id, [...fotos, ...novasImgs], anotacoes);
+      });
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -271,6 +278,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     type="file"
                     ref={fileInputRef}
                     accept="image/*"
+                    multiple
                     onChange={handleFileUpload}
                     style={{ display: 'none' }}
                   />
@@ -280,10 +288,10 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     onClick={() => fileInputRef.current?.click()}
                     className="btn-secondary"
                     style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                    title="Tirar foto ou anexar imagem"
+                    title="Tirar foto ou anexar imagens"
                   >
                     <Plus size={12} weight="bold" />
-                    <span>Adicionar Foto</span>
+                    <span>Adicionar Fotos</span>
                   </button>
                 </div>
 
@@ -390,7 +398,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                       style={{ padding: '6px 12px', fontSize: '0.8rem', margin: '0 auto' }}
                     >
                       <Camera size={13} weight="bold" />
-                      <span>Anexar primeira foto</span>
+                      <span>Anexar fotos</span>
                     </button>
                   </div>
                 )}
