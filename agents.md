@@ -167,4 +167,18 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 6. **Finalização**: Louças, metais e espelhos, luminárias e espelhos de tomada, limpeza fina.
 7. **Testes**: Teste de elétrica/iluminação, teste de pressão/vazão de água, teste de equipamentos (ar-condicionado, aquecedores), vistoria geral de portas, esquadrias e acabamentos.
 
+---
+
+## 11. Relatório de Conclusão da Obra e Futura Autenticação (Login)
+
+- **Relatório de Conclusão (Dossiê Integral)**:
+  - Disponível após o encerramento da obra através do botão `[ Relatório de Conclusão ]` no topo da página.
+  - Anexo integral obrigatório: consolidação direta de todo o histórico da obra (cronograma físico cumprido, diário fotográfico com observações, decisões aprovadas com carimbos digitais, projetos técnicos e termo de entrega).
+  - Canais de entrega: **Baixar Relatório** ou **Enviar por E-mail**.
+- **Vinculação de Empresa/Empreiteiro e Transição para Login**:
+  - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
+  - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
+  - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
+
+
 
