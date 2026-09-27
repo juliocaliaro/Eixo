@@ -2,8 +2,9 @@ import { Obra, PresetTipoObra } from '../types/obra';
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 
 const STORAGE_KEY = 'diario_obras_app_data_v1';
-const TEMPLATES_STORAGE_KEY = 'eixo_templates_preset_v2';
-const OLD_TEMPLATES_KEY = 'eixo_templates_preset_v1';
+const TEMPLATES_STORAGE_KEY = 'eixo_templates_preset_v3';
+const OLD_TEMPLATES_KEY_V2 = 'eixo_templates_preset_v2';
+const OLD_TEMPLATES_KEY_V1 = 'eixo_templates_preset_v1';
 
 export const loadObrasFromStorage = (): Obra[] => {
   try {
@@ -34,14 +35,14 @@ export const loadTemplatesFromStorage = (): PresetTipoObra[] => {
       }
     }
 
-    // Se ainda não salvou no v2, verificar se há templates customizados no v1
-    const oldRaw = localStorage.getItem(OLD_TEMPLATES_KEY);
-    if (oldRaw) {
+    // Se ainda não salvou no v3, verificar se há templates customizados no v2 ou v1
+    const v2Raw = localStorage.getItem(OLD_TEMPLATES_KEY_V2) || localStorage.getItem(OLD_TEMPLATES_KEY_V1);
+    if (v2Raw) {
       try {
-        const oldParsed = JSON.parse(oldRaw);
+        const oldParsed = JSON.parse(v2Raw);
         if (Array.isArray(oldParsed)) {
           // Manter eventuais templates customizados criados pelo usuário
-          const customOnes = oldParsed.filter(t => t.id !== 'O01' && t.id !== 'O02');
+          const customOnes = oldParsed.filter((t) => t.id !== 'O01' && t.id !== 'O02');
           const merged = [...PRESET_TIPOS_OBRA, ...customOnes];
           saveTemplatesToStorage(merged);
           return merged;

@@ -122,19 +122,9 @@ export const PRESET_TIPOS_OBRA: PresetTipoObra[] = [
           { id: "T12_C03", nome: "Instalação de louças, metais e espelhos." },
           { id: "T12_C04", nome: "Instalação de luminárias, tomadas, interruptores e equipamentos de rede/automação." },
           { id: "T12_C05", nome: "Instalação das máquinas de ar-condicionado." },
-          { id: "T12_C06", nome: "Limpeza fina." }
-        ]
-      },
-      {
-        id: "E13_C",
-        nome: "Testes, Desmobilização e Entrega",
-        tarefas: [
-          { id: "T13_C01", nome: "Teste de funcionamento da rede elétrica, automação e geração solar." },
-          { id: "T13_C02", nome: "Teste de vazão, escoamento e pressão de água." },
-          { id: "T13_C03", nome: "Teste de funcionamento de ar-condicionado e equipamentos." },
-          { id: "T13_C04", nome: "Vistoria geral de acabamentos." },
-          { id: "T13_C05", nome: "Desmontagem do canteiro de obras e retirada do tapume." },
-          { id: "T13_C06", nome: "Emissão do Habite-se e entrega das chaves." }
+          { id: "T12_C06", nome: "Limpeza fina." },
+          { id: "T12_C07", nome: "Desmontagem do canteiro de obras e retirada do tapume." },
+          { id: "T12_C08", nome: "Emissão do Habite-se e entrega das chaves." }
         ]
       }
     ]
@@ -201,16 +191,6 @@ export const PRESET_TIPOS_OBRA: PresetTipoObra[] = [
           { id: "T06_R01", nome: "Instalação de louças, metais e espelhos." },
           { id: "T06_R02", nome: "Instalação de luminárias e espelhos de tomada." },
           { id: "T06_R03", nome: "Limpeza fina." }
-        ]
-      },
-      {
-        id: "E07_R",
-        nome: "Testes",
-        tarefas: [
-          { id: "T07_R01", nome: "Teste de funcionamento de elétrica e iluminação." },
-          { id: "T07_R02", nome: "Teste de vazão, escoamento e pressão de água (hidráulica)." },
-          { id: "T07_R03", nome: "Teste de funcionamento de equipamentos (ar-condicionado, aquecedores)." },
-          { id: "T07_R04", nome: "Vistoria geral de portas, esquadrias e acabamentos." }
         ]
       }
     ]

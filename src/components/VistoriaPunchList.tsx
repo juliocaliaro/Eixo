@@ -27,6 +27,7 @@ const ITENS_PADRAO_VISTORIA = [
   { item: 'Regulagem e lubrificação de fechaduras, trincos e esquadrias', ambiente: 'Portas e Janelas' },
   { item: 'Teste de pressão hidráulica e escoamento em todos os ralos', ambiente: 'Áreas Molhadas' },
   { item: 'Conferência de funcionamento de todas as tomadas e circuitos de iluminação', ambiente: 'Elétrica' },
+  { item: 'Teste de funcionamento e climatização dos aparelhos de ar-condicionado e aquecedores', ambiente: 'Equipamentos' },
   { item: 'Limpeza fina pós-obra e remoção de películas e fitas protetoras', ambiente: 'Geral' },
   { item: 'Entrega formal de manuais técnicos, garantias de equipamentos e chaves', ambiente: 'Entrega' },
 ];
