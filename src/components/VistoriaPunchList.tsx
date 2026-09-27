@@ -1,15 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  CheckSquareOffset,
   Plus,
   Trash,
-  CheckCircle,
-  Clock,
   Key,
   SealCheck,
-  User,
-  WarningCircle,
-  Sparkle
 } from '@phosphor-icons/react';
 import { PunchListItem, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -22,16 +16,6 @@ interface VistoriaPunchListProps {
   showToast?: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
-const ITENS_PADRAO_VISTORIA = [
-  { item: 'Retoques finos de pintura e alinhamento de cantoneiras', ambiente: 'Geral' },
-  { item: 'Regulagem e lubrificação de fechaduras, trincos e esquadrias', ambiente: 'Portas e Janelas' },
-  { item: 'Teste de pressão hidráulica e escoamento em todos os ralos', ambiente: 'Áreas Molhadas' },
-  { item: 'Conferência de funcionamento de todas as tomadas e circuitos de iluminação', ambiente: 'Elétrica' },
-  { item: 'Teste de funcionamento e climatização dos aparelhos de ar-condicionado e aquecedores', ambiente: 'Equipamentos' },
-  { item: 'Limpeza fina pós-obra e remoção de películas e fitas protetoras', ambiente: 'Geral' },
-  { item: 'Entrega formal de manuais técnicos, garantias de equipamentos e chaves', ambiente: 'Entrega' },
-];
-
 export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
   punchList = [],
   onUpdatePunchList,
@@ -40,9 +24,9 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
   showToast,
 }) => {
   const [novoItemTexto, setNovoItemTexto] = useState('');
-  const [novoItemAmbiente, setNovoItemAmbiente] = useState('Geral');
-  const [isAdding, setIsAdding] = useState(false);
+  const [novoItemAmbiente, setNovoItemAmbiente] = useState('');
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const inputTextoRef = useRef<HTMLInputElement>(null);
 
   const total = punchList.length;
   const concluidos = punchList.filter((i) => i.concluido).length;
@@ -68,35 +52,26 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!novoItemTexto.trim()) return;
+    const textoLimpo = novoItemTexto.trim();
+    if (!textoLimpo) return;
 
     const novo: PunchListItem = {
       id: `punch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      item: novoItemTexto.trim(),
-      ambiente: novoItemAmbiente.trim() || 'Geral',
+      item: textoLimpo,
+      ambiente: novoItemAmbiente.trim() || undefined,
       concluido: false,
     };
 
     onUpdatePunchList([...punchList, novo]);
     setNovoItemTexto('');
-    setIsAdding(false);
+    setNovoItemAmbiente('');
 
-    if (showToast) {
-      showToast('Item adicionado!', 'Item incluído na Vistoria Final.');
+    if (inputTextoRef.current) {
+      inputTextoRef.current.focus();
     }
-  };
 
-  const handleCarregarPadrao = () => {
-    const novos: PunchListItem[] = ITENS_PADRAO_VISTORIA.map((p, idx) => ({
-      id: `punch_padrao_${Date.now()}_${idx}`,
-      item: p.item,
-      ambiente: p.ambiente,
-      concluido: false,
-    }));
-
-    onUpdatePunchList([...punchList, ...novos]);
     if (showToast) {
-      showToast('Itens padrão carregados!', 'Checklist de Vistoria Final pronto para validação.');
+      showToast('Item adicionado!', 'Item cadastrado na Vistoria Final.');
     }
   };
 
@@ -182,32 +157,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
             </p>
           </div>
         </div>
-
-        {perfilAtivo === 'construtor' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {total === 0 && (
-              <button
-                type="button"
-                onClick={handleCarregarPadrao}
-                className="btn-secondary"
-                style={{ padding: '7px 12px', fontSize: '0.80rem' }}
-                title="Carregar itens técnicos padrão para a Vistoria Final"
-              >
-                <Sparkle size={14} weight="bold" />
-                <span>Carregar Itens Padrão</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsAdding((prev) => !prev)}
-              className="btn-primary"
-              style={{ padding: '7px 13px', fontSize: '0.80rem' }}
-            >
-              <Plus size={14} weight="bold" />
-              <span>Adicionar Item</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Selo de Entrega Pronta quando 100% resolvido */}
@@ -226,35 +175,36 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
         >
           <SealCheck size={20} weight="fill" color="#16a34a" style={{ flexShrink: 0 }} />
           <div style={{ fontSize: '0.82rem', color: '#14532d', lineHeight: 1.35 }}>
-            <strong>Todas as pendências da vistoria foram resolvidas!</strong> A obra está formalmente apta para a
+            <strong>Todos os itens da vistoria foram resolvidos!</strong> A obra está formalmente apta para a
             entrega de chaves e encerramento técnico.
           </div>
         </div>
       )}
 
-      {/* Formulário Inline de Adição */}
-      {isAdding && perfilAtivo === 'construtor' && (
+      {/* Campo de Preenchimento Direto para o Construtor */}
+      {perfilAtivo === 'construtor' && (
         <form
           onSubmit={handleAddItem}
           style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
             background: 'var(--dark-coffee-50)',
             border: '1px solid var(--border-hairline)',
             borderRadius: 'var(--radius-sm)',
-            padding: '12px 14px',
+            padding: '8px 10px',
             marginBottom: 16,
-            display: 'flex',
-            gap: 10,
             flexWrap: 'wrap',
           }}
         >
           <input
+            ref={inputTextoRef}
             type="text"
-            placeholder="Ex: Retoque de pintura no rodapé do corredor..."
+            placeholder="Digite o item ou pendência da vistoria final..."
             value={novoItemTexto}
             onChange={(e) => setNovoItemTexto(e.target.value)}
             className="form-input"
-            style={{ flex: 1, minWidth: '220px', fontSize: '0.85rem' }}
-            autoFocus
+            style={{ flex: 1, minWidth: '220px', height: '36px', fontSize: '0.86rem' }}
           />
           <input
             type="text"
@@ -262,18 +212,26 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
             value={novoItemAmbiente}
             onChange={(e) => setNovoItemAmbiente(e.target.value)}
             className="form-input"
-            style={{ width: '150px', fontSize: '0.85rem' }}
+            style={{ width: '170px', height: '36px', fontSize: '0.86rem' }}
           />
-          <button type="submit" className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.82rem' }}>
-            Salvar
-          </button>
           <button
-            type="button"
-            onClick={() => setIsAdding(false)}
-            className="btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
+            type="submit"
+            className="btn-primary"
+            disabled={!novoItemTexto.trim()}
+            style={{
+              height: '36px',
+              padding: '0 14px',
+              fontSize: '0.82rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              flexShrink: 0,
+              opacity: !novoItemTexto.trim() ? 0.6 : 1,
+              cursor: !novoItemTexto.trim() ? 'not-allowed' : 'pointer',
+            }}
           >
-            Cancelar
+            <Plus size={15} weight="bold" />
+            <span>Adicionar</span>
           </button>
         </form>
       )}
@@ -291,9 +249,9 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
             border: '1px dashed var(--border-hairline)',
           }}
         >
-          Nenhuma pendência de vistoria cadastrada.{' '}
+          Nenhum item cadastrado na Vistoria Final.{' '}
           {perfilAtivo === 'construtor' && (
-            <span>Clique em <strong>Carregar Itens Padrão</strong> ou adicione itens manualmente.</span>
+            <span>Utilize o campo de preenchimento acima para registrar pendências e testes técnicos.</span>
           )}
         </div>
       ) : (
@@ -325,7 +283,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
                     cursor: perfilAtivo === 'cliente' ? 'default' : 'pointer',
                     accentColor: 'var(--primary-accent)',
                   }}
-                  title={perfilAtivo === 'cliente' ? 'Status gerenciado pelo construtor' : 'Marcar pendência como resolvida'}
+                  title={perfilAtivo === 'cliente' ? 'Status gerenciado pelo construtor' : 'Marcar como resolvido'}
                 />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -370,7 +328,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
                     onClick={() => setDeleteTargetId(item.id)}
                     className="btn-icon"
                     style={{ width: 26, height: 26, color: 'var(--text-muted)' }}
-                    title="Excluir pendência"
+                    title="Excluir item"
                   >
                     <Trash size={14} />
                   </button>
