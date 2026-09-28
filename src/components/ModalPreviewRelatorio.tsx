@@ -74,11 +74,15 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   // Cálculos Financeiros
   const orcamentoInicial = obra.orcamentoInicial || 0;
   const totalAditivosAprovados = decisoesAprovadas
-    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .reduce((acc, d) => {
+      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
   const totalSupressivosAprovados = decisoesAprovadas
-    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .reduce((acc, d) => {
+      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
   const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
   const investimentoTotal = orcamentoInicial + saldoAlteracoes;
 
@@ -585,15 +589,37 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
                         {/* Impactos */}
                         <div style={{ textAlign: 'right', fontSize: '0.80rem' }}>
-                          {decisao.impactoFinanceiro !== undefined && (
-                            <div style={{ fontWeight: 700, color: decisao.impactoFinanceiro > 0 ? '#b91c1c' : decisao.impactoFinanceiro < 0 ? '#16a34a' : '#6e512b' }}>
-                              {decisao.impactoFinanceiro > 0
-                                ? `+ ${formatarMoeda(decisao.impactoFinanceiro)} (Aditivo)`
-                                : decisao.impactoFinanceiro < 0
-                                ? `- ${formatarMoeda(Math.abs(decisao.impactoFinanceiro))} (Supressivo)`
-                                : 'Sem impacto financeiro'}
+                          {decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined ? (
+                            <div>
+                              <div style={{ fontWeight: 700, color: '#b91c1c' }}>
+                                + {formatarMoeda(decisao.valorAditivo)} (Aditivo)
+                              </div>
+                              <div style={{ fontWeight: 700, color: '#16a34a' }}>
+                                - {formatarMoeda(decisao.valorSupressivo)} (Supressivo)
+                              </div>
+                              {decisao.impactoFinanceiro !== undefined && (
+                                <div style={{ fontSize: '0.74rem', color: '#6e512b', fontWeight: 600 }}>
+                                  Saldo: {decisao.impactoFinanceiro >= 0 ? '+' : '-'}{formatarMoeda(Math.abs(decisao.impactoFinanceiro))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ) : (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) ? (
+                            (() => {
+                              const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
+                              const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
+                              const val = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
+
+                              return (
+                                <div style={{ fontWeight: 700, color: isAditivo ? '#b91c1c' : isSupressivo ? '#16a34a' : '#6e512b' }}>
+                                  {isAditivo
+                                    ? `+ ${formatarMoeda(val)} (Aditivo)`
+                                    : isSupressivo
+                                    ? `- ${formatarMoeda(val)} (Supressivo)`
+                                    : 'Sem impacto financeiro'}
+                                </div>
+                              );
+                            })()
+                          ) : null}
                           {decisao.impactoPrazoDias !== undefined && (
                             <div style={{ color: '#6e512b', fontSize: '0.74rem' }}>
                               {decisao.impactoPrazoDias > 0 ? `+ ${decisao.impactoPrazoDias} dias no prazo` : 'Sem alteração de prazo'}

@@ -16,12 +16,18 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
   const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
 
   const aditivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'aprovada')
+    .reduce((acc, d) => {
+      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
 
   const supressivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'aprovada')
+    .reduce((acc, d) => {
+      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
 
   const saldoAlteracoes = aditivosAprovados + supressivosAprovados;
   const totalInvestimento = (obra.orcamentoInicial || 0) + saldoAlteracoes;

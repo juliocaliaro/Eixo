@@ -52,19 +52,31 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   // Cálculos Financeiros de Aditivos e Supressivos
   const orcamentoBase = obra.orcamentoInicial || 0;
   const aditivosAprovados = decisoes
-    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'aprovada')
+    .reduce((acc, d) => {
+      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
   const supressivosAprovados = decisoes
-    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'aprovada')
+    .reduce((acc, d) => {
+      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
   const saldoAprovados = aditivosAprovados + supressivosAprovados;
 
   const aditivosPendentes = decisoes
-    .filter((d) => d.status === 'pendente' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'pendente')
+    .reduce((acc, d) => {
+      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
   const supressivosPendentes = decisoes
-    .filter((d) => d.status === 'pendente' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+    .filter((d) => d.status === 'pendente')
+    .reduce((acc, d) => {
+      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
 
   const totalInvestimento = orcamentoBase + saldoAprovados;
 
@@ -84,10 +96,23 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
       const resumo = decisao.descricao.length > 140 ? decisao.descricao.substring(0, 137) + '...' : decisao.descricao;
       msg += `📝 _"${resumo}"_\n`;
     }
-    if (decisao.impactoFinanceiro && decisao.impactoFinanceiro > 0) {
-      msg += `💰 Impacto Financeiro: *+${decisao.impactoFinanceiro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo)*\n`;
-    } else if (decisao.impactoFinanceiro && decisao.impactoFinanceiro < 0) {
-      msg += `💰 Impacto Financeiro: *-${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo / Redução)*\n`;
+    const temAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0 && decisao.valorSupressivo === undefined);
+    const temSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0 && decisao.valorAditivo === undefined);
+
+    if (decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined) {
+      const saldo = decisao.valorAditivo - decisao.valorSupressivo;
+      const saldoStr = saldo > 0
+        ? `+${saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+        : saldo < 0
+        ? `-${Math.abs(saldo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+        : 'R$ 0,00';
+      msg += `💰 Impacto Financeiro: *+${decisao.valorAditivo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo) / -${decisao.valorSupressivo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo)* [Saldo: *${saldoStr}*]\n`;
+    } else if (temAditivo) {
+      const val = decisao.valorAditivo ?? (decisao.impactoFinanceiro || 0);
+      msg += `💰 Impacto Financeiro: *+${val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo)*\n`;
+    } else if (temSupressivo) {
+      const val = decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0);
+      msg += `💰 Impacto Financeiro: *-${val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo / Redução)*\n`;
     }
     if (decisao.impactoPrazoDias && decisao.impactoPrazoDias > 0) {
       msg += `⏱️ Impacto no Prazo: *+${decisao.impactoPrazoDias} dias*\n`;
@@ -656,31 +681,96 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                       </p>
 
                       {/* Impactos de Custo e Prazo (se existirem) */}
-                      {(decisao.impactoFinanceiro !== undefined || decisao.impactoPrazoDias !== undefined) && (
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-                          {decisao.impactoFinanceiro !== undefined && (
-                            <span
-                              style={{
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : decisao.impactoFinanceiro < 0 ? '#15803d' : 'var(--text-muted)',
-                                background: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-50)' : decisao.impactoFinanceiro < 0 ? '#dcfce7' : 'var(--dark-coffee-50)',
-                                border: `1px solid ${decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-200)' : decisao.impactoFinanceiro < 0 ? '#bbf7d0' : 'var(--border-hairline)'}`,
-                                padding: '4px 10px',
-                                borderRadius: 6,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                              }}
-                            >
-                              <Money size={15} weight="bold" />
-                              {decisao.impactoFinanceiro > 0
-                                ? `Aditivo: +R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                : decisao.impactoFinanceiro < 0
-                                ? `Supressivo: -R$ ${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                : 'Sem impacto financeiro'}
-                            </span>
-                          )}
+                      {(decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined || decisao.impactoPrazoDias !== undefined) && (
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                          {decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined ? (
+                            <>
+                              <span
+                                style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  color: 'var(--cinnamon-wood-700)',
+                                  background: 'var(--cinnamon-wood-50)',
+                                  border: '1px solid var(--cinnamon-wood-200)',
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                }}
+                              >
+                                <Money size={15} weight="bold" />
+                                Aditivo: +R$ {decisao.valorAditivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+
+                              <span
+                                style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  color: '#15803d',
+                                  background: '#dcfce7',
+                                  border: '1px solid #bbf7d0',
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                }}
+                              >
+                                <Money size={15} weight="bold" />
+                                Supressivo: -R$ {decisao.valorSupressivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+
+                              {decisao.impactoFinanceiro !== undefined && (
+                                <span
+                                  style={{
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : decisao.impactoFinanceiro < 0 ? '#15803d' : 'var(--text-muted)',
+                                    background: 'var(--dark-coffee-50)',
+                                    border: '1px solid var(--border-hairline)',
+                                    padding: '4px 10px',
+                                    borderRadius: 6,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                  }}
+                                >
+                                  Saldo: {decisao.impactoFinanceiro > 0 ? `+R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : decisao.impactoFinanceiro < 0 ? `-R$ ${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'}
+                                </span>
+                              )}
+                            </>
+                          ) : (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) ? (
+                            (() => {
+                              const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
+                              const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
+                              const valor = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
+
+                              return (
+                                <span
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    color: isAditivo ? 'var(--cinnamon-wood-700)' : isSupressivo ? '#15803d' : 'var(--text-muted)',
+                                    background: isAditivo ? 'var(--cinnamon-wood-50)' : isSupressivo ? '#dcfce7' : 'var(--dark-coffee-50)',
+                                    border: `1px solid ${isAditivo ? 'var(--cinnamon-wood-200)' : isSupressivo ? '#bbf7d0' : 'var(--border-hairline)'}`,
+                                    padding: '4px 10px',
+                                    borderRadius: 6,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                  }}
+                                >
+                                  <Money size={15} weight="bold" />
+                                  {isAditivo
+                                    ? `Aditivo: +R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    : isSupressivo
+                                    ? `Supressivo: -R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                    : 'Sem impacto financeiro'}
+                                </span>
+                              );
+                            })()
+                          ) : null}
 
                           {decisao.impactoPrazoDias !== undefined && (
                             <span

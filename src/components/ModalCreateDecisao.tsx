@@ -49,21 +49,30 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
 
     const agora = new Date().toISOString();
 
-    let impactoFinanceiroCalculado: number | undefined = undefined;
-    let tipoImpacto: 'aditivo' | 'supressivo' | undefined = undefined;
+    const parsedAditivo = aditivo.trim() ? parseFloat(aditivo.replace(',', '.')) : NaN;
+    const parsedSupressivo = supressivo.trim() ? parseFloat(supressivo.replace(',', '.')) : NaN;
 
-    if (supressivo.trim()) {
-      const val = parseFloat(supressivo.replace(',', '.'));
-      if (!isNaN(val) && val > 0) {
-        impactoFinanceiroCalculado = -Math.abs(val); // atua estritamente como negativo
-        tipoImpacto = 'supressivo';
-      }
-    } else if (aditivo.trim()) {
-      const val = parseFloat(aditivo.replace(',', '.'));
-      if (!isNaN(val) && val > 0) {
-        impactoFinanceiroCalculado = Math.abs(val); // positivo
-        tipoImpacto = 'aditivo';
-      }
+    const temAditivo = !isNaN(parsedAditivo) && parsedAditivo > 0;
+    const temSupressivo = !isNaN(parsedSupressivo) && parsedSupressivo > 0;
+
+    let valorAditivoFinal: number | undefined = undefined;
+    let valorSupressivoFinal: number | undefined = undefined;
+    let impactoFinanceiroCalculado: number | undefined = undefined;
+    let tipoImpacto: 'aditivo' | 'supressivo' | 'ambos' | undefined = undefined;
+
+    if (temAditivo && temSupressivo) {
+      valorAditivoFinal = Math.abs(parsedAditivo);
+      valorSupressivoFinal = Math.abs(parsedSupressivo);
+      impactoFinanceiroCalculado = valorAditivoFinal - valorSupressivoFinal;
+      tipoImpacto = 'ambos';
+    } else if (temAditivo) {
+      valorAditivoFinal = Math.abs(parsedAditivo);
+      impactoFinanceiroCalculado = valorAditivoFinal;
+      tipoImpacto = 'aditivo';
+    } else if (temSupressivo) {
+      valorSupressivoFinal = Math.abs(parsedSupressivo);
+      impactoFinanceiroCalculado = -valorSupressivoFinal;
+      tipoImpacto = 'supressivo';
     }
 
     const decisao: Decisao = {
@@ -72,6 +81,8 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
       descricao: descricao.trim(),
       impactoFinanceiro: impactoFinanceiroCalculado,
       tipoImpactoFinanceiro: tipoImpacto,
+      valorAditivo: valorAditivoFinal,
+      valorSupressivo: valorSupressivoFinal,
       impactoPrazoDias: impactoPrazoDias ? parseInt(impactoPrazoDias, 10) : undefined,
       criadaPor: perfilAtivo,
       criadorNome: nomeUsuario,
@@ -96,6 +107,12 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     setImpactoPrazoDias('');
     setFotos([]);
   };
+
+  const numAditivo = parseFloat(aditivo.replace(',', '.'));
+  const numSupressivo = parseFloat(supressivo.replace(',', '.'));
+  const hasAditivo = !isNaN(numAditivo) && numAditivo > 0;
+  const hasSupressivo = !isNaN(numSupressivo) && numSupressivo > 0;
+  const saldoCalculado = (hasAditivo ? numAditivo : 0) - (hasSupressivo ? numSupressivo : 0);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -142,7 +159,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: hasAditivo && hasSupressivo ? 8 : 14 }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>Aditivo (R$)</span>
@@ -155,10 +172,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   className="form-input"
                   placeholder="0,00"
                   value={aditivo}
-                  onChange={(e) => {
-                    setAditivo(e.target.value);
-                    if (e.target.value) setSupressivo('');
-                  }}
+                  onChange={(e) => setAditivo(e.target.value)}
                 />
               </div>
 
@@ -174,13 +188,41 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   className="form-input"
                   placeholder="0,00"
                   value={supressivo}
-                  onChange={(e) => {
-                    setSupressivo(e.target.value);
-                    if (e.target.value) setAditivo('');
-                  }}
+                  onChange={(e) => setSupressivo(e.target.value)}
                 />
               </div>
             </div>
+
+            {/* Resumo Dinâmico do Saldo quando ambos preenchidos */}
+            {hasAditivo && hasSupressivo && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: 'var(--dark-coffee-50)',
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 14,
+                  fontSize: '0.80rem',
+                }}
+              >
+                <span style={{ color: 'var(--text-muted)' }}>Saldo Líquido da Decisão:</span>
+                <strong
+                  style={{
+                    color: saldoCalculado > 0 ? 'var(--primary-accent)' : saldoCalculado < 0 ? '#16a34a' : 'var(--text-main)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {saldoCalculado > 0
+                    ? `+ R$ ${saldoCalculado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Acréscimo)`
+                    : saldoCalculado < 0
+                    ? `- R$ ${Math.abs(saldoCalculado).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Economia / Redução)`
+                    : 'R$ 0,00 (Neutro)'}
+                </strong>
+              </div>
+            )}
 
             {/* Anexo de Foto Opcional */}
             <div>
