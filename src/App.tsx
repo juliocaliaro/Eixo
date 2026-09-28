@@ -16,7 +16,7 @@ export const App: React.FC = () => {
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
+  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
 

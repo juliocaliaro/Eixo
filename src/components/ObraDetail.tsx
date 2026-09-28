@@ -19,8 +19,8 @@ interface ObraDetailProps {
   onUpdateObra: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
   perfilAtivo?: PerfilUsuario;
-  activeTab?: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar';
-  onChangeTab?: (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => void;
+  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar';
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => void;
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
   templates?: PresetTipoObra[];
@@ -37,11 +37,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onSwitchToClient,
   templates,
 }) => {
-  // Controle de Abas: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
+  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
   const activeTab = activeTabProp || localActiveTab;
 
-  const handleSelectTab = (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => {
+  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => {
     setLocalActiveTab(tab);
     if (onChangeTab) onChangeTab(tab);
   };
@@ -533,7 +533,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         perfilAtivo={perfilAtivo}
       />
 
-      {/* Navegação por Abas: Etapas, Decisões, Anexos, Link do Cliente */}
+      {/* Navegação por Abas: Etapas, Projetos, Decisões, Anexos, Link do Cliente */}
       <nav className="tabs-nav" aria-label="Abas da Obra">
         <button
           className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
@@ -541,6 +541,29 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         >
           <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
           <span>Etapas & Cronograma</span>
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
+          onClick={() => handleSelectTab('projetos')}
+        >
+          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
+          <span>Projetos (PDF)</span>
+          {(obra.projetos || []).length > 0 && (
+            <span
+              style={{
+                marginLeft: 4,
+                background: 'var(--dark-coffee-100)',
+                color: 'var(--dark-coffee-800)',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                padding: '1px 6px',
+                borderRadius: 10,
+              }}
+            >
+              {obra.projetos!.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -563,29 +586,6 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
               }}
             >
               {pendenciasDecisao}
-            </span>
-          )}
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('projetos')}
-        >
-          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
-          <span>Projetos (PDF)</span>
-          {(obra.projetos || []).length > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {obra.projetos!.length}
             </span>
           )}
         </button>
@@ -638,6 +638,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         </>
       )}
 
+      {activeTab === 'projetos' && (
+        <ProjetosTab
+          obra={obra}
+          perfilAtivo={perfilAtivo}
+          onAddProjeto={handleAddProjeto}
+          onDeleteProjeto={handleDeleteProjeto}
+          showToast={showToast}
+        />
+      )}
+
       {activeTab === 'decisoes' && (
         <DecisoesTab
           obra={obra}
@@ -646,16 +656,6 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onAddDecisao={handleAddDecisao}
           onAssinarDecisao={handleAssinarDecisao}
           onRecusarDecisao={handleRecusarDecisao}
-        />
-      )}
-
-      {activeTab === 'projetos' && (
-        <ProjetosTab
-          obra={obra}
-          perfilAtivo={perfilAtivo}
-          onAddProjeto={handleAddProjeto}
-          onDeleteProjeto={handleDeleteProjeto}
-          showToast={showToast}
         />
       )}
 
