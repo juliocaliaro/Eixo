@@ -31,8 +31,9 @@ export interface Decisao {
   id: string;
   titulo: string;
   descricao: string;
-  categoria: 'acabamento' | 'prazo' | 'custo' | 'projeto' | 'outro';
-  impactoFinanceiro?: number; // em Reais (opcional)
+  categoria?: 'acabamento' | 'prazo' | 'custo' | 'projeto' | 'outro';
+  impactoFinanceiro?: number; // em Reais (positivo para Aditivo / acréscimo; negativo para Supressivo / redução do contrato)
+  tipoImpactoFinanceiro?: 'aditivo' | 'supressivo';
   impactoPrazoDias?: number; // em dias (opcional)
   criadaPor: PerfilUsuario;
   criadorNome: string;

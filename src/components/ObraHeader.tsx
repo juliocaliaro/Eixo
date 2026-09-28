@@ -19,7 +19,12 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
     .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
     .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
 
-  const totalInvestimento = (obra.orcamentoInicial || 0) + aditivosAprovados;
+  const supressivosAprovados = (obra.decisoes || [])
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+
+  const saldoAlteracoes = aditivosAprovados + supressivosAprovados;
+  const totalInvestimento = (obra.orcamentoInicial || 0) + saldoAlteracoes;
 
   const formatarMoeda = (val: number) => {
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -82,9 +87,15 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
                 <CurrencyDollar size={16} color="var(--primary-accent)" weight="bold" />
                 <span>
                   Orçamento: <strong>{formatarMoeda(obra.orcamentoInicial)}</strong>
-                  {aditivosAprovados > 0 && (
-                    <span style={{ color: 'var(--primary-accent)', marginLeft: 5, fontSize: '0.78rem' }}>
-                      (+{formatarMoeda(aditivosAprovados)} = <strong>{formatarMoeda(totalInvestimento)}</strong>)
+                  {saldoAlteracoes !== 0 && (
+                    <span
+                      style={{
+                        color: saldoAlteracoes > 0 ? 'var(--primary-accent)' : '#16a34a',
+                        marginLeft: 5,
+                        fontSize: '0.78rem',
+                      }}
+                    >
+                      ({saldoAlteracoes > 0 ? `+${formatarMoeda(saldoAlteracoes)}` : `-${formatarMoeda(Math.abs(saldoAlteracoes))}`} = <strong>{formatarMoeda(totalInvestimento)}</strong>)
                     </span>
                   )}
                 </span>

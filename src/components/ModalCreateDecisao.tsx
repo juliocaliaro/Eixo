@@ -19,8 +19,8 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
 }) => {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [categoria, setCategoria] = useState<Decisao['categoria']>('acabamento');
-  const [impactoFinanceiro, setImpactoFinanceiro] = useState<string>('');
+  const [aditivo, setAditivo] = useState<string>('');
+  const [supressivo, setSupressivo] = useState<string>('');
   const [impactoPrazoDias, setImpactoPrazoDias] = useState<string>('');
   const [fotos, setFotos] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,12 +49,29 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
 
     const agora = new Date().toISOString();
 
+    let impactoFinanceiroCalculado: number | undefined = undefined;
+    let tipoImpacto: 'aditivo' | 'supressivo' | undefined = undefined;
+
+    if (supressivo.trim()) {
+      const val = parseFloat(supressivo.replace(',', '.'));
+      if (!isNaN(val) && val > 0) {
+        impactoFinanceiroCalculado = -Math.abs(val); // atua estritamente como negativo
+        tipoImpacto = 'supressivo';
+      }
+    } else if (aditivo.trim()) {
+      const val = parseFloat(aditivo.replace(',', '.'));
+      if (!isNaN(val) && val > 0) {
+        impactoFinanceiroCalculado = Math.abs(val); // positivo
+        tipoImpacto = 'aditivo';
+      }
+    }
+
     const decisao: Decisao = {
       id: `decisao_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       titulo: titulo.trim(),
       descricao: descricao.trim(),
-      categoria,
-      impactoFinanceiro: impactoFinanceiro ? parseFloat(impactoFinanceiro) : undefined,
+      impactoFinanceiro: impactoFinanceiroCalculado,
+      tipoImpactoFinanceiro: tipoImpacto,
       impactoPrazoDias: impactoPrazoDias ? parseInt(impactoPrazoDias, 10) : undefined,
       criadaPor: perfilAtivo,
       criadorNome: nomeUsuario,
@@ -74,8 +91,8 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     // Resetar
     setTitulo('');
     setDescricao('');
-    setCategoria('acabamento');
-    setImpactoFinanceiro('');
+    setAditivo('');
+    setSupressivo('');
     setImpactoPrazoDias('');
     setFotos([]);
   };
@@ -127,29 +144,40 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Categoria</label>
-                <select
-                  className="form-input"
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value as any)}
-                >
-                  <option value="acabamento">Acabamentos</option>
-                  <option value="projeto">Projeto</option>
-                  <option value="custo">Custos</option>
-                  <option value="prazo">Cronograma</option>
-                  <option value="outro">Geral</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Custo (R$) - Opcional</label>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Aditivo (R$)</span>
+                  <span style={{ fontSize: '0.70rem', color: 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
+                </label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   className="form-input"
                   placeholder="0,00"
-                  value={impactoFinanceiro}
-                  onChange={(e) => setImpactoFinanceiro(e.target.value)}
+                  value={aditivo}
+                  onChange={(e) => {
+                    setAditivo(e.target.value);
+                    if (e.target.value) setSupressivo('');
+                  }}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Supressivo (R$)</span>
+                  <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>- Redução</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  placeholder="0,00"
+                  value={supressivo}
+                  onChange={(e) => {
+                    setSupressivo(e.target.value);
+                    if (e.target.value) setAditivo('');
+                  }}
                 />
               </div>
             </div>

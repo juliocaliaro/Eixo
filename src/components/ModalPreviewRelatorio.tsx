@@ -76,7 +76,11 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   const totalAditivosAprovados = decisoesAprovadas
     .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
     .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
-  const investimentoTotal = orcamentoInicial + totalAditivosAprovados;
+  const totalSupressivosAprovados = decisoesAprovadas
+    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+  const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
+  const investimentoTotal = orcamentoInicial + saldoAlteracoes;
 
   // Nome da Empresa Cadastrada
   const nomeEmpresa =
@@ -273,9 +277,9 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                   <span className="relatorio-meta-label">Resumo Financeiro Contratual</span>
                   <div style={{ fontSize: '0.86rem', color: '#1a130a' }}>
                     Orçamento Base: <strong>{formatarMoeda(orcamentoInicial)}</strong>
-                    {totalAditivosAprovados > 0 && (
-                      <span style={{ color: '#c2350a', marginLeft: 8 }}>
-                        (+{formatarMoeda(totalAditivosAprovados)} em aditivos = <strong>{formatarMoeda(investimentoTotal)}</strong>)
+                    {saldoAlteracoes !== 0 && (
+                      <span style={{ color: saldoAlteracoes > 0 ? '#c2350a' : '#16a34a', marginLeft: 8 }}>
+                        ({saldoAlteracoes > 0 ? `+${formatarMoeda(saldoAlteracoes)}` : `-${formatarMoeda(Math.abs(saldoAlteracoes))}`} em reajustes = <strong>{formatarMoeda(investimentoTotal)}</strong>)
                       </span>
                     )}
                   </div>
@@ -506,7 +510,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
               </p>
             </div>
 
-            {(orcamentoInicial > 0 || totalAditivosAprovados > 0) && (
+            {(orcamentoInicial > 0 || totalAditivosAprovados > 0 || totalSupressivosAprovados < 0) && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 {orcamentoInicial > 0 && (
                   <div style={{ padding: '8px 12px', background: '#f8f3ed', border: '1px solid #e2cfb6', borderRadius: 6, fontSize: '0.80rem' }}>
@@ -515,14 +519,20 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                   </div>
                 )}
                 {totalAditivosAprovados > 0 && (
-                  <div style={{ padding: '8px 12px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '0.80rem' }}>
-                    <span style={{ color: '#16a34a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Aditivos Aprovados</span>
-                    <strong style={{ color: '#16a34a' }}>+{formatarMoeda(totalAditivosAprovados)}</strong>
+                  <div style={{ padding: '8px 12px', background: '#fff1ec', border: '1px solid #fbc9b7', borderRadius: 6, fontSize: '0.80rem' }}>
+                    <span style={{ color: '#c2350a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Aditivos Aprovados</span>
+                    <strong style={{ color: '#c2350a' }}>+{formatarMoeda(totalAditivosAprovados)}</strong>
                   </div>
                 )}
-                <div style={{ padding: '8px 12px', background: '#fff1ec', border: '1px solid #fbc9b7', borderRadius: 6, fontSize: '0.80rem' }}>
-                  <span style={{ color: '#c2350a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Total Investimento</span>
-                  <strong style={{ color: '#c2350a' }}>{formatarMoeda(investimentoTotal)}</strong>
+                {totalSupressivosAprovados < 0 && (
+                  <div style={{ padding: '8px 12px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '0.80rem' }}>
+                    <span style={{ color: '#16a34a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Supressões Aprovadas</span>
+                    <strong style={{ color: '#16a34a' }}>-{formatarMoeda(Math.abs(totalSupressivosAprovados))}</strong>
+                  </div>
+                )}
+                <div style={{ padding: '8px 12px', background: '#fbf7ea', border: '1px solid #f2e3be', borderRadius: 6, fontSize: '0.80rem' }}>
+                  <span style={{ color: '#1a130a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Total Investimento</span>
+                  <strong style={{ color: '#1a130a' }}>{formatarMoeda(investimentoTotal)}</strong>
                 </div>
               </div>
             )}
@@ -541,7 +551,9 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                       <div className="relatorio-decisao-header">
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <span className="relatorio-pill-cat">{decisao.categoria.toUpperCase()}</span>
+                            {decisao.categoria && decisao.categoria !== 'outro' && (
+                              <span className="relatorio-pill-cat">{decisao.categoria.toUpperCase()}</span>
+                            )}
                             <span
                               className={`relatorio-status-badge ${
                                 isAprovada ? 'badge-ok' : decisao.status === 'pendente' ? 'badge-pendente' : 'badge-danger'
@@ -556,8 +568,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                         {/* Impactos */}
                         <div style={{ textAlign: 'right', fontSize: '0.80rem' }}>
                           {decisao.impactoFinanceiro !== undefined && (
-                            <div style={{ fontWeight: 700, color: decisao.impactoFinanceiro > 0 ? '#b91c1c' : '#16a34a' }}>
-                              {decisao.impactoFinanceiro > 0 ? `+ ${formatarMoeda(decisao.impactoFinanceiro)}` : 'Sem custo adicional'}
+                            <div style={{ fontWeight: 700, color: decisao.impactoFinanceiro > 0 ? '#b91c1c' : decisao.impactoFinanceiro < 0 ? '#16a34a' : '#6e512b' }}>
+                              {decisao.impactoFinanceiro > 0
+                                ? `+ ${formatarMoeda(decisao.impactoFinanceiro)} (Aditivo)`
+                                : decisao.impactoFinanceiro < 0
+                                ? `- ${formatarMoeda(Math.abs(decisao.impactoFinanceiro))} (Supressivo)`
+                                : 'Sem impacto financeiro'}
                             </div>
                           )}
                           {decisao.impactoPrazoDias !== undefined && (
