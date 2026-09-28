@@ -115,7 +115,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
             <button
               onClick={onOpenRelatorio}
               className={percentual === 100 ? 'btn-primary' : 'btn-secondary'}
-              title="Gerar relatório de conclusão da obra"
+              title={percentual === 100 ? 'Gerar relatório de conclusão da obra' : 'Gerar relatório de evolução física e medição'}
               style={{
                 padding: '7px 14px',
                 fontSize: '0.82rem',
@@ -125,7 +125,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
               }}
             >
               <FileText size={16} weight="bold" />
-              <span>{percentual === 100 ? 'Relatório de Conclusão' : 'Relatório Final'}</span>
+              <span>{percentual === 100 ? 'Relatório de Conclusão' : 'Relatório de Evolução Física'}</span>
             </button>
           )}
 

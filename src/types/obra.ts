@@ -1,8 +1,11 @@
+export type StatusCronograma = 'concluido' | 'em_andamento' | 'pendente';
+
 export interface Tarefa {
   id: string;
   nome: string;
   concluida: boolean;
   concluidaEm?: string;
+  status?: StatusCronograma;
   anotacoes?: string[];
   fotos?: string[]; // base64 or URL
 }
@@ -14,6 +17,7 @@ export interface Etapa {
   tipoOrigem?: string; // ex: 'Construcao', 'Reforma', 'Personalizada'
   concluida?: boolean;
   concluidaEm?: string; // Registro de data e horário de conclusão da etapa
+  status?: StatusCronograma;
 }
 
 export type PerfilUsuario = 'construtor' | 'cliente';

@@ -21,6 +21,7 @@ import {
 import { Obra } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
+import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
 
 interface ModalPreviewRelatorioProps {
   isOpen: boolean;
@@ -50,8 +51,14 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   // Cálculos de Indicadores da Obra
   const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
   const totalTarefas = todasTarefas.length;
-  const concluidas = todasTarefas.filter((t) => t.concluida).length;
-  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+  const tarefasConcluidas = todasTarefas.filter((t) => t.concluida).length;
+  const tarefasEmAndamento = todasTarefas.filter(
+    (t) => !t.concluida && getTarefaStatus(t) === 'em_andamento'
+  ).length;
+  const tarefasPendentes = Math.max(0, totalTarefas - tarefasConcluidas - tarefasEmAndamento);
+  const percentual = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+  const temAtividadesNaoConcluidas = percentual < 100 || tarefasEmAndamento > 0 || tarefasPendentes > 0;
+  const concluidas = tarefasConcluidas;
 
   // Contagem de Fotos e Anotações
   let totalFotos = 0;
@@ -230,10 +237,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
             <div className="relatorio-title-banner">
               <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#1a130a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {percentual === 100 ? 'Relatório de Conclusão da Obra' : 'Relatório Técnico de Andamento'}
+                {!temAtividadesNaoConcluidas ? 'Relatório de Conclusão da Obra' : 'Relatório de Evolução Física e Medição'}
               </h1>
               <div style={{ fontSize: '0.85rem', color: '#6e512b', marginTop: 4 }}>
-                Consolidação oficial de cronograma executado, diário de canteiro, decisões assinadas e projetos técnicos
+                {!temAtividadesNaoConcluidas
+                  ? 'Dossiê executivo definitivo com termo de aceite final e entrega de chaves'
+                  : `Medição periódica do avanço físico (${percentual}%), atividades em andamento e termo de responsabilidade de pendências`}
               </div>
             </div>
 
@@ -267,12 +276,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     alignItems: 'center',
                     gap: 6,
                     fontWeight: 700,
-                    color: percentual === 100 ? '#16a34a' : '#d5aa2a',
+                    color: !temAtividadesNaoConcluidas ? '#16a34a' : '#b45309',
                     fontSize: '0.88rem',
                   }}
                 >
                   <CheckCircle size={15} weight="fill" />
-                  <span>{percentual === 100 ? '100% Concluída' : `${percentual}% em Execução`}</span>
+                  <span>{!temAtividadesNaoConcluidas ? '100% Concluída' : `${percentual}% em Execução • Relatório Parcial`}</span>
                 </span>
               </div>
 
@@ -295,12 +304,27 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
             <div className="relatorio-kpi-row">
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{percentual}%</span>
-                <span className="relatorio-kpi-desc">Avanço Físico ({concluidas}/{totalTarefas} serviços)</span>
+                <span className="relatorio-kpi-desc">Avanço Físico Total</span>
               </div>
               <div className="relatorio-kpi-item">
-                <span className="relatorio-kpi-num">{obra.etapas.length}</span>
-                <span className="relatorio-kpi-desc">Etapas Técnicas</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+                  <span className="relatorio-kpi-num" style={{ color: '#15803d' }}>{tarefasConcluidas}</span>
+                  <span style={{ fontSize: '0.72rem', color: '#6e512b', fontWeight: 600 }}>/ {totalTarefas}</span>
+                </div>
+                <span className="relatorio-kpi-desc">Concluídos (100%)</span>
               </div>
+              {temAtividadesNaoConcluidas && (
+                <>
+                  <div className="relatorio-kpi-item">
+                    <span className="relatorio-kpi-num" style={{ color: '#b45309' }}>{tarefasEmAndamento}</span>
+                    <span className="relatorio-kpi-desc">Em Andamento</span>
+                  </div>
+                  <div className="relatorio-kpi-item">
+                    <span className="relatorio-kpi-num" style={{ color: '#4b5563' }}>{tarefasPendentes}</span>
+                    <span className="relatorio-kpi-desc">Pendentes</span>
+                  </div>
+                </>
+              )}
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{decisoesAprovadas.length}</span>
                 <span className="relatorio-kpi-desc">Decisões Assinadas</span>
@@ -311,7 +335,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
               </div>
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{totalFotos}</span>
-                <span className="relatorio-kpi-desc">Registros Fotográficos</span>
+                <span className="relatorio-kpi-desc">Fotos de Canteiro</span>
               </div>
               {orcamentoInicial > 0 && (
                 <div className="relatorio-kpi-item">
@@ -357,45 +381,54 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     <table className="relatorio-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '90px' }}>Status</th>
+                          <th style={{ width: '120px' }}>Status</th>
                           <th>Serviço / Atividade Técnica</th>
                           <th style={{ width: '160px', textAlign: 'right' }}>Conclusão</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tarefasEtapa.map((tarefa) => (
-                          <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
-                            <td>
-                              <span
-                                className={`relatorio-status-badge ${
-                                  tarefa.concluida ? 'badge-ok' : 'badge-pendente'
-                                }`}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              >
-                                {tarefa.concluida ? (
-                                  <>
-                                    <Check size={12} weight="bold" />
-                                    <span>Cumprido</span>
-                                  </>
+                        {tarefasEtapa.map((tarefa) => {
+                          const statusT = getTarefaStatus(tarefa);
+                          const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                          return (
+                            <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
+                              <td>
+                                <span
+                                  className={`relatorio-status-badge ${configT.badgeClass}`}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                >
+                                  {statusT === 'concluido' ? (
+                                    <>
+                                      <Check size={12} weight="bold" />
+                                      <span>Concluído</span>
+                                    </>
+                                  ) : statusT === 'em_andamento' ? (
+                                    <>
+                                      <Clock size={12} weight="bold" />
+                                      <span>Em andamento</span>
+                                    </>
+                                  ) : (
+                                    <span>Pendente</span>
+                                  )}
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
+                                  {tarefa.nome}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
+                                {tarefa.concluidaEm ? (
+                                  <span>{formatarDataHora(tarefa.concluidaEm)}</span>
+                                ) : statusT === 'em_andamento' ? (
+                                  <span style={{ color: '#b45309', fontWeight: 600 }}>Em andamento</span>
                                 ) : (
-                                  <span>Pendente</span>
+                                  <span style={{ color: '#6b7280' }}>Não iniciado</span>
                                 )}
-                              </span>
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
-                                {tarefa.nome}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
-                              {tarefa.concluidaEm ? (
-                                <span>{formatarDataHora(tarefa.concluidaEm)}</span>
-                              ) : (
-                                <span style={{ color: '#936c39' }}>Em andamento</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -775,20 +808,94 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
           </section>
 
           {/* ========================================================
-              CAPÍTULO 5: TERMO DE CONCLUSÃO & ENTREGA TÉCNICA
+              CAPÍTULO 5: TERMO TÉCNICO & DECLARAÇÃO DE RESPONSABILIDADE
              ======================================================== */}
           <section className="relatorio-section print-avoid-break">
             <div className="relatorio-section-header">
               <span className="relatorio-section-tag">Capítulo 05</span>
-              <h2 className="relatorio-section-title">Termo de Conclusão & Entrega Técnica</h2>
+              <h2 className="relatorio-section-title">
+                {!temAtividadesNaoConcluidas
+                  ? 'Termo de Aceite Definitivo & Entrega de Chaves'
+                  : 'Termo de Responsabilidade & Declaração de Pendências'}
+              </h2>
             </div>
 
             <div className="relatorio-termo-box">
-              <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
-                Declaramos que os serviços e etapas constantes neste documento técnico foram executados em estrita
-                observância aos projetos, especificações e alinhamentos validados bilateralmente entre as partes na plataforma Eixo.
-                O presente relatório consolida o histórico integral físico, fotográfico e de decisões técnicas da obra.
-              </p>
+              {!temAtividadesNaoConcluidas ? (
+                <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
+                  Declaramos que todos os serviços e etapas constantes neste documento técnico foram integralmente
+                  executados (100% de avanço físico) em estrita observância aos projetos, especificações e alinhamentos
+                  validados bilateralmente entre as partes na plataforma Eixo. O presente relatório consolida o histórico
+                  integral físico, fotográfico e de decisões técnicas da obra, servindo como termo formal de entrega e aceite de chaves.
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
+                    Declaramos, para os devidos fins de medição técnica, avanço físico e acompanhamento periódico da obra,
+                    que o cronograma geral se encontra com <strong>{percentual}% de avanço concluído</strong>, registrando{' '}
+                    <strong>{tarefasConcluidas} atividades concluídas</strong>,{' '}
+                    <strong>{tarefasEmAndamento} em andamento</strong> e{' '}
+                    <strong>{tarefasPendentes} pendentes de execução</strong>.
+                  </p>
+                  <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', marginTop: 8, marginBottom: 0 }}>
+                    As partes signatárias declaram ciência do estado atual dos serviços e acordam que as etapas e atividades
+                    listadas abaixo permanecem sob responsabilidade técnica de execução e acompanhamento da empresa responsável até sua integral finalização:
+                  </p>
+
+                  {/* Tabela Oficial de Atividades Não Concluídas */}
+                  <div style={{ marginTop: 14, marginBottom: 14 }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1a130a', marginBottom: 6 }}>
+                      Relação de Atividades Pendentes e em Andamento ({tarefasEmAndamento + tarefasPendentes})
+                    </div>
+                    <table className="relatorio-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '120px' }}>Status</th>
+                          <th style={{ width: '170px' }}>Etapa</th>
+                          <th>Serviço / Atividade Técnica</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {obra.etapas.flatMap((etapa) =>
+                          (etapa.tarefas || [])
+                            .filter((t) => !t.concluida)
+                            .map((t) => {
+                              const statusT = getTarefaStatus(t);
+                              const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                              return (
+                                <tr key={t.id} className="row-pendente">
+                                  <td>
+                                    <span
+                                      className={`relatorio-status-badge ${configT.badgeClass}`}
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                    >
+                                      {statusT === 'em_andamento' ? (
+                                        <>
+                                          <Clock size={11} weight="bold" />
+                                          <span>Em andamento</span>
+                                        </>
+                                      ) : (
+                                        <span>Pendente</span>
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td style={{ fontSize: '0.78rem', color: '#6e512b', fontWeight: 600 }}>
+                                    {etapa.nome}
+                                  </td>
+                                  <td>
+                                    <span style={{ fontSize: '0.82rem', color: '#1a130a' }}>
+                                      {t.nome}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
 
               {/* Checklist de Vistoria Final */}
               {obra.punchList && obra.punchList.length > 0 && (

@@ -11,6 +11,7 @@ import {
   FolderOpen
 } from '@phosphor-icons/react';
 import { Tarefa } from '../types/obra';
+import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
 
 interface ModalTaskDetailsProps {
   isOpen: boolean;
@@ -130,41 +131,40 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                   {etapaNome}
                 </span>
 
-                {tarefa.concluida ? (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: '#16a34a',
-                      background: '#dcfce7',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <CheckCircle size={12} weight="bold" />
-                    Concluída {tarefa.concluidaEm ? `em ${formatarDataHora(tarefa.concluidaEm)}` : ''}
-                  </span>
-                ) : (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: 'var(--cinnamon-wood-700)',
-                      background: 'var(--cinnamon-wood-100)',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <Clock size={12} weight="bold" />
-                    Serviço Pendente
-                  </span>
-                )}
+                {(() => {
+                  const statusT = getTarefaStatus(tarefa);
+                  const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                  return (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        color: configT.corTexto,
+                        background: configT.corFundo,
+                        border: `1px solid ${configT.corBorda}`,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      {statusT === 'concluido' ? (
+                        <>
+                          <CheckCircle size={12} weight="bold" />
+                          <span>Concluída {tarefa.concluidaEm ? `em ${formatarDataHora(tarefa.concluidaEm)}` : ''}</span>
+                        </>
+                      ) : statusT === 'em_andamento' ? (
+                        <>
+                          <Clock size={12} weight="bold" />
+                          <span>Em andamento</span>
+                        </>
+                      ) : (
+                        <span>Pendente</span>
+                      )}
+                    </span>
+                  );
+                })()}
               </div>
 
               <h2
