@@ -366,8 +366,16 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                                 className={`relatorio-status-badge ${
                                   tarefa.concluida ? 'badge-ok' : 'badge-pendente'
                                 }`}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                               >
-                                {tarefa.concluida ? '✓ Cumprido' : 'Pendente'}
+                                {tarefa.concluida ? (
+                                  <>
+                                    <Check size={12} weight="bold" />
+                                    <span>Cumprido</span>
+                                  </>
+                                ) : (
+                                  <span>Pendente</span>
+                                )}
                               </span>
                             </td>
                             <td>
@@ -558,8 +566,18 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                               className={`relatorio-status-badge ${
                                 isAprovada ? 'badge-ok' : decisao.status === 'pendente' ? 'badge-pendente' : 'badge-danger'
                               }`}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                             >
-                              {isAprovada ? '✓ Aprovada por Ambos' : decisao.status === 'pendente' ? 'Pendente' : 'Recusada'}
+                              {isAprovada ? (
+                                <>
+                                  <CheckCircle size={12} weight="bold" />
+                                  <span>Aprovada por Ambos</span>
+                                </>
+                              ) : decisao.status === 'pendente' ? (
+                                <span>Pendente</span>
+                              ) : (
+                                <span>Recusada</span>
+                              )}
                             </span>
                           </div>
                           <strong style={{ fontSize: '0.96rem', color: '#1a130a' }}>{decisao.titulo}</strong>
@@ -766,8 +784,18 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                       {obra.punchList.map((item) => (
                         <tr key={item.id} className={item.concluido ? 'row-concluida' : 'row-pendente'}>
                           <td>
-                            <span className={`relatorio-status-badge ${item.concluido ? 'badge-ok' : 'badge-pendente'}`}>
-                              {item.concluido ? '✓ OK' : 'Pendente'}
+                            <span
+                              className={`relatorio-status-badge ${item.concluido ? 'badge-ok' : 'badge-pendente'}`}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
+                              {item.concluido ? (
+                                <>
+                                  <Check size={12} weight="bold" />
+                                  <span>Concluído</span>
+                                </>
+                              ) : (
+                                <span>Pendente</span>
+                              )}
                             </span>
                           </td>
                           <td>
