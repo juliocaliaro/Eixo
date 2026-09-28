@@ -24,6 +24,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
+      const resetParam = params.get('reset') || params.get('limpar');
+      if (resetParam === 'true' || resetParam === '1') {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = window.location.origin + window.location.pathname;
+        return;
+      }
+
       const perfilParam = params.get('perfil');
       const obraParam = params.get('obra');
       const uploadParam = params.get('upload');
