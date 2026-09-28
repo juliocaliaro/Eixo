@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
+import { parseMoedaBR } from '../utils/moeda';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
@@ -24,6 +25,16 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
   const [impactoPrazoDias, setImpactoPrazoDias] = useState<string>('');
   const [fotos, setFotos] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -49,11 +60,11 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
 
     const agora = new Date().toISOString();
 
-    const parsedAditivo = aditivo.trim() ? parseFloat(aditivo.replace(',', '.')) : NaN;
-    const parsedSupressivo = supressivo.trim() ? parseFloat(supressivo.replace(',', '.')) : NaN;
+    const parsedAditivo = parseMoedaBR(aditivo);
+    const parsedSupressivo = parseMoedaBR(supressivo);
 
-    const temAditivo = !isNaN(parsedAditivo) && parsedAditivo > 0;
-    const temSupressivo = !isNaN(parsedSupressivo) && parsedSupressivo > 0;
+    const temAditivo = parsedAditivo !== undefined && parsedAditivo > 0;
+    const temSupressivo = parsedSupressivo !== undefined && parsedSupressivo > 0;
 
     let valorAditivoFinal: number | undefined = undefined;
     let valorSupressivoFinal: number | undefined = undefined;
@@ -108,10 +119,10 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     setFotos([]);
   };
 
-  const numAditivo = parseFloat(aditivo.replace(',', '.'));
-  const numSupressivo = parseFloat(supressivo.replace(',', '.'));
-  const hasAditivo = !isNaN(numAditivo) && numAditivo > 0;
-  const hasSupressivo = !isNaN(numSupressivo) && numSupressivo > 0;
+  const numAditivo = parseMoedaBR(aditivo);
+  const numSupressivo = parseMoedaBR(supressivo);
+  const hasAditivo = numAditivo !== undefined && numAditivo > 0;
+  const hasSupressivo = numSupressivo !== undefined && numSupressivo > 0;
   const saldoCalculado = (hasAditivo ? numAditivo : 0) - (hasSupressivo ? numSupressivo : 0);
 
   return (

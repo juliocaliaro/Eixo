@@ -12,6 +12,7 @@ import {
   CurrencyDollar,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
+import { parseMoedaBR } from '../utils/moeda';
 
 interface ModalCreateObraProps {
   isOpen: boolean;
@@ -105,7 +106,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || '',
       empresaResponsavel: savedEmpresa,
-      orcamentoInicial: orcamentoInicial ? Number(orcamentoInicial) : undefined,
+      orcamentoInicial: parseMoedaBR(orcamentoInicial),
     });
 
     // Reset de estado

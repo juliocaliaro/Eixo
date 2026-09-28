@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
+import { parseMoedaBR } from '../utils/moeda';
 
 interface ModalEditObraProps {
   isOpen: boolean;
@@ -41,6 +42,15 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
     }
   }, [obra, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !obra) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -54,7 +64,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       return;
     }
 
-    const valorNumerico = orcamentoInicial.trim() ? parseFloat(orcamentoInicial.replace(',', '.')) : undefined;
+    const valorNumerico = parseMoedaBR(orcamentoInicial);
 
     onSave({
       nome: nome.trim(),
@@ -62,7 +72,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || obra.dataPrevista,
-      orcamentoInicial: valorNumerico !== undefined && !isNaN(valorNumerico) ? valorNumerico : undefined,
+      orcamentoInicial: valorNumerico,
     });
   };
 

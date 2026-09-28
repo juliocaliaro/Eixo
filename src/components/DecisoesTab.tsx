@@ -86,7 +86,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
 
   const gerarLinkWhatsAppDecisao = (decisao: Decisao) => {
     const urlObra = typeof window !== 'undefined'
-      ? `${window.location.origin}?obra=${obra.id}&perfil=${decisao.criadaPor === 'construtor' ? 'cliente' : 'construtor'}&tab=decisoes`
+      ? `${window.location.origin}${window.location.pathname}?obra=${obra.id}&perfil=${decisao.criadaPor === 'construtor' ? 'cliente' : 'construtor'}&tab=decisoes`
       : '';
 
     let msg = `*Eixo - Decisão de Obra Pendente*\n\n`;

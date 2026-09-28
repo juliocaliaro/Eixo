@@ -26,10 +26,18 @@ export const App: React.FC = () => {
       const params = new URLSearchParams(window.location.search);
       const resetParam = params.get('reset') || params.get('limpar');
       if (resetParam === 'true' || resetParam === '1') {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = window.location.origin + window.location.pathname;
-        return;
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // Em produção, exige confirmação para evitar perda acidental de dados através de link malicioso
+        const podeResetar = isLocalhost || window.confirm('Deseja realmente redefinir todos os dados locais do Eixo para o estado inicial?');
+        if (podeResetar) {
+          // Limpa estritamente as chaves gerenciadas pelo Eixo
+          ['eixo_obras_v1', 'eixo_templates_v1', 'eixo_empresa_cadastrada', 'eixo_public_upload_token'].forEach((k) => {
+            localStorage.removeItem(k);
+          });
+          sessionStorage.clear();
+          window.location.href = window.location.origin + window.location.pathname;
+          return;
+        }
       }
 
       const perfilParam = params.get('perfil');
