@@ -226,12 +226,29 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
           Nenhuma etapa no cronograma
         </h2>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto 18px auto' }}>
-          Adicione etapas para estruturar a execução e acompanhar os serviços diários.
+          {isReadOnly
+            ? 'Aguardando o construtor cadastrar as etapas deste cronograma para acompanhamento.'
+            : 'Adicione etapas para estruturar a execução e acompanhar os serviços diários.'}
         </p>
-        <button onClick={() => onOpenWizard(null)} className="btn-primary">
-          <Plus size={16} weight="bold" />
-          <span>Adicionar Etapa</span>
-        </button>
+        {!isReadOnly ? (
+          <button onClick={() => onOpenWizard(null)} className="btn-primary">
+            <Plus size={16} weight="bold" />
+            <span>Adicionar Etapa</span>
+          </button>
+        ) : (
+          <span
+            className="timeline-badge"
+            style={{
+              background: 'var(--coral-glow-100)',
+              color: 'var(--coral-glow-700)',
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+            }}
+          >
+            Modo de Acompanhamento (Leitura)
+          </span>
+        )}
       </div>
     );
   }

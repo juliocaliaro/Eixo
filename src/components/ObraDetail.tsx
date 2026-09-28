@@ -101,6 +101,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
   // --- Handlers de Etapa ---
   const handleOpenWizard = (insertIndex: number | null = null) => {
+    if (perfilAtivo === 'cliente') return;
     setWizardInsertIndex(insertIndex);
     setIsWizardOpen(true);
   };
@@ -109,6 +110,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     novaEtapaData: { nome: string; tarefas: { nome: string }[]; tipoOrigem?: string },
     insertIndex?: number | null
   ) => {
+    if (perfilAtivo === 'cliente') return;
     const novaEtapa: Etapa = {
       id: `etapa_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       nome: novaEtapaData.nome,
@@ -687,7 +689,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       />
 
       <ModalCreateEtapaWizard
-        isOpen={isWizardOpen}
+        isOpen={isWizardOpen && perfilAtivo !== 'cliente'}
         onClose={() => {
           setIsWizardOpen(false);
           setWizardInsertIndex(null);
