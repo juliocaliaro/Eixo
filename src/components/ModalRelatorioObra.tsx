@@ -3,10 +3,9 @@ import {
   X,
   FileText,
   DownloadSimple,
-  EnvelopeSimple,
-  PaperPlaneTilt,
   Buildings,
-  CheckCircle
+  CheckCircle,
+  Printer
 } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 
@@ -16,6 +15,7 @@ interface ModalRelatorioObraProps {
   obra: Obra;
   onUpdateObra?: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
+  onEmitirRelatorio?: () => void;
 }
 
 export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
@@ -24,9 +24,8 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
   obra,
   onUpdateObra,
   showToast,
+  onEmitirRelatorio,
 }) => {
-  const [metodo, setMetodo] = useState<'download' | 'email'>('download');
-
   // Preencher automaticamente com os dados da empresa cadastrada que registrou a obra
   const getEmpresaCadastrada = () => {
     if (obra.empresaResponsavel && obra.empresaResponsavel.trim()) {
@@ -40,8 +39,6 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
   };
 
   const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState(getEmpresaCadastrada);
-  const [emailDestino, setEmailDestino] = useState('');
-  const [emailError, setEmailError] = useState('');
 
   // Sincronizar ao abrir o modal com a empresa cadastrada na obra
   React.useEffect(() => {
@@ -69,33 +66,16 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
       }
     }
 
-    if (metodo === 'email') {
-      const emailLimpo = emailDestino.trim();
-      if (!emailLimpo) {
-        setEmailError('Informe o e-mail de destino.');
-        return;
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(emailLimpo)) {
-        setEmailError('Insira um endereço de e-mail válido.');
-        return;
-      }
-      setEmailError('');
-
-      showToast(
-        'Solicitação registrada!',
-        `O envio do relatório para ${emailLimpo} foi configurado com sucesso.`,
-        'success'
-      );
-      onClose();
+    if (onEmitirRelatorio) {
+      onEmitirRelatorio();
     } else {
       showToast(
         'Solicitação registrada!',
         'Os parâmetros do relatório final foram configurados para download.',
         'success'
       );
-      onClose();
     }
+    onClose();
   };
 
   return (
@@ -185,76 +165,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Seletor Segmentado Moderno (Canal de Entrega) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              background: 'var(--dark-coffee-100)',
-              padding: 3,
-              borderRadius: 'var(--radius-sm)',
-              gap: 4,
-              marginBottom: 16,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setMetodo('download')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-xs)',
-                border: 'none',
-                background: metodo === 'download' ? '#ffffff' : 'transparent',
-                color: metodo === 'download' ? 'var(--text-main)' : 'var(--text-muted)',
-                fontWeight: metodo === 'download' ? 700 : 500,
-                fontSize: '0.80rem',
-                boxShadow: metodo === 'download' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <DownloadSimple
-                size={15}
-                weight={metodo === 'download' ? 'bold' : 'regular'}
-                color={metodo === 'download' ? 'var(--primary-accent)' : undefined}
-              />
-              <span>Baixar Relatório</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMetodo('email')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-xs)',
-                border: 'none',
-                background: metodo === 'email' ? '#ffffff' : 'transparent',
-                color: metodo === 'email' ? 'var(--text-main)' : 'var(--text-muted)',
-                fontWeight: metodo === 'email' ? 700 : 500,
-                fontSize: '0.80rem',
-                boxShadow: metodo === 'email' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <EnvelopeSimple
-                size={15}
-                weight={metodo === 'email' ? 'bold' : 'regular'}
-                color={metodo === 'email' ? 'var(--primary-accent)' : undefined}
-              />
-              <span>Enviar por E-mail</span>
-            </button>
-          </div>
-
-          {/* Campo: Empresa ou Empreiteiro Responsável */}
+          {/* Campo: Nome da Empresa */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <label
@@ -269,11 +180,11 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   margin: 0,
                 }}
               >
-                Empresa ou Empreiteiro Responsável
+                Nome da Empresa
               </label>
               {(obra.empresaResponsavel || empresaEmpreiteiro) && (
                 <span style={{ fontSize: '0.68rem', color: '#16a34a', fontWeight: 600 }}>
-                  Preenchido do cadastro
+                  Preenchido da conta
                 </span>
               )}
             </div>
@@ -283,7 +194,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 type="text"
                 value={empresaEmpreiteiro}
                 onChange={(e) => setEmpresaEmpreiteiro(e.target.value)}
-                placeholder="Ex: Construtora Silva ou Empreiteiro João"
+                placeholder="Ex: Construtora Silva"
                 className="input-field"
                 style={{
                   width: '100%',
@@ -292,6 +203,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   height: '38px',
                   borderRadius: 'var(--radius-sm)',
                 }}
+                autoFocus
               />
               <div
                 style={{
@@ -308,66 +220,6 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Campo: E-mail do Destinatário (quando método for email) */}
-          {metodo === 'email' && (
-            <div style={{ marginBottom: 14 }}>
-              <label
-                htmlFor="email-destino-input"
-                style={{
-                  display: 'block',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.5,
-                  color: 'var(--text-muted)',
-                  marginBottom: 6,
-                }}
-              >
-                E-mail de Destino *
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="email-destino-input"
-                  type="email"
-                  value={emailDestino}
-                  onChange={(e) => {
-                    setEmailDestino(e.target.value);
-                    if (emailError) setEmailError('');
-                  }}
-                  placeholder="cliente@exemplo.com.br"
-                  className="input-field"
-                  style={{
-                    width: '100%',
-                    paddingLeft: '34px',
-                    fontSize: '0.85rem',
-                    height: '38px',
-                    borderRadius: 'var(--radius-sm)',
-                    borderColor: emailError ? '#dc2626' : undefined,
-                  }}
-                  autoFocus
-                />
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    pointerEvents: 'none',
-                  }}
-                >
-                  <EnvelopeSimple size={15} />
-                </div>
-              </div>
-              {emailError && (
-                <span style={{ fontSize: '0.72rem', color: '#dc2626', marginTop: 4, display: 'block' }}>
-                  {emailError}
-                </span>
-              )}
-            </div>
-          )}
 
           {/* Destaque Sutil: Conteúdo Completo Anexado */}
           <div
@@ -424,17 +276,8 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 gap: 6,
               }}
             >
-              {metodo === 'download' ? (
-                <>
-                  <DownloadSimple size={15} weight="bold" />
-                  <span>Baixar Relatório</span>
-                </>
-              ) : (
-                <>
-                  <PaperPlaneTilt size={15} weight="bold" />
-                  <span>Enviar por E-mail</span>
-                </>
-              )}
+              <DownloadSimple size={15} weight="bold" />
+              <span>Baixar Relatório</span>
             </button>
           </div>
         </form>

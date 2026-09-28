@@ -15,7 +15,10 @@ import {
   WarningCircle,
   Check,
   User,
-  Tag
+  Tag,
+  WhatsappLogo,
+  CurrencyDollar,
+  TrendUp
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
@@ -45,6 +48,56 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
 
   const decisoes = obra.decisoes || [];
+
+  // Cálculos Financeiros de Aditivos e Supressivos
+  const orcamentoBase = obra.orcamentoInicial || 0;
+  const aditivosAprovados = decisoes
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+  const supressivosAprovados = decisoes
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+  const saldoAprovados = aditivosAprovados + supressivosAprovados;
+
+  const aditivosPendentes = decisoes
+    .filter((d) => d.status === 'pendente' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+  const supressivosPendentes = decisoes
+    .filter((d) => d.status === 'pendente' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+
+  const totalInvestimento = orcamentoBase + saldoAprovados;
+
+  const formatarMoeda = (val: number) => {
+    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  };
+
+  const gerarLinkWhatsAppDecisao = (decisao: Decisao) => {
+    const urlObra = typeof window !== 'undefined'
+      ? `${window.location.origin}?obra=${obra.id}&perfil=${decisao.criadaPor === 'construtor' ? 'cliente' : 'construtor'}&tab=decisoes`
+      : '';
+
+    let msg = `*Eixo - Decisão de Obra Pendente*\n\n`;
+    msg += `Olá! Há uma decisão aguardando validação e assinatura digital na obra *${obra.nome}*:\n\n`;
+    msg += `📌 *${decisao.titulo}*\n`;
+    if (decisao.descricao) {
+      const resumo = decisao.descricao.length > 140 ? decisao.descricao.substring(0, 137) + '...' : decisao.descricao;
+      msg += `📝 _"${resumo}"_\n`;
+    }
+    if (decisao.impactoFinanceiro && decisao.impactoFinanceiro > 0) {
+      msg += `💰 Impacto Financeiro: *+${decisao.impactoFinanceiro.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo)*\n`;
+    } else if (decisao.impactoFinanceiro && decisao.impactoFinanceiro < 0) {
+      msg += `💰 Impacto Financeiro: *-${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo / Redução)*\n`;
+    }
+    if (decisao.impactoPrazoDias && decisao.impactoPrazoDias > 0) {
+      msg += `⏱️ Impacto no Prazo: *+${decisao.impactoPrazoDias} dias*\n`;
+    }
+    if (urlObra) {
+      msg += `\nPara analisar os detalhes e assinar formalmente, acesse:\n👉 ${urlObra}`;
+    }
+
+    return `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  };
 
   const formatarDataHora = (isoStr?: string) => {
     if (!isoStr) return '';
@@ -99,7 +152,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          marginBottom: 20,
+          marginBottom: 18,
           flexWrap: 'wrap',
           gap: 16,
         }}
@@ -122,6 +175,94 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
           <Plus size={16} weight="bold" />
           <span>Propor Nova Decisão</span>
         </button>
+      </div>
+
+      {/* Painel Financeiro de Aditivos Contratuais */}
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1px solid var(--border-hairline)',
+          borderRadius: 'var(--radius-md)',
+          padding: '16px 20px',
+          marginBottom: 20,
+          boxShadow: 'var(--shadow-subtle)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CurrencyDollar size={18} weight="bold" color="var(--primary-accent)" />
+            <strong style={{ fontSize: '0.90rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+              Painel Financeiro & Aditivos Contratuais
+            </strong>
+          </div>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Consolidação de orçamento base e alterações aprovadas
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+          }}
+        >
+          {/* Orçamento Base */}
+          <div style={{ padding: '12px 14px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-hairline)' }}>
+            <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>
+              Orçamento Base
+            </span>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 4 }}>
+              {orcamentoBase > 0 ? formatarMoeda(orcamentoBase) : 'Não informado'}
+            </div>
+          </div>
+
+          {/* Aditivos Aprovados */}
+          <div style={{ padding: '12px 14px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-hairline)' }}>
+            <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--cinnamon-wood-700)', fontWeight: 700, display: 'block' }}>
+              Aditivos Aprovados
+            </span>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: aditivosAprovados > 0 ? 'var(--cinnamon-wood-700)' : 'var(--text-main)', marginTop: 4 }}>
+              {aditivosAprovados > 0 ? `+${formatarMoeda(aditivosAprovados)}` : 'R$ 0,00'}
+            </div>
+          </div>
+
+          {/* Supressivos Aprovados */}
+          {supressivosAprovados < 0 && (
+            <div style={{ padding: '12px 14px', background: '#f0fdf4', borderRadius: 'var(--radius-sm)', border: '1px solid #bbf7d0' }}>
+              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#15803d', fontWeight: 700, display: 'block' }}>
+                Supressivos Aprovados
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#15803d', marginTop: 4 }}>
+                -{formatarMoeda(Math.abs(supressivosAprovados))}
+              </div>
+            </div>
+          )}
+
+          {/* Total Investimento */}
+          <div style={{ padding: '12px 14px', background: 'var(--coral-glow-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--coral-glow-200)' }}>
+            <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--primary-accent)', fontWeight: 700, display: 'block' }}>
+              Investimento Atualizado
+            </span>
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-accent)', marginTop: 4 }}>
+              {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados < 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
+            </div>
+          </div>
+
+          {/* Propostas em Análise */}
+          {(aditivosPendentes > 0 || supressivosPendentes < 0) && (
+            <div style={{ padding: '12px 14px', background: '#fef3c7', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
+              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#b45309', fontWeight: 700, display: 'block' }}>
+                Propostas em Análise
+              </span>
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#b45309', marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {aditivosPendentes > 0 && <span>+{formatarMoeda(aditivosPendentes)}</span>}
+                {aditivosPendentes > 0 && supressivosPendentes < 0 && <span style={{ color: '#d97706' }}>|</span>}
+                {supressivosPendentes < 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Alerta de Decisões Pendentes da Minha Assinatura */}
@@ -335,27 +476,29 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          {/* Badge de Categoria */}
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                              padding: '3px 9px',
-                              borderRadius: 'var(--radius-sm)',
-                              background: 'var(--dark-coffee-100)',
-                              color: 'var(--dark-coffee-900)',
-                              letterSpacing: 0.3,
-                            }}
-                          >
-                            <Tag size={13} weight="bold" color="var(--primary-accent)" />
-                            {getCategoriaLabel(decisao.categoria)}
-                          </span>
-
-                          {/* Divisor */}
-                          <span style={{ color: 'var(--border-hairline)', fontSize: '0.8rem' }}>•</span>
+                          {/* Badge de Categoria (opcional/legado) */}
+                          {decisao.categoria && decisao.categoria !== 'outro' && (
+                            <>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  fontSize: '0.74rem',
+                                  fontWeight: 700,
+                                  padding: '3px 9px',
+                                  borderRadius: 'var(--radius-sm)',
+                                  background: 'var(--dark-coffee-100)',
+                                  color: 'var(--dark-coffee-900)',
+                                  letterSpacing: 0.3,
+                                }}
+                              >
+                                <Tag size={13} weight="bold" color="var(--primary-accent)" />
+                                {getCategoriaLabel(decisao.categoria)}
+                              </span>
+                              <span style={{ color: 'var(--border-hairline)', fontSize: '0.8rem' }}>•</span>
+                            </>
+                          )}
 
                           {/* Autor identificado */}
                           <span
@@ -404,8 +547,33 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                           </span>
                         </div>
 
-                        {/* Badge de Status */}
-                        <div>
+                        {/* Badge de Status e Botão WhatsApp */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          {isPendente && (
+                            <a
+                              href={gerarLinkWhatsAppDecisao(decisao)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-secondary"
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.76rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                color: '#15803d',
+                                borderColor: '#bbf7d0',
+                                background: '#f0fdf4',
+                                textDecoration: 'none',
+                                fontWeight: 600,
+                              }}
+                              title="Avisar ou cobrar manifestação da contraparte no WhatsApp"
+                            >
+                              <WhatsappLogo size={15} weight="bold" color="#16a34a" />
+                              <span>Avisar no WhatsApp</span>
+                            </a>
+                          )}
+
                           {isAprovada ? (
                             <span
                               style={{
@@ -495,8 +663,9 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                               style={{
                                 fontSize: '0.8rem',
                                 fontWeight: 600,
-                                color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : '#16a34a',
-                                background: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-50)' : '#dcfce7',
+                                color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : decisao.impactoFinanceiro < 0 ? '#15803d' : 'var(--text-muted)',
+                                background: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-50)' : decisao.impactoFinanceiro < 0 ? '#dcfce7' : 'var(--dark-coffee-50)',
+                                border: `1px solid ${decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-200)' : decisao.impactoFinanceiro < 0 ? '#bbf7d0' : 'var(--border-hairline)'}`,
                                 padding: '4px 10px',
                                 borderRadius: 6,
                                 display: 'inline-flex',
@@ -506,8 +675,10 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                             >
                               <Money size={15} weight="bold" />
                               {decisao.impactoFinanceiro > 0
-                                ? `Impacto: +R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                : 'Sem custo financeiro adicional'}
+                                ? `Aditivo: +R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : decisao.impactoFinanceiro < 0
+                                ? `Supressivo: -R$ ${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                : 'Sem impacto financeiro'}
                             </span>
                           )}
 

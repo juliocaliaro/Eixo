@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, Buildings } from '@phosphor-icons/react';
+import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
 
@@ -13,6 +13,7 @@ interface ModalEditObraProps {
     endereco: string;
     dataPrevista: string;
     empresaResponsavel?: string;
+    orcamentoInicial?: number;
   }) => void;
 }
 
@@ -23,19 +24,19 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   onSave,
 }) => {
   const [nome, setNome] = useState('');
-  const [empresaResponsavel, setEmpresaResponsavel] = useState('');
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
+  const [orcamentoInicial, setOrcamentoInicial] = useState<string>('');
   const [dataPrevista, setDataPrevista] = useState('');
   const [erro, setErro] = useState('');
 
   useEffect(() => {
     if (obra) {
       setNome(obra.nome);
-      setEmpresaResponsavel(obra.empresaResponsavel || '');
       setCliente(obra.cliente);
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
+      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? String(obra.orcamentoInicial) : '');
       setErro('');
     }
   }, [obra, isOpen]);
@@ -53,12 +54,15 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       return;
     }
 
+    const valorNumerico = orcamentoInicial.trim() ? parseFloat(orcamentoInicial.replace(',', '.')) : undefined;
+
     onSave({
       nome: nome.trim(),
-      empresaResponsavel: empresaResponsavel.trim() || undefined,
+      empresaResponsavel: obra.empresaResponsavel,
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || obra.dataPrevista,
+      orcamentoInicial: valorNumerico !== undefined && !isNaN(valorNumerico) ? valorNumerico : undefined,
     });
   };
 
@@ -122,22 +126,6 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
             <div className="form-group">
               <label className="form-label">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Buildings size={18} color="var(--primary-accent)" weight="bold" />
-                  Empresa ou Empreiteiro Responsável
-                </span>
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Construtora Silva ou Empreiteiro João"
-                value={empresaResponsavel}
-                onChange={(e) => setEmpresaResponsavel(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <User size={18} color="var(--primary-accent)" weight="bold" />
                   Cliente *
                 </span>
@@ -163,6 +151,27 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
                 value={endereco}
                 onChange={(e) => setEndereco(e.target.value)}
               />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <CurrencyDollar size={18} color="var(--primary-accent)" weight="bold" />
+                  Valor Contratado Inicial (R$)
+                </span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className="form-input"
+                placeholder="Ex: 185000"
+                value={orcamentoInicial}
+                onChange={(e) => setOrcamentoInicial(e.target.value)}
+              />
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                Base financeira para cálculo automático dos aditivos contratuais aprovados.
+              </span>
             </div>
 
             <DatePickerInput

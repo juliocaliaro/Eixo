@@ -1,5 +1,5 @@
 import React from 'react';
-import { PencilSimple, MapPin, User, CalendarBlank, CheckCircle, Clock, FileText } from '@phosphor-icons/react';
+import { PencilSimple, MapPin, User, CalendarBlank, CheckCircle, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 
 interface ObraHeaderProps {
@@ -14,6 +14,21 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
   const totalTarefas = todasTarefas.length;
   const concluidas = todasTarefas.filter((t) => t.concluida).length;
   const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+
+  const aditivosAprovados = (obra.decisoes || [])
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+
+  const supressivosAprovados = (obra.decisoes || [])
+    .filter((d) => d.status === 'aprovada' && typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
+    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
+
+  const saldoAlteracoes = aditivosAprovados + supressivosAprovados;
+  const totalInvestimento = (obra.orcamentoInicial || 0) + saldoAlteracoes;
+
+  const formatarMoeda = (val: number) => {
+    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  };
 
   const formatarData = (dataStr: string) => {
     if (!dataStr) return 'Não definida';
@@ -30,14 +45,14 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
     <div className="obra-header-panel">
       <div className="obra-header-top">
         <div className="obra-title-block">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span
               style={{
                 fontSize: '0.75rem',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.8px',
-                color: percentual === 100 ? '#16a34a' : 'var(--bright-teal-blue)',
+                color: percentual === 100 ? '#16a34a' : 'var(--primary-accent)',
               }}
             >
               {percentual === 100 ? 'Obra Concluída' : 'Obra Ativa'}
@@ -53,19 +68,39 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
           {/* Faixa de Metadados Diretos */}
           <div className="obra-meta-strip">
             <div className="obra-meta-item">
-              <User size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <User size={16} color="var(--primary-accent)" weight="bold" />
               <span>Cliente: <strong>{obra.cliente}</strong></span>
             </div>
 
             <div className="obra-meta-item">
-              <MapPin size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <MapPin size={16} color="var(--primary-accent)" weight="bold" />
               <span>{obra.endereco}</span>
             </div>
 
             <div className="obra-meta-item">
-              <CalendarBlank size={16} color="var(--bright-teal-blue)" weight="bold" />
+              <CalendarBlank size={16} color="var(--primary-accent)" weight="bold" />
               <span>Término previsto: <strong>{formatarData(obra.dataPrevista)}</strong></span>
             </div>
+
+            {obra.orcamentoInicial !== undefined && obra.orcamentoInicial > 0 && (
+              <div className="obra-meta-item">
+                <CurrencyDollar size={16} color="var(--primary-accent)" weight="bold" />
+                <span>
+                  Orçamento: <strong>{formatarMoeda(obra.orcamentoInicial)}</strong>
+                  {saldoAlteracoes !== 0 && (
+                    <span
+                      style={{
+                        color: saldoAlteracoes > 0 ? 'var(--primary-accent)' : '#16a34a',
+                        marginLeft: 5,
+                        fontSize: '0.78rem',
+                      }}
+                    >
+                      ({saldoAlteracoes > 0 ? `+${formatarMoeda(saldoAlteracoes)}` : `-${formatarMoeda(Math.abs(saldoAlteracoes))}`} = <strong>{formatarMoeda(totalInvestimento)}</strong>)
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -119,11 +154,11 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
       <div className="progress-strip-wrapper">
         <div className="progress-strip-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', color: 'var(--text-body)' }}>
-            <CheckCircle size={17} weight="fill" color="var(--bright-teal-blue)" />
+            <CheckCircle size={17} weight="fill" color="var(--primary-accent)" />
             <span>Avanço Físico</span>
           </div>
           <div>
-            <strong style={{ color: 'var(--bright-teal-blue)', fontSize: '1rem' }}>{percentual}%</strong>
+            <strong style={{ color: 'var(--primary-accent)', fontSize: '1rem' }}>{percentual}%</strong>
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
               ({concluidas} de {totalTarefas} tarefas concluídas)
             </span>

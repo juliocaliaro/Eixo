@@ -16,7 +16,7 @@ export const App: React.FC = () => {
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
+  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
 
@@ -122,6 +122,7 @@ export const App: React.FC = () => {
     endereco: string;
     dataPrevista: string;
     empresaResponsavel?: string;
+    orcamentoInicial?: number;
   }) => {
     if (dados.empresaResponsavel) {
       try {
@@ -136,6 +137,7 @@ export const App: React.FC = () => {
       endereco: dados.endereco,
       dataPrevista: dados.dataPrevista,
       empresaResponsavel: dados.empresaResponsavel,
+      orcamentoInicial: dados.orcamentoInicial,
       criadaEm: new Date().toISOString(),
       etapas: [],
       anexosGerais: [],
@@ -167,6 +169,7 @@ export const App: React.FC = () => {
       cliente: 'Dra. Carolina Mendes',
       endereco: 'Alameda Santos, 1820 - Apto 402, São Paulo - SP',
       dataPrevista: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      orcamentoInicial: 185000,
       criadaEm: new Date().toISOString(),
       etapas: [
         {
@@ -298,6 +301,7 @@ export const App: React.FC = () => {
           url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
         },
       ],
+      punchList: [],
     };
 
     setObras([demoObra, ...obras]);

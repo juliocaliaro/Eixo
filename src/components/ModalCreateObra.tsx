@@ -9,7 +9,7 @@ import {
   CalendarBlank,
   WarningCircle,
   Plus,
-  Buildings,
+  CurrencyDollar,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
 
@@ -22,6 +22,7 @@ interface ModalCreateObraProps {
     endereco: string;
     dataPrevista: string;
     empresaResponsavel?: string;
+    orcamentoInicial?: number;
   }) => void;
 }
 
@@ -32,16 +33,10 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [nome, setNome] = useState('');
-  const [empresaResponsavel, setEmpresaResponsavel] = useState(() => {
-    try {
-      return localStorage.getItem('eixo_empresa_cadastrada') || '';
-    } catch {
-      return '';
-    }
-  });
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
+  const [orcamentoInicial, setOrcamentoInicial] = useState('');
   const [erro, setErro] = useState('');
 
   // Guarda temporal para evitar que duplo toque ou click residual no celular submeta o passo 3 acidentalmente
@@ -103,12 +98,14 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       return;
     }
 
+    const savedEmpresa = typeof window !== 'undefined' ? localStorage.getItem('eixo_empresa_cadastrada') || undefined : undefined;
     onSubmit({
       nome: nome.trim(),
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || '',
-      empresaResponsavel: empresaResponsavel.trim() || undefined,
+      empresaResponsavel: savedEmpresa,
+      orcamentoInicial: orcamentoInicial ? Number(orcamentoInicial) : undefined,
     });
 
     // Reset de estado
@@ -116,6 +113,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
     setCliente('');
     setEndereco('');
     setDataPrevista('');
+    setOrcamentoInicial('');
     setStep(1);
     setErro('');
   };
@@ -233,7 +231,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   Identificação principal do projeto utilizada pela sua equipe.
                 </p>
 
-                <div className="form-group" style={{ marginBottom: 14 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" />
@@ -257,33 +255,6 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                     }}
                     autoFocus
                   />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <Buildings size={18} color="var(--primary-accent)" weight="bold" />
-                      Empresa ou Empreiteiro Responsável
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Ex: Construtora Silva ou Empreiteiro João"
-                    value={empresaResponsavel}
-                    onChange={(e) => {
-                      setEmpresaResponsavel(e.target.value);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleNextFrom1();
-                      }
-                    }}
-                  />
-                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                    Sua empresa cadastrada como responsável técnica pela execução da obra.
-                  </span>
                 </div>
               </div>
             )}
@@ -379,6 +350,24 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                   label="Data Prevista de Conclusão"
                   helperText="Permitido apenas datas futuras (a partir de amanhã)."
                 />
+
+                <div className="form-group" style={{ marginTop: 14 }}>
+                  <label className="form-label">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <CurrencyDollar size={18} color="var(--primary-accent)" weight="bold" />
+                      Orçamento Inicial Previsto (R$ - Opcional)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Ex: 185000"
+                    value={orcamentoInicial}
+                    onChange={(e) => setOrcamentoInicial(e.target.value)}
+                    min="0"
+                    step="100"
+                  />
+                </div>
               </div>
             )}
           </div>

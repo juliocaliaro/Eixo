@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
-import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from '../types/obra';
+import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
+import { VistoriaPunchList } from './VistoriaPunchList';
 import { DecisoesTab } from './DecisoesTab';
 import { AnexosTab } from './AnexosTab';
 import { ProjetosTab } from './ProjetosTab';
@@ -11,14 +12,15 @@ import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
+import { ModalPreviewRelatorio } from './ModalPreviewRelatorio';
 
 interface ObraDetailProps {
   obra: Obra;
   onUpdateObra: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
   perfilAtivo?: PerfilUsuario;
-  activeTab?: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar';
-  onChangeTab?: (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => void;
+  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar';
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => void;
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
   templates?: PresetTipoObra[];
@@ -35,11 +37,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onSwitchToClient,
   templates,
 }) => {
-  // Controle de Abas: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar'>('etapas');
+  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
   const activeTab = activeTabProp || localActiveTab;
 
-  const handleSelectTab = (tab: 'etapas' | 'decisoes' | 'projetos' | 'anexos' | 'compartilhar') => {
+  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => {
     setLocalActiveTab(tab);
     if (onChangeTab) onChangeTab(tab);
   };
@@ -61,6 +63,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardInsertIndex, setWizardInsertIndex] = useState<number | null>(null);
   const [isRelatorioOpen, setIsRelatorioOpen] = useState(false);
+  const [isPreviewRelatorioOpen, setIsPreviewRelatorioOpen] = useState(false);
+  const [autoPrintRelatorio, setAutoPrintRelatorio] = useState(false);
+
+  const handleEmitirRelatorio = () => {
+    setAutoPrintRelatorio(true);
+    setIsPreviewRelatorioOpen(true);
+    showToast('Gerando Relatório...', 'Preparando visualização executiva e janela de impressão A4 / PDF.', 'info');
+  };
 
   // Modal pós-conclusão de tarefa para foto/anotação
   const [mediaModalData, setMediaModalData] = useState<{
@@ -465,6 +475,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     });
   };
 
+  // --- Handler da Vistoria Final ---
+  const handleUpdatePunchList = (newItems: PunchListItem[]) => {
+    onUpdateObra({
+      ...obra,
+      punchList: newItems,
+    });
+  };
+
   // Contagem de decisões pendentes de assinatura do perfil atual
   const pendenciasDecisao = (obra.decisoes || []).filter(
     (d) => d.status === 'pendente' && d.criadaPor !== perfilAtivo
@@ -515,7 +533,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         perfilAtivo={perfilAtivo}
       />
 
-      {/* Navegação por Abas: Etapas, Decisões, Anexos, Link do Cliente */}
+      {/* Navegação por Abas: Etapas, Projetos, Decisões, Anexos, Link do Cliente */}
       <nav className="tabs-nav" aria-label="Abas da Obra">
         <button
           className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
@@ -523,6 +541,29 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         >
           <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
           <span>Etapas & Cronograma</span>
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
+          onClick={() => handleSelectTab('projetos')}
+        >
+          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
+          <span>Projetos (PDF)</span>
+          {(obra.projetos || []).length > 0 && (
+            <span
+              style={{
+                marginLeft: 4,
+                background: 'var(--dark-coffee-100)',
+                color: 'var(--dark-coffee-800)',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                padding: '1px 6px',
+                borderRadius: 10,
+              }}
+            >
+              {obra.projetos!.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -550,29 +591,6 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         </button>
 
         <button
-          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('projetos')}
-        >
-          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
-          <span>Projetos (PDF)</span>
-          {(obra.projetos || []).length > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {obra.projetos!.length}
-            </span>
-          )}
-        </button>
-
-        <button
           className={`tab-btn ${activeTab === 'anexos' ? 'active' : ''}`}
           onClick={() => handleSelectTab('anexos')}
         >
@@ -591,20 +609,42 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
       {/* Conteúdo da Aba Ativa */}
       {activeTab === 'etapas' && (
-        <TimelineEtapas
+        <>
+          <TimelineEtapas
+            obra={obra}
+            onOpenWizard={handleOpenWizard}
+            onToggleTask={handleToggleTask}
+            onDeleteEtapa={handleDeleteEtapa}
+            onEditEtapaNome={handleEditEtapaNome}
+            onReorderEtapas={handleReorderEtapas}
+            onDeleteTask={handleDeleteTask}
+            onEditTaskNome={handleEditTaskNome}
+            onReorderTasks={handleReorderTasks}
+            onAddTaskToEtapa={handleAddTaskToEtapa}
+            onUpdateTaskMedia={handleUpdateTaskMedia}
+            isReadOnly={perfilAtivo === 'cliente'}
+            targetTaskNavigation={targetTaskNavigation}
+          />
+
+          <div style={{ marginTop: 28 }}>
+            <VistoriaPunchList
+              punchList={obra.punchList || []}
+              onUpdatePunchList={handleUpdatePunchList}
+              perfilAtivo={perfilAtivo}
+              clienteNome={obra.cliente}
+              showToast={showToast}
+            />
+          </div>
+        </>
+      )}
+
+      {activeTab === 'projetos' && (
+        <ProjetosTab
           obra={obra}
-          onOpenWizard={handleOpenWizard}
-          onToggleTask={handleToggleTask}
-          onDeleteEtapa={handleDeleteEtapa}
-          onEditEtapaNome={handleEditEtapaNome}
-          onReorderEtapas={handleReorderEtapas}
-          onDeleteTask={handleDeleteTask}
-          onEditTaskNome={handleEditTaskNome}
-          onReorderTasks={handleReorderTasks}
-          onAddTaskToEtapa={handleAddTaskToEtapa}
-          onUpdateTaskMedia={handleUpdateTaskMedia}
-          isReadOnly={perfilAtivo === 'cliente'}
-          targetTaskNavigation={targetTaskNavigation}
+          perfilAtivo={perfilAtivo}
+          onAddProjeto={handleAddProjeto}
+          onDeleteProjeto={handleDeleteProjeto}
+          showToast={showToast}
         />
       )}
 
@@ -616,16 +656,6 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onAddDecisao={handleAddDecisao}
           onAssinarDecisao={handleAssinarDecisao}
           onRecusarDecisao={handleRecusarDecisao}
-        />
-      )}
-
-      {activeTab === 'projetos' && (
-        <ProjetosTab
-          obra={obra}
-          perfilAtivo={perfilAtivo}
-          onAddProjeto={handleAddProjeto}
-          onDeleteProjeto={handleDeleteProjeto}
-          showToast={showToast}
         />
       )}
 
@@ -683,6 +713,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         obra={obra}
         onUpdateObra={onUpdateObra}
         showToast={showToast}
+        onEmitirRelatorio={handleEmitirRelatorio}
+      />
+
+      <ModalPreviewRelatorio
+        isOpen={isPreviewRelatorioOpen}
+        onClose={() => setIsPreviewRelatorioOpen(false)}
+        obra={obra}
+        autoPrint={autoPrintRelatorio}
       />
     </div>
   );

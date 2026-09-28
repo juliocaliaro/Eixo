@@ -67,8 +67,8 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - A decisão fica em estado `pendente` (com selo e ícone `<Clock />`) até a contraparte analisar.
   - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar**.
   - Uma vez assinada pela contraparte, a decisão torna-se `aprovada` e exibe carimbo digital auditável com nome, perfil e data/hora exatos de ambas as assinaturas.
-- **Timeline Vertical**: Exibição cronológica das decisões com linha espinhal conectando os eventos.
-- **Modal de Criação Minimalista**: Apenas título, descrição, linha compacta de categoria/custo/prazo e upload opcional de fotos de amostra, sem textos redundantes.
+- **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
+- **Remoção de Categorias**: O seletor de categorias foi removido da criação para desburocratizar o registro de decisões pelo usuário.
 - **Central de Notificações**: Sininho com contador em tempo real no topo informando decisões pendentes da assinatura do perfil logado, com dropdown para navegação direta.
 
 ---
@@ -81,7 +81,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 2. **Seta de Voltar no Corpo**:
    - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, totalmente desacoplado da barra superior.
 3. **Link do Cliente como Aba**:
-   - O compartilhamento com o cliente foi integrado como a 4ª aba da obra (`Etapas & Cronograma`, `Decisões & Aprovações`, `Anexos & Diário`, `Link do Cliente`).
+   - O compartilhamento com o cliente foi integrado como a 5ª aba da obra (ordem oficial: `Etapas & Cronograma`, `Projetos (PDF)`, `Decisões & Aprovações`, `Anexos & Diário`, `Link do Cliente`).
 4. **Navegação Cruzada (Anexos $\rightarrow$ Cronograma)**:
    - Clicar nos detalhes de uma anotação ou serviço na aba de Anexos navega instantaneamente para a aba de etapas.
    - O accordion da etapa é expandido automaticamente caso esteja fechado.
@@ -129,7 +129,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 ## 9. Central de Projetos Técnicos em PDF (`ProjetosTab` & `ModalUploadProjeto`)
 
 - **Aba "Projetos (PDF)" na Obra**:
-  - Nova aba integrada na visualização da obra (`ObraDetail`), posicionada estrategicamente entre Decisões e Anexos.
+  - Aba integrada na visualização da obra (`ObraDetail`), posicionada como 2ª aba, logo após Etapas & Cronograma e antes de Decisões & Aprovações.
   - Exibe contador dinâmico de pranchas/projetos anexados.
 - **Upload com Classificação Técnica Obrigatória**:
   - O modal `ModalUploadProjeto` exige a definição da disciplina do projeto (Elétrico, Hidráulico, Demolição, Arquitetônico, Estrutural, Climatização, Marcenaria ou Outro com digitação livre).
@@ -143,7 +143,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ## 10. Listas Padrão Oficiais de Construção e Reforma
 
-### 10.1 Construção (13 Etapas Técnicas)
+### 10.1 Construção (12 Etapas Técnicas)
 1. **Projetos e Legalização**: Levantamento topográfico/sondagem, elaboração de projetos arquitetônicos e complementares, aprovação em prefeitura/alvará, ligações provisórias de água e energia.
 2. **Terreno e Canteiro**: Limpeza e nivelamento do terreno, montagem de tapume/portões, canteiro de obras (banheiro, almoxarifado, refeitório), locação da obra (gabarito).
 3. **Fundação e Contenção**: Cortes, aterros e muros de arrimo, escavação das fundações, concretagem de sapatas/estacas e vigas baldrame, impermeabilização das fundações.
@@ -155,17 +155,15 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 9. **Revestimentos e Gesso**: Forros de gesso, assentamento de pisos e revestimentos, bancadas, soleiras e nichos.
 10. **Acabamentos e Pintura**: Preparação, emassamento e lixamento, pintura, pisos quentes (laminado/vinílico) e rodapés, portas e esquadrias finais (vidro/alumínio).
 11. **Área Externa e Paisagismo**: Piscina (escavação/revestimento), pavimentação externa, portões e grades, preparo de solo e plantio.
-12. **Finalização**: Placas solares/inversor, aquecimento solar de boiler, louças/metais/espelhos, luminárias e tomadas, ar-condicionado, limpeza fina.
-13. **Testes, Desmobilização e Entrega**: Testes elétricos/solar, testes de vazão/pressão hidráulica, testes de ar-condicionado, vistoria geral de acabamentos, desmobilização de canteiro, Habite-se e entrega de chaves.
+12. **Finalização**: Placas solares/inversor, aquecimento solar de boiler, louças/metais/espelhos, luminárias e tomadas, ar-condicionado, limpeza fina, desmobilização de canteiro, Habite-se e entrega de chaves. *(Nota: Testes operacionais e vistorias de acabamento foram migrados para o Checklist de Vistoria Final / Punch List de Entrega).*
 
-### 10.2 Reforma (7 Etapas Técnicas)
+### 10.2 Reforma (6 Etapas Técnicas)
 1. **Isolamento e Preparação**: Proteção de elevadores e áreas comuns, proteção de pisos existentes, isolamento de móveis, desmontagem e armazenamento de itens reutilizáveis.
 2. **Demolição**: Demolição de alvenarias e revestimentos, remoção de forros/drywall, descarte de louças antigas, ensacamento de entulho.
 3. **Infraestrutura e Construção**: Novas paredes, adequação de pontos elétricos/iluminação, pontos hidráulicos/esgoto, fechamento de rasgos.
 4. **Revestimentos e Gesso**: Forros de gesso, impermeabilização de áreas molhadas, assentamento de novos revestimentos, bancadas e nichos.
 5. **Acabamentos e Pintura**: Preparação, emassamento e lixamento, pintura, pisos quentes e rodapés, portas.
-6. **Finalização**: Louças, metais e espelhos, luminárias e espelhos de tomada, limpeza fina.
-7. **Testes**: Teste de elétrica/iluminação, teste de pressão/vazão de água, teste de equipamentos (ar-condicionado, aquecedores), vistoria geral de portas, esquadrias e acabamentos.
+6. **Finalização**: Louças, metais e espelhos, luminárias e espelhos de tomada, limpeza fina. *(Nota: A antiga etapa 7 "Testes" foi integralmente absorvida pelo Checklist de Vistoria Final / Punch List de Entrega).*
 
 ---
 
@@ -174,11 +172,65 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Relatório de Conclusão (Dossiê Integral)**:
   - Disponível após o encerramento da obra através do botão `[ Relatório de Conclusão ]` no topo da página.
   - Anexo integral obrigatório: consolidação direta de todo o histórico da obra (cronograma físico cumprido, diário fotográfico com observações, decisões aprovadas com carimbos digitais, projetos técnicos e termo de entrega).
-  - Canais de entrega: **Baixar Relatório** ou **Enviar por E-mail**.
+  - Emissão e Entrega: **Baixar Relatório** (visualização executiva e impressão nativa A4 / Salvar como PDF via motor do navegador, 100% gratuita).
 - **Vinculação de Empresa/Empreiteiro e Transição para Login**:
   - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
   - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
   - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
+
+---
+
+## 12. Notificação e Cobrança via WhatsApp (Sugestão 7)
+
+- **Acionamento em 1 Clique**:
+  - Botão dedicado `[ Avisar no WhatsApp ]` integrado diretamente nos cartões de decisões pendentes de validação na aba `DecisoesTab`.
+  - Utiliza o esquema universal `https://wa.me/?text=...` com codificação segura de caracteres (`encodeURIComponent`).
+- **Mensagem Pré-Formatada Executiva**:
+  - Título oficial da decisão em negrito.
+  - Resumo contextual da descrição da pendência.
+  - Impacto financeiro (se houver, ex: `+R$ 1.250,00`) e impacto em dias no prazo (se houver, ex: `+3 dias úteis`).
+  - Link direto e inteligente para a aba da obra com o perfil destinatário correto (`?obra=ID&perfil=...&tab=decisoes`).
+
+---
+
+## 13. Painel Financeiro de Aditivos e Supressivos Contratuais (Sugestão 8)
+
+- **Gestão Contratual Transparente**:
+  - Campo opcional `orcamentoInicial` cadastrado na criação ou edição da obra (`ModalCreateObra`, `ModalEditObra`).
+  - **Mecânica de Aditivo e Supressivo**:
+    - **Aditivo (+R$)**: acréscimo de escopo ou melhoria técnica que eleva o investimento final.
+    - **Supressivo (-R$)**: exclusão de escopo, permuta de acabamentos por itens mais econômicos ou reajuste contratual para baixo, deduzindo diretamente do saldo do contrato.
+  - Soma automática e auditável de todos os aditivos e supressivos aprovados bilateralmente (`status === 'aprovada'`).
+  - Fórmula matemática consolidada: `Investimento Atualizado = Orçamento Base + Aditivos Aprovados + Supressivos Aprovados (negativo)`.
+- **Visualização em Pílulas e Cards**:
+  - **Painel em `DecisoesTab`**: Grid executivo com indicadores dinâmicos: *Orçamento Contratual Base*, *Aditivos Aprovados*, *Supressivos Aprovados* (destaque em verde economia), *Investimento Atualizado* e *Propostas em Análise*.
+  - **Badges de Decisões**: Decisões com acréscimo exibem `Aditivo: +R$ X,XX`; decisões com dedução exibem `Supressivo: -R$ X,XX` em verde.
+  - **Notificação WhatsApp**: Mensagem gerada rotula explicitamente `(Aditivo)` ou `(Supressivo / Redução)`.
+  - **Faixa de Metadados em `ObraHeader`**: Exibição compacta do orçamento base e do saldo líquido de alterações acumuladas.
+  - **Dossiê em `ModalPreviewRelatorio`**: Registro formal do orçamento base, aditivos aprovados, supressões aprovadas e investimento final nos metadados, KPIs e no Capítulo 3 do relatório impresso/PDF.
+
+---
+
+## 14. Remoção do Termômetro de Prazo e Ritmo de Cronograma
+
+- **Decisão de Simplificação ("Menos é mais")**:
+  - Removido da listagem geral (`ObraList`) e do cabeçalho detalhado (`ObraHeader`) para preservar a sobriedade executiva da interface e evitar ruídos visuais desnecessários.
+  - O controle de cronograma permanece centrado na data prevista de entrega e no avanço físico real das etapas e tarefas.
+
+---
+
+## 15. Checklist de Vistoria Final (Sugestão 11)
+
+- **Módulo Dedicado de Pré-Entrega (`VistoriaPunchList`)**:
+  - Oficialmente denominado **"Vistoria Final"**.
+  - Posicionado na aba de Etapas & Cronograma (`ObraDetail`), complementando o encerramento físico da obra.
+  - **Zero Tarefas Pré-Definidas**: Sem itens ou checklists pré-carregados engessados. A lista inicia 100% limpa, permitindo ao construtor cadastrar livremente pendências customizadas por ambiente (ex: "Suíte", "Varanda Gourmet", "Fachada") através do botão "Adicionar Item".
+  - Checkboxes interativos com registro de data/hora de resolução (`concluidoEm`).
+  - Exclusão com modal de confirmação no Design System (`ModalConfirm`).
+  - Selo visual de conformidade quando 100% das pendências forem sanadas.
+- **Inclusão no Dossiê de Conclusão**:
+  - Seção integrada no Capítulo 5 do Relatório de Conclusão (`ModalPreviewRelatorio`), servindo como termo de vistoria técnica e aceite de entrega de chaves.
+
 
 
 
