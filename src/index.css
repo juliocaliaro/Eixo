@@ -1346,8 +1346,7 @@ input, textarea, select {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(26, 19, 10, 0.82);
-  backdrop-filter: blur(5px);
+  background: #1a130a;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1360,7 +1359,7 @@ input, textarea, select {
   position: sticky;
   top: 0;
   z-index: 10000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .relatorio-top-bar-inner {
@@ -1374,17 +1373,19 @@ input, textarea, select {
 .relatorio-sheet-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 30px 16px 80px;
+  padding: 36px 16px 80px;
   display: flex;
   justify-content: center;
+  background: #251b0e;
 }
 
 .relatorio-document {
   width: 100%;
   max-width: 860px;
   background: #ffffff;
+  background-color: #ffffff;
   border-radius: var(--radius-sm);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
   padding: 44px 50px;
   color: #1a130a;
   font-size: 0.90rem;
@@ -1752,14 +1753,33 @@ input, textarea, select {
     margin: 12mm 14mm 14mm 14mm;
   }
 
-  html, body {
-    background: #ffffff !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 10pt !important;
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-sizing: border-box !important;
   }
 
-  /* Oculta tudo na tela tradicional */
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #1a130a !important;
+    font-size: 10pt !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Oculta tudo na tela tradicional que não faz parte do relatório */
   body * {
     visibility: hidden;
   }
@@ -1775,23 +1795,35 @@ input, textarea, select {
     visibility: hidden !important;
   }
 
-  /* Exibe o documento do relatório de ponta a ponta */
+  /* Exibe o documento do relatório de ponta a ponta com fundo 100% branco e sem transparência */
   .relatorio-modal-overlay {
     position: static !important;
     inset: auto !important;
-    background: transparent !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
     overflow: visible !important;
     display: block !important;
     padding: 0 !important;
     margin: 0 !important;
     backdrop-filter: none !important;
+    box-shadow: none !important;
+    visibility: visible !important;
   }
 
   .relatorio-sheet-scroll {
-    overflow: visible !important;
+    position: static !important;
     display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    visibility: visible !important;
   }
 
   #relatorio-print-container,
@@ -1799,30 +1831,122 @@ input, textarea, select {
     visibility: visible !important;
   }
 
-  #relatorio-print-container {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+  #relatorio-print-container,
+  .relatorio-document {
+    position: static !important;
+    float: none !important;
     width: 100% !important;
     max-width: 100% !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    border: none !important;
     padding: 0 !important;
     margin: 0 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #1a130a !important;
+    display: block !important;
+  }
+
+  /* Fundos sólidos dos componentes internos no relatório impresso */
+  .relatorio-brand-strip {
+    border-bottom: 2px solid #e2cfb6 !important;
+  }
+
+  .relatorio-title-banner {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+    border-left: 4px solid var(--primary-accent) !important;
+  }
+
+  .relatorio-meta-grid {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-kpi-item {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-etapa-card-header {
+    background: #f1e7da !important;
+    background-color: #f1e7da !important;
+  }
+
+  .relatorio-table th {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+  }
+
+  .relatorio-diario-etapa {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-diario-tarefa-box {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+  }
+
+  .relatorio-nota-quote {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border-left: 3px solid #d4b791 !important;
+  }
+
+  .relatorio-foto-item,
+  .relatorio-foto-caption {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+  }
+
+  .relatorio-decisao-card {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-pill-cat {
+    background: #f1e7da !important;
+    background-color: #f1e7da !important;
+  }
+
+  .relatorio-carimbo-box {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-carimbo-box.pendente {
+    background: #fffbeb !important;
+    background-color: #fffbeb !important;
+  }
+
+  .relatorio-termo-box {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
+    border: 1px solid #e2cfb6 !important;
+  }
+
+  .relatorio-empty-box {
+    background: #f8f3ed !important;
+    background-color: #f8f3ed !important;
   }
 
   /* Evitar quebras de página desajeitadas */
-  .print-avoid-break {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
+  .print-avoid-break,
+  .relatorio-doc-header,
   .relatorio-etapa-card,
   .relatorio-decisao-card,
   .relatorio-diario-tarefa-box,
-  .relatorio-termo-box {
+  .relatorio-diario-etapa,
+  .relatorio-termo-box,
+  .relatorio-carimbos-row,
+  .relatorio-table tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }

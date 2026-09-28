@@ -81,7 +81,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 2. **Seta de Voltar no Corpo**:
    - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, totalmente desacoplado da barra superior.
 3. **Link do Cliente como Aba**:
-   - O compartilhamento com o cliente foi integrado como a 4ª aba da obra (`Etapas & Cronograma`, `Decisões & Aprovações`, `Anexos & Diário`, `Link do Cliente`).
+   - O compartilhamento com o cliente foi integrado como a 5ª aba da obra (ordem oficial: `Etapas & Cronograma`, `Projetos (PDF)`, `Decisões & Aprovações`, `Anexos & Diário`, `Link do Cliente`).
 4. **Navegação Cruzada (Anexos $\rightarrow$ Cronograma)**:
    - Clicar nos detalhes de uma anotação ou serviço na aba de Anexos navega instantaneamente para a aba de etapas.
    - O accordion da etapa é expandido automaticamente caso esteja fechado.
@@ -129,7 +129,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 ## 9. Central de Projetos Técnicos em PDF (`ProjetosTab` & `ModalUploadProjeto`)
 
 - **Aba "Projetos (PDF)" na Obra**:
-  - Nova aba integrada na visualização da obra (`ObraDetail`), posicionada estrategicamente entre Decisões e Anexos.
+  - Aba integrada na visualização da obra (`ObraDetail`), posicionada como 2ª aba, logo após Etapas & Cronograma e antes de Decisões & Aprovações.
   - Exibe contador dinâmico de pranchas/projetos anexados.
 - **Upload com Classificação Técnica Obrigatória**:
   - O modal `ModalUploadProjeto` exige a definição da disciplina do projeto (Elétrico, Hidráulico, Demolição, Arquitetônico, Estrutural, Climatização, Marcenaria ou Outro com digitação livre).
