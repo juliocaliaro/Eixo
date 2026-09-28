@@ -6,15 +6,18 @@ import { Tarefa, Etapa, StatusCronograma } from '../types/obra';
  * - 'em_andamento' — atividade iniciada e ainda não finalizada (ex: possui fotos/notas anexadas ou status manual)
  * - 'pendente' — atividade ainda não iniciada ou planejada para execução futura
  */
-export function getTarefaStatus(tarefa: Tarefa): StatusCronograma {
+export function getTarefaStatus(tarefa?: Tarefa | null): StatusCronograma {
+  if (!tarefa) {
+    return 'pendente';
+  }
   if (tarefa.concluida) {
     return 'concluido';
   }
-  if (tarefa.status) {
+  if (tarefa.status && (tarefa.status === 'concluido' || tarefa.status === 'em_andamento' || tarefa.status === 'pendente')) {
     return tarefa.status;
   }
-  const temFotos = tarefa.fotos && tarefa.fotos.length > 0;
-  const temNotas = tarefa.anotacoes && tarefa.anotacoes.length > 0;
+  const temFotos = Array.isArray(tarefa.fotos) && tarefa.fotos.length > 0;
+  const temNotas = Array.isArray(tarefa.anotacoes) && tarefa.anotacoes.length > 0;
   if (temFotos || temNotas) {
     return 'em_andamento';
   }
@@ -27,16 +30,16 @@ export function getTarefaStatus(tarefa: Tarefa): StatusCronograma {
  * - 'em_andamento' — pelo menos uma tarefa iniciada ou concluída, mas nem todas finalizadas
  * - 'pendente' — nenhuma tarefa iniciada
  */
-export function getEtapaStatus(etapa: Etapa): StatusCronograma {
+export function getEtapaStatus(etapa?: Etapa | null): StatusCronograma {
+  if (!etapa) return 'pendente';
   const tarefas = etapa.tarefas || [];
   if (tarefas.length === 0) return 'pendente';
 
-  const todasConcluidas = tarefas.every((t) => t.concluida);
+  const statuses = tarefas.map(getTarefaStatus);
+  const todasConcluidas = statuses.every((s) => s === 'concluido');
   if (todasConcluidas) return 'concluido';
 
-  const algumaIniciada = tarefas.some(
-    (t) => t.concluida || (t.fotos && t.fotos.length > 0) || (t.anotacoes && t.anotacoes.length > 0) || t.status === 'em_andamento'
-  );
+  const algumaIniciada = statuses.some((s) => s === 'concluido' || s === 'em_andamento');
   if (algumaIniciada) return 'em_andamento';
 
   return 'pendente';

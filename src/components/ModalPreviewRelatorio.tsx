@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Printer,
   DownloadSimple,
@@ -18,7 +18,7 @@ import {
   Check,
   NotePencil
 } from '@phosphor-icons/react';
-import { Obra } from '../types/obra';
+import { Obra, Decisao } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
 import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
@@ -46,52 +46,114 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
     }
   }, [isOpen, autoPrint]);
 
-  if (!isOpen) return null;
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
-  // Cálculos de Indicadores da Obra
-  const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
-  const totalTarefas = todasTarefas.length;
-  const tarefasConcluidas = todasTarefas.filter((t) => t.concluida).length;
-  const tarefasEmAndamento = todasTarefas.filter(
-    (t) => !t.concluida && getTarefaStatus(t) === 'em_andamento'
-  ).length;
-  const tarefasPendentes = Math.max(0, totalTarefas - tarefasConcluidas - tarefasEmAndamento);
-  const percentual = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
-  const temAtividadesNaoConcluidas = percentual < 100 || tarefasEmAndamento > 0 || tarefasPendentes > 0;
-  const concluidas = tarefasConcluidas;
+  // Cálculos de Indicadores da Obra (Memorizados para evitar recálculos em re-renders)
+  const metricas = useMemo(() => {
+    const etapas = obra?.etapas || [];
+    const todasTarefas = etapas.flatMap((e) => e.tarefas || []);
+    const totalTarefas = todasTarefas.length;
+    const tarefasConcluidas = todasTarefas.filter((t) => t.concluida).length;
+    const tarefasEmAndamento = todasTarefas.filter(
+      (t) => !t.concluida && getTarefaStatus(t) === 'em_andamento'
+    ).length;
+    const tarefasPendentes = Math.max(0, totalTarefas - tarefasConcluidas - tarefasEmAndamento);
+    const percentual = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+    // Uma obra é considerada com pendências se não tiver tarefas ou se o avanço for < 100%
+    const temAtividadesNaoConcluidas = totalTarefas === 0 || percentual < 100 || tarefasEmAndamento > 0 || tarefasPendentes > 0;
 
-  // Contagem de Fotos e Anotações
-  let totalFotos = 0;
-  let totalNotas = 0;
-  obra.etapas.forEach((etapa) => {
-    etapa.tarefas.forEach((tarefa) => {
-      if (tarefa.fotos) totalFotos += tarefa.fotos.length;
-      if (tarefa.anotacoes) totalNotas += tarefa.anotacoes.length;
+    let totalFotos = 0;
+    let totalNotas = 0;
+    etapas.forEach((etapa) => {
+      (etapa.tarefas || []).forEach((tarefa) => {
+        if (Array.isArray(tarefa.fotos)) totalFotos += tarefa.fotos.length;
+        if (Array.isArray(tarefa.anotacoes)) totalNotas += tarefa.anotacoes.length;
+      });
     });
-  });
-  (obra.anexosGerais || []).forEach((item) => {
-    if (item.tipo === 'foto') totalFotos += 1;
-    if (item.tipo === 'anotacao') totalNotas += 1;
-  });
+    (obra?.anexosGerais || []).forEach((item) => {
+      if (item.tipo === 'foto') totalFotos += 1;
+      if (item.tipo === 'anotacao') totalNotas += 1;
+    });
 
-  const decisoes = obra.decisoes || [];
-  const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
-  const projetos = obra.projetos || [];
+    const decisoes: Decisao[] = obra?.decisoes || [];
+    const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
+    const projetos = obra?.projetos || [];
 
-  // Cálculos Financeiros
-  const orcamentoInicial = obra.orcamentoInicial || 0;
-  const totalAditivosAprovados = decisoesAprovadas
-    .reduce((acc, d) => {
+    const orcamentoInicial = obra?.orcamentoInicial || 0;
+    const totalAditivosAprovados = decisoesAprovadas.reduce((acc, d) => {
       const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
       return acc + val;
     }, 0);
-  const totalSupressivosAprovados = decisoesAprovadas
-    .reduce((acc, d) => {
+    const totalSupressivosAprovados = decisoesAprovadas.reduce((acc, d) => {
       const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
       return acc + val;
     }, 0);
-  const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
-  const investimentoTotal = orcamentoInicial + saldoAlteracoes;
+    const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
+    const investimentoTotal = orcamentoInicial + saldoAlteracoes;
+
+    const agora = new Date();
+    const dataEmissaoHoje = agora.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    const horaEmissao = agora.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return {
+      totalTarefas,
+      tarefasConcluidas,
+      tarefasEmAndamento,
+      tarefasPendentes,
+      percentual,
+      temAtividadesNaoConcluidas,
+      totalFotos,
+      totalNotas,
+      decisoes,
+      decisoesAprovadas,
+      totalAditivosAprovados,
+      totalSupressivosAprovados,
+      projetos,
+      orcamentoInicial,
+      saldoAlteracoes,
+      investimentoTotal,
+      dataEmissaoHoje,
+      horaEmissao,
+    };
+  }, [obra]);
+
+  if (!isOpen) return null;
+
+  const {
+    totalTarefas,
+    tarefasConcluidas,
+    tarefasEmAndamento,
+    tarefasPendentes,
+    percentual,
+    temAtividadesNaoConcluidas,
+    totalFotos,
+    totalNotas,
+    decisoes,
+    decisoesAprovadas,
+    totalAditivosAprovados,
+    totalSupressivosAprovados,
+    projetos,
+    orcamentoInicial,
+    saldoAlteracoes,
+    investimentoTotal,
+    dataEmissaoHoje,
+    horaEmissao,
+  } = metricas;
 
   // Nome da Empresa Cadastrada
   const nomeEmpresa =
@@ -135,17 +197,6 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
       currency: 'BRL',
     });
   };
-
-  const dataEmissaoHoje = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const horaEmissao = new Date().toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 
   const handlePrint = () => {
     window.print();
@@ -387,48 +438,56 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {tarefasEtapa.map((tarefa) => {
-                          const statusT = getTarefaStatus(tarefa);
-                          const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
-                          return (
-                            <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
-                              <td>
-                                <span
-                                  className={`relatorio-status-badge ${configT.badgeClass}`}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                >
-                                  {statusT === 'concluido' ? (
-                                    <>
-                                      <Check size={12} weight="bold" />
-                                      <span>Concluído</span>
-                                    </>
+                        {tarefasEtapa.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', fontSize: '0.80rem', color: '#6e512b', padding: '10px' }}>
+                              Nenhum serviço cadastrado nesta etapa.
+                            </td>
+                          </tr>
+                        ) : (
+                          tarefasEtapa.map((tarefa) => {
+                            const statusT = getTarefaStatus(tarefa);
+                            const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                            return (
+                              <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
+                                <td>
+                                  <span
+                                    className={`relatorio-status-badge ${configT.badgeClass}`}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    {statusT === 'concluido' ? (
+                                      <>
+                                        <Check size={12} weight="bold" />
+                                        <span>Concluído</span>
+                                      </>
+                                    ) : statusT === 'em_andamento' ? (
+                                      <>
+                                        <Clock size={12} weight="bold" />
+                                        <span>Em andamento</span>
+                                      </>
+                                    ) : (
+                                      <span>Pendente</span>
+                                    )}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
+                                    {tarefa.nome}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
+                                  {tarefa.concluidaEm ? (
+                                    <span>{formatarDataHora(tarefa.concluidaEm)}</span>
                                   ) : statusT === 'em_andamento' ? (
-                                    <>
-                                      <Clock size={12} weight="bold" />
-                                      <span>Em andamento</span>
-                                    </>
+                                    <span style={{ color: '#b45309', fontWeight: 600 }}>Em andamento</span>
                                   ) : (
-                                    <span>Pendente</span>
+                                    <span style={{ color: '#6b7280' }}>Não iniciado</span>
                                   )}
-                                </span>
-                              </td>
-                              <td>
-                                <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
-                                  {tarefa.nome}
-                                </span>
-                              </td>
-                              <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
-                                {tarefa.concluidaEm ? (
-                                  <span>{formatarDataHora(tarefa.concluidaEm)}</span>
-                                ) : statusT === 'em_andamento' ? (
-                                  <span style={{ color: '#b45309', fontWeight: 600 }}>Em andamento</span>
-                                ) : (
-                                  <span style={{ color: '#6b7280' }}>Não iniciado</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -456,7 +515,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {obra.etapas.map((etapa) => {
-                  const tarefasComRegistro = etapa.tarefas.filter(
+                  const tarefasComRegistro = (etapa.tarefas || []).filter(
                     (t) => (t.fotos && t.fotos.length > 0) || (t.anotacoes && t.anotacoes.length > 0)
                   );
                   if (tarefasComRegistro.length === 0) return null;
@@ -668,7 +727,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                       {/* Fotos da Decisão */}
                       {decisao.fotos && decisao.fotos.length > 0 && (
                         <div className="relatorio-fotos-grid" style={{ marginBottom: 10 }}>
-                          {decisao.fotos.map((f, i) => (
+                          {decisao.fotos.map((f: string, i: number) => (
                             <div key={i} className="relatorio-foto-item">
                               <img src={f} alt={`Amostra ${i + 1}`} className="relatorio-foto-img" style={{ maxHeight: 110 }} />
                               <span className="relatorio-foto-caption">Amostra {i + 1}</span>
@@ -847,52 +906,58 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1a130a', marginBottom: 6 }}>
                       Relação de Atividades Pendentes e em Andamento ({tarefasEmAndamento + tarefasPendentes})
                     </div>
-                    <table className="relatorio-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '120px' }}>Status</th>
-                          <th style={{ width: '170px' }}>Etapa</th>
-                          <th>Serviço / Atividade Técnica</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {obra.etapas.flatMap((etapa) =>
-                          (etapa.tarefas || [])
-                            .filter((t) => !t.concluida)
-                            .map((t) => {
-                              const statusT = getTarefaStatus(t);
-                              const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
-                              return (
-                                <tr key={t.id} className="row-pendente">
-                                  <td>
-                                    <span
-                                      className={`relatorio-status-badge ${configT.badgeClass}`}
-                                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                    >
-                                      {statusT === 'em_andamento' ? (
-                                        <>
-                                          <Clock size={11} weight="bold" />
-                                          <span>Em andamento</span>
-                                        </>
-                                      ) : (
-                                        <span>Pendente</span>
-                                      )}
-                                    </span>
-                                  </td>
-                                  <td style={{ fontSize: '0.78rem', color: '#6e512b', fontWeight: 600 }}>
-                                    {etapa.nome}
-                                  </td>
-                                  <td>
-                                    <span style={{ fontSize: '0.82rem', color: '#1a130a' }}>
-                                      {t.nome}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                        )}
-                      </tbody>
-                    </table>
+                    {tarefasEmAndamento + tarefasPendentes === 0 ? (
+                      <div className="relatorio-empty-box print-avoid-break">
+                        Nenhuma atividade pendente ou em andamento cadastrada nas etapas.
+                      </div>
+                    ) : (
+                      <table className="relatorio-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ width: '170px' }}>Etapa</th>
+                            <th>Serviço / Atividade Técnica</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(obra.etapas || []).flatMap((etapa) =>
+                            (etapa.tarefas || [])
+                              .filter((t) => !t.concluida)
+                              .map((t) => {
+                                const statusT = getTarefaStatus(t);
+                                const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                                return (
+                                  <tr key={`${etapa.id}-${t.id}`} className="row-pendente">
+                                    <td>
+                                      <span
+                                        className={`relatorio-status-badge ${configT.badgeClass}`}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                      >
+                                        {statusT === 'em_andamento' ? (
+                                          <>
+                                            <Clock size={11} weight="bold" />
+                                            <span>Em andamento</span>
+                                          </>
+                                        ) : (
+                                          <span>Pendente</span>
+                                        )}
+                                      </span>
+                                    </td>
+                                    <td style={{ fontSize: '0.78rem', color: '#6e512b', fontWeight: 600 }}>
+                                      {etapa.nome}
+                                    </td>
+                                    <td>
+                                      <span style={{ fontSize: '0.82rem', color: '#1a130a' }}>
+                                        {t.nome}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          )}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 </>
               )}

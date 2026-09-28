@@ -40,12 +40,13 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
 
   const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState(getEmpresaCadastrada);
 
-  // Análise de progresso físico
-  const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
+  // Análise de progresso físico defensiva
+  const todasTarefas = (obra.etapas || []).flatMap((e) => e.tarefas || []);
   const totalTarefas = todasTarefas.length;
   const concluidas = todasTarefas.filter((t) => t.concluida).length;
   const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
-  const temAtividadesNaoConcluidas = concluidas < totalTarefas;
+  // Obra só é concluída se tiver ao menos 1 tarefa e todas estiverem concluídas
+  const temAtividadesNaoConcluidas = totalTarefas === 0 || concluidas < totalTarefas;
 
   // Sincronizar ao abrir o modal com a empresa cadastrada na obra
   React.useEffect(() => {
@@ -53,6 +54,16 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
       setEmpresaEmpreiteiro(getEmpresaCadastrada());
     }
   }, [isOpen, obra]);
+
+  // Fechar com tecla Escape
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
