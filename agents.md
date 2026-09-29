@@ -265,8 +265,10 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Eliminação de chips horizontais de categorias (`Todos`, `Serviços`, `Decisões`, etc.), desobstruindo a visualização do extrato.
   - Filtro de período encapsulado em botão de ícone de funil (`<Funnel size={18} />`) de 38x38px com dot de destaque em `coral-glow` quando ativo.
   - Popup flutuante com as opções `Todo o período`, `Hoje`, `Últimos 7 dias`, `Últimos 30 dias` e `Selecionar intervalo` (com inputs inline `De:` e `Até:`).
-- **Busca Textual em Tempo Real**:
-  - Campo de busca integrado diretamente no cabeçalho executivo, com filtragem instantânea por título, anotações técnicas, nome do autor ou subtítulo do evento.
+- **Busca em Ícone com Popup Flutuante (Design System `ProjetosTab`)**:
+  - A barra de busca inline foi substituída por um botão de ícone de lupa (`<MagnifyingGlass size={18} />`) de 38x38px idêntico ao da aba Arquivos.
+  - Exibe indicador (*dot* em `coral-glow`) quando há termo pesquisado.
+  - Ao clicar, abre popup flutuante suspenso com campo de texto autofocado, ícone de limpeza (`✕`) e fechamento via clique fora ou tecla `Escape`.
 - **Permissões Rigorosas por Perfil**:
   - **Construtor**: Visualização completa + botão `[ + Novo Registro ]` abrindo modal para lançar anotação técnica ou foto direcionada a um serviço específico de qualquer etapa ou como anotação geral de canteiro.
   - **Cliente**: Modo 100% Read-Only de acompanhamento transparente (sem botões de inserção ou exclusão, permitindo inspecionar evidências, fotos em tela cheia e extrato completo).

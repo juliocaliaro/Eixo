@@ -77,7 +77,9 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoje' | '7dias' | '30dias' | 'intervalo'>('todos');
   const [dataInicio, setDataInicio] = useState<string>('');
   const [dataFim, setDataFim] = useState<string>('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
 
   // Lightbox
@@ -98,10 +100,14 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [novaFotoPreview, setNovaFotoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Fechar dropdown de filtro ao clicar fora
+  // Fechar popups de busca e filtro ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (filterContainerRef.current && !filterContainerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
+        setIsSearchOpen(false);
+      }
+      if (filterContainerRef.current && !filterContainerRef.current.contains(target)) {
         setIsFilterOpen(false);
       }
     };
@@ -116,11 +122,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
         if (selectedImageModal) setSelectedImageModal(null);
         if (isNovoRegistroOpen) setIsNovoRegistroOpen(false);
         if (isFilterOpen) setIsFilterOpen(false);
+        if (isSearchOpen) setIsSearchOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageModal, isNovoRegistroOpen, isFilterOpen]);
+  }, [selectedImageModal, isNovoRegistroOpen, isFilterOpen, isSearchOpen]);
 
   // Função auxiliar para extrair chave de data YYYY-MM-DD
   const extrairDataKey = (isoStr?: string): string => {
@@ -567,56 +574,89 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
 
         {/* Controles da Direita: Busca, Filtro de Período e Botão Novo Registro */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Campo de Busca Rápida */}
-          <div style={{ position: 'relative', width: 220, minWidth: 180 }}>
-            <input
-              type="text"
-              className="input-field"
+          {/* BOTÃO LUPA (POPUP DE BUSCA) */}
+          <div style={{ position: 'relative' }} ref={searchContainerRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSearchOpen((prev) => !prev);
+                setIsFilterOpen(false);
+              }}
+              className="btn-icon"
               style={{
-                width: '100%',
-                paddingLeft: 30,
-                paddingRight: searchTerm ? 26 : 10,
-                fontSize: '0.82rem',
+                width: 38,
                 height: 38,
-                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-hairline)',
+                background: isSearchOpen || searchTerm ? 'var(--dark-coffee-100)' : '#ffffff',
+                color: searchTerm ? 'var(--primary-accent)' : 'var(--text-body)',
+                position: 'relative',
               }}
-              placeholder="Buscar no diário..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 10,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                pointerEvents: 'none',
-              }}
+              title="Pesquisar no diário"
             >
-              <MagnifyingGlass size={15} />
-            </div>
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm('')}
+              <MagnifyingGlass size={18} weight={searchTerm ? 'bold' : 'regular'} />
+              {searchTerm && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--primary-accent)',
+                  }}
+                />
+              )}
+            </button>
+
+            {/* Popup Flutuante de Busca */}
+            {isSearchOpen && (
+              <div
                 style={{
                   position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  padding: 2,
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: 300,
+                  background: '#ffffff',
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-floating)',
+                  padding: '12px',
+                  zIndex: 200,
+                  animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
-                title="Limpar busca"
               >
-                <X size={13} />
-              </button>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <MagnifyingGlass
+                    size={16}
+                    color="var(--text-muted)"
+                    style={{ position: 'absolute', left: 10 }}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Buscar no diário..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    autoFocus
+                    style={{ paddingLeft: 34, paddingRight: searchTerm ? 30 : 10, fontSize: '0.86rem', paddingBlock: '8px' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') setIsSearchOpen(false);
+                    }}
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      className="btn-icon"
+                      style={{ position: 'absolute', right: 6, padding: 4 }}
+                      title="Limpar busca"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
 
@@ -624,7 +664,10 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           <div style={{ position: 'relative' }} ref={filterContainerRef}>
             <button
               type="button"
-              onClick={() => setIsFilterOpen((prev) => !prev)}
+              onClick={() => {
+                setIsFilterOpen((prev) => !prev);
+                setIsSearchOpen(false);
+              }}
               className="btn-icon"
               style={{
                 width: 38,
