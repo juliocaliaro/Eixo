@@ -897,7 +897,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     <strong>{tarefasPendentes} pendentes de execução</strong>.
                   </p>
                   <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', marginTop: 8, marginBottom: 0 }}>
-                    As partes signatárias declaram ciência do estado atual dos serviços e acordam que as etapas e atividades
+                    Declara-se ciência do estado atual dos serviços e registra-se que as etapas e atividades
                     listadas abaixo permanecem sob responsabilidade técnica de execução e acompanhamento da empresa responsável até sua integral finalização:
                   </p>
 
@@ -1012,27 +1012,30 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 </div>
               )}
 
-              <div className="relatorio-assinaturas-grid">
-                <div className="relatorio-linha-assinatura">
-                  <div className="relatorio-linha" />
-                  <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
-                    {nomeEmpresa}
-                  </strong>
-                  <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
-                    Empresa Responsável pela Execução
-                  </span>
-                </div>
+              {/* Assinaturas Formais (Exclusivas do Relatório de Conclusão da Obra - 100% Concluído) */}
+              {!temAtividadesNaoConcluidas && (
+                <div className="relatorio-assinaturas-grid">
+                  <div className="relatorio-linha-assinatura">
+                    <div className="relatorio-linha" />
+                    <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
+                      {nomeEmpresa}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
+                      Empresa Responsável pela Execução
+                    </span>
+                  </div>
 
-                <div className="relatorio-linha-assinatura">
-                  <div className="relatorio-linha" />
-                  <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
-                    {obra.cliente}
-                  </strong>
-                  <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
-                    Cliente / Proprietário(a)
-                  </span>
+                  <div className="relatorio-linha-assinatura">
+                    <div className="relatorio-linha" />
+                    <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
+                      {obra.cliente}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
+                      Cliente / Proprietário(a)
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#6e512b', marginTop: 18, borderTop: '1px solid #e2cfb6', paddingTop: 10 }}>
                 Emitido eletronicamente pela plataforma <strong>Eixo</strong> • Data: {dataEmissaoHoje}
