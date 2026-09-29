@@ -537,14 +537,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         perfilAtivo={perfilAtivo}
       />
 
-      {/* Navegação por Abas: Etapas, Projetos, Decisões, Anexos, Link do Cliente */}
+      {/* Navegação por Abas: Etapas, Arquivos, Decisões, Diário, Compartilhar */}
       <nav className="tabs-nav" aria-label="Abas da Obra">
         <button
           className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
           onClick={() => handleSelectTab('etapas')}
         >
           <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
-          <span>Etapas & Cronograma</span>
+          <span>Etapas</span>
         </button>
 
         <button
@@ -552,7 +552,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onClick={() => handleSelectTab('projetos')}
         >
           <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
-          <span>Projetos (PDF)</span>
+          <span>Arquivos</span>
           {(obra.projetos || []).length > 0 && (
             <span
               style={{
@@ -576,7 +576,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           style={{ position: 'relative' }}
         >
           <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
-          <span>Decisões & Aprovações</span>
+          <span>Decisões</span>
           {pendenciasDecisao > 0 && (
             <span
               style={{
@@ -599,7 +599,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onClick={() => handleSelectTab('diario')}
         >
           <BookOpen size={20} weight={activeTab === 'diario' ? 'fill' : 'bold'} />
-          <span>Diário de Obra</span>
+          <span>Diário</span>
         </button>
 
         <button
@@ -607,7 +607,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onClick={() => handleSelectTab('compartilhar')}
         >
           <ShareNetwork size={20} weight={activeTab === 'compartilhar' ? 'fill' : 'bold'} />
-          <span>Link do Cliente</span>
+          <span>Compartilhar</span>
         </button>
       </nav>
 

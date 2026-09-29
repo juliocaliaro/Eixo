@@ -326,7 +326,7 @@ export const App: React.FC = () => {
 
     setObras([demoObra, ...obras]);
     setCurrentObraId(demoObra.id);
-    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, decisões e a nova aba de Projetos (PDF).');
+    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, arquivos, decisões e o diário.');
   };
 
   // Excluir obra
