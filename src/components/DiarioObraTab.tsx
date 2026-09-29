@@ -73,7 +73,9 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   // Filtros
   const [filterTipo, setFilterTipo] = useState<'todos' | 'etapas' | 'decisoes' | 'fotos' | 'financeiro'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
-  const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | '7dias' | '30dias'>('todos');
+  const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoje' | '7dias' | '30dias' | 'intervalo'>('todos');
+  const [dataInicio, setDataInicio] = useState<string>('');
+  const [dataFim, setDataFim] = useState<string>('');
 
   // Lightbox
   const [selectedImageModal, setSelectedImageModal] = useState<{
@@ -349,16 +351,23 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
         if (!temValor) return false;
       }
 
-      // Filtro de Período
-      if (periodoFiltro !== 'todos') {
-        try {
-          const entryTime = new Date(entry.dataHora).getTime();
-          if (!isNaN(entryTime)) {
-            const diasDiff = (agora - entryTime) / (1000 * 3600 * 24);
-            if (periodoFiltro === '7dias' && diasDiff > 7) return false;
-            if (periodoFiltro === '30dias' && diasDiff > 30) return false;
-          }
-        } catch {}
+      // Filtro de Período (Hoje, 7 dias, 30 dias, Intervalo)
+      if (periodoFiltro === 'hoje') {
+        const hojeKey = new Date().toISOString().split('T')[0];
+        if (entry.dataKey !== hojeKey) return false;
+      } else if (periodoFiltro === '7dias') {
+        const d7 = new Date();
+        d7.setDate(d7.getDate() - 7);
+        const d7Key = d7.toISOString().split('T')[0];
+        if (entry.dataKey < d7Key) return false;
+      } else if (periodoFiltro === '30dias') {
+        const d30 = new Date();
+        d30.setDate(d30.getDate() - 30);
+        const d30Key = d30.toISOString().split('T')[0];
+        if (entry.dataKey < d30Key) return false;
+      } else if (periodoFiltro === 'intervalo') {
+        if (dataInicio && entry.dataKey < dataInicio) return false;
+        if (dataFim && entry.dataKey > dataFim) return false;
       }
 
       // Filtro de Busca Textual
@@ -376,7 +385,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
 
       return true;
     });
-  }, [todosLancamentos, filterTipo, searchTerm, periodoFiltro]);
+  }, [todosLancamentos, filterTipo, searchTerm, periodoFiltro, dataInicio, dataFim]);
 
   // 3. Agrupamento por Dia (Extrato Bancário) ordenado do mais recente ao mais antigo
   const extratoPorDia = useMemo(() => {
@@ -489,32 +498,98 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ========================================================
-          CABEÇALHO DA ABA: DIÁRIO DE OBRA
+          CABEÇALHO MINIMALISTA: DIÁRIO DE OBRA & INDICADORES
          ======================================================== */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.8px',
-                color: 'var(--primary-accent)',
-                background: 'var(--coral-glow-50)',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-xs)',
-              }}
-            >
-              Extrato Cronológico Oficial
-            </span>
-          </div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          paddingBottom: 2,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: '1.20rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
             Diário de Obra
           </h2>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: 4, margin: '4px 0 0 0' }}>
-            Registro cronológico diário de serviços cumpridos, decisões técnicas, evidências de canteiro e movimentações financeiras.
-          </p>
+
+          {/* Indicadores Minimalistas em Pílulas */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: '0.76rem',
+                color: 'var(--text-muted)',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-hairline)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              title="Total de registros no histórico"
+            >
+              <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{totalRegistros}</strong> registros
+            </span>
+
+            <span
+              style={{
+                fontSize: '0.76rem',
+                color: '#15803d',
+                background: '#dcfce7',
+                border: '1px solid #bbf7d0',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              title="Atividades e serviços finalizados"
+            >
+              <CheckCircle size={13} weight="bold" />
+              <strong>{totalServicosConcluidos}</strong> serviços
+            </span>
+
+            <span
+              style={{
+                fontSize: '0.76rem',
+                color: 'var(--primary-accent)',
+                background: 'var(--coral-glow-50)',
+                border: '1px solid var(--border-hairline)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              title="Decisões e acordos bilaterais"
+            >
+              <Scales size={13} weight="bold" />
+              <strong>{totalDecisoesDiario}</strong> decisões
+            </span>
+
+            {totalFotosDiario > 0 && (
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  color: 'var(--dark-coffee-700)',
+                  background: 'var(--dark-coffee-50)',
+                  border: '1px solid var(--border-hairline)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+                title="Fotos e evidências anexadas"
+              >
+                <Camera size={13} weight="bold" />
+                <strong>{totalFotosDiario}</strong> fotos
+              </span>
+            )}
+          </div>
         </div>
 
         {perfilAtivo === 'construtor' && (
@@ -523,117 +598,17 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             onClick={() => setIsNovoRegistroOpen(true)}
             className="btn-primary"
             style={{
-              padding: '8px 18px',
-              fontSize: '0.85rem',
+              padding: '6px 14px',
+              fontSize: '0.82rem',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 2px 8px rgba(242, 66, 13, 0.25)',
+              gap: 6,
             }}
           >
-            <Plus size={16} weight="bold" />
-            <span>Novo Registro de Diário</span>
+            <Plus size={15} weight="bold" />
+            <span>Novo Registro</span>
           </button>
         )}
-      </div>
-
-      {/* ========================================================
-          BARRA DE INDICADORES (KPIS DO EXTRATO)
-         ======================================================== */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            padding: '12px 14px',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-            Total de Lançamentos
-          </span>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>
-              {totalRegistros}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>registros no histórico</span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-            Serviços Cumpridos
-          </span>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803d' }}>
-              {totalServicosConcluidos}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>atividades finalizadas</span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-            Decisões Registradas
-          </span>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
-              {totalDecisoesDiario}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>acordos bilaterais</span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 }}>
-            Evidências Fotográficas
-          </span>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>
-              {totalFotosDiario}
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>fotos arquivadas</span>
-          </div>
-        </div>
       </div>
 
       {/* ========================================================
@@ -642,178 +617,354 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          gap: 10,
           background: 'var(--bg-surface)',
           padding: '10px 14px',
           borderRadius: 'var(--radius-sm)',
           border: '1px solid var(--border-hairline)',
         }}
       >
-        {/* Chips de Categoria */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setFilterTipo('todos')}
-            className={`filter-chip ${filterTipo === 'todos' ? 'active' : ''}`}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              borderRadius: 'var(--radius-full)',
-              border: filterTipo === 'todos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-              background: filterTipo === 'todos' ? 'var(--coral-glow-50)' : 'transparent',
-              color: filterTipo === 'todos' ? 'var(--primary-accent)' : 'var(--text-body)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <span>Todos</span>
-            <span style={{ fontSize: '0.70rem', opacity: 0.8 }}>({todosLancamentos.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterTipo('etapas')}
-            className={`filter-chip ${filterTipo === 'etapas' ? 'active' : ''}`}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              borderRadius: 'var(--radius-full)',
-              border: filterTipo === 'etapas' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-              background: filterTipo === 'etapas' ? 'var(--coral-glow-50)' : 'transparent',
-              color: filterTipo === 'etapas' ? 'var(--primary-accent)' : 'var(--text-body)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <CheckCircle size={14} weight="bold" />
-            <span>Serviços & Etapas</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterTipo('decisoes')}
-            className={`filter-chip ${filterTipo === 'decisoes' ? 'active' : ''}`}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              borderRadius: 'var(--radius-full)',
-              border: filterTipo === 'decisoes' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-              background: filterTipo === 'decisoes' ? 'var(--coral-glow-50)' : 'transparent',
-              color: filterTipo === 'decisoes' ? 'var(--primary-accent)' : 'var(--text-body)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Scales size={14} weight="bold" />
-            <span>Decisões & Aprovações</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterTipo('fotos')}
-            className={`filter-chip ${filterTipo === 'fotos' ? 'active' : ''}`}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              borderRadius: 'var(--radius-full)',
-              border: filterTipo === 'fotos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-              background: filterTipo === 'fotos' ? 'var(--coral-glow-50)' : 'transparent',
-              color: filterTipo === 'fotos' ? 'var(--primary-accent)' : 'var(--text-body)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Camera size={14} weight="bold" />
-            <span>Com Fotos</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterTipo('financeiro')}
-            className={`filter-chip ${filterTipo === 'financeiro' ? 'active' : ''}`}
-            style={{
-              padding: '5px 12px',
-              fontSize: '0.80rem',
-              fontWeight: 600,
-              borderRadius: 'var(--radius-full)',
-              border: filterTipo === 'financeiro' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-              background: filterTipo === 'financeiro' ? 'var(--coral-glow-50)' : 'transparent',
-              color: filterTipo === 'financeiro' ? 'var(--primary-accent)' : 'var(--text-body)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <CurrencyDollar size={14} weight="bold" />
-            <span>Financeiro (R$)</span>
-          </button>
-        </div>
-
-        {/* Campo de Busca Rápida */}
-        <div style={{ position: 'relative', width: 260, minWidth: 200 }}>
-          <input
-            type="text"
-            className="input-field"
-            style={{
-              width: '100%',
-              paddingLeft: 32,
-              paddingRight: 28,
-              fontSize: '0.82rem',
-              height: 32,
-              borderRadius: 'var(--radius-full)',
-            }}
-            placeholder="Buscar no extrato do diário..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              left: 10,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              pointerEvents: 'none',
-            }}
-          >
-            <MagnifyingGlass size={14} />
-          </div>
-          {searchTerm && (
+        {/* Linha 1: Categorias e Busca */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          {/* Chips de Categoria */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => setSearchTerm('')}
+              onClick={() => setFilterTipo('todos')}
+              className={`filter-chip ${filterTipo === 'todos' ? 'active' : ''}`}
               style={{
-                position: 'absolute',
-                right: 8,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-muted)',
+                padding: '4px 11px',
+                fontSize: '0.80rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-full)',
+                border: filterTipo === 'todos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: filterTipo === 'todos' ? 'var(--coral-glow-50)' : 'transparent',
+                color: filterTipo === 'todos' ? 'var(--primary-accent)' : 'var(--text-body)',
                 cursor: 'pointer',
-                display: 'flex',
-                padding: 2,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
               }}
             >
-              <X size={13} />
+              <span>Todos</span>
+              <span style={{ fontSize: '0.70rem', opacity: 0.8 }}>({todosLancamentos.length})</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTipo('etapas')}
+              className={`filter-chip ${filterTipo === 'etapas' ? 'active' : ''}`}
+              style={{
+                padding: '4px 11px',
+                fontSize: '0.80rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-full)',
+                border: filterTipo === 'etapas' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: filterTipo === 'etapas' ? 'var(--coral-glow-50)' : 'transparent',
+                color: filterTipo === 'etapas' ? 'var(--primary-accent)' : 'var(--text-body)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <CheckCircle size={14} weight="bold" />
+              <span>Serviços & Etapas</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTipo('decisoes')}
+              className={`filter-chip ${filterTipo === 'decisoes' ? 'active' : ''}`}
+              style={{
+                padding: '4px 11px',
+                fontSize: '0.80rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-full)',
+                border: filterTipo === 'decisoes' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: filterTipo === 'decisoes' ? 'var(--coral-glow-50)' : 'transparent',
+                color: filterTipo === 'decisoes' ? 'var(--primary-accent)' : 'var(--text-body)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <Scales size={14} weight="bold" />
+              <span>Decisões</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTipo('fotos')}
+              className={`filter-chip ${filterTipo === 'fotos' ? 'active' : ''}`}
+              style={{
+                padding: '4px 11px',
+                fontSize: '0.80rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-full)',
+                border: filterTipo === 'fotos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: filterTipo === 'fotos' ? 'var(--coral-glow-50)' : 'transparent',
+                color: filterTipo === 'fotos' ? 'var(--primary-accent)' : 'var(--text-body)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <Camera size={14} weight="bold" />
+              <span>Com Fotos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTipo('financeiro')}
+              className={`filter-chip ${filterTipo === 'financeiro' ? 'active' : ''}`}
+              style={{
+                padding: '4px 11px',
+                fontSize: '0.80rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-full)',
+                border: filterTipo === 'financeiro' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: filterTipo === 'financeiro' ? 'var(--coral-glow-50)' : 'transparent',
+                color: filterTipo === 'financeiro' ? 'var(--primary-accent)' : 'var(--text-body)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <CurrencyDollar size={14} weight="bold" />
+              <span>Financeiro (R$)</span>
+            </button>
+          </div>
+
+          {/* Campo de Busca Rápida */}
+          <div style={{ position: 'relative', width: 220, minWidth: 180 }}>
+            <input
+              type="text"
+              className="input-field"
+              style={{
+                width: '100%',
+                paddingLeft: 30,
+                paddingRight: 26,
+                fontSize: '0.80rem',
+                height: 30,
+                borderRadius: 'var(--radius-full)',
+              }}
+              placeholder="Buscar no diário..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 9,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                pointerEvents: 'none',
+              }}
+            >
+              <MagnifyingGlass size={13} />
+            </div>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  padding: 2,
+                }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Linha 2: Filtro de Período (Hoje, Últimos 7 dias, Últimos 30 dias, Selecionar intervalo) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+            paddingTop: 8,
+            borderTop: '1px solid var(--border-hairline)',
+          }}
+        >
+          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Período:
+          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setPeriodoFiltro('todos')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-xs)',
+                border: periodoFiltro === 'todos' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
+                background: periodoFiltro === 'todos' ? 'var(--dark-coffee-100)' : 'transparent',
+                color: periodoFiltro === 'todos' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              Todos
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFiltro('hoje')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-xs)',
+                border: periodoFiltro === 'hoje' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
+                background: periodoFiltro === 'hoje' ? 'var(--dark-coffee-100)' : 'transparent',
+                color: periodoFiltro === 'hoje' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              Hoje
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFiltro('7dias')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-xs)',
+                border: periodoFiltro === '7dias' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
+                background: periodoFiltro === '7dias' ? 'var(--dark-coffee-100)' : 'transparent',
+                color: periodoFiltro === '7dias' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              Últimos 7 dias
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFiltro('30dias')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-xs)',
+                border: periodoFiltro === '30dias' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
+                background: periodoFiltro === '30dias' ? 'var(--dark-coffee-100)' : 'transparent',
+                color: periodoFiltro === '30dias' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              Últimos 30 dias
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPeriodoFiltro('intervalo')}
+              style={{
+                padding: '3px 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: 'var(--radius-xs)',
+                border: periodoFiltro === 'intervalo' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
+                background: periodoFiltro === 'intervalo' ? 'var(--coral-glow-50)' : 'transparent',
+                color: periodoFiltro === 'intervalo' ? 'var(--primary-accent)' : 'var(--text-muted)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <CalendarBlank size={13} weight="bold" />
+              <span>Selecionar intervalo</span>
+            </button>
+          </div>
+
+          {/* Campos de Data De / Até quando 'intervalo' está ativo */}
+          {periodoFiltro === 'intervalo' && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                marginLeft: 4,
+                background: '#ffffff',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-xs)',
+                border: '1px solid var(--border-hairline)',
+              }}
+            >
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>De:</span>
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                style={{
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-xs)',
+                  padding: '2px 6px',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-main)',
+                  background: 'transparent',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Até:</span>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                style={{
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-xs)',
+                  padding: '2px 6px',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-main)',
+                  background: 'transparent',
+                  outline: 'none',
+                }}
+              />
+              {(dataInicio || dataFim) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDataInicio('');
+                    setDataFim('');
+                  }}
+                  title="Limpar intervalo de datas"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -837,16 +988,19 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             Nenhum lançamento encontrado
           </h3>
           <p style={{ fontSize: '0.85rem', maxWidth: 420, margin: '0 auto', lineHeight: 1.4 }}>
-            {searchTerm || filterTipo !== 'todos'
+            {searchTerm || filterTipo !== 'todos' || periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim)
               ? 'Nenhum registro corresponde aos filtros selecionados. Tente limpar os critérios de busca.'
               : 'Conforme as etapas forem cumpridas e as decisões forem registradas, o extrato diário será gerado automaticamente.'}
           </p>
-          {(searchTerm || filterTipo !== 'todos') && (
+          {(searchTerm || filterTipo !== 'todos' || periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim)) && (
             <button
               type="button"
               onClick={() => {
                 setSearchTerm('');
                 setFilterTipo('todos');
+                setPeriodoFiltro('todos');
+                setDataInicio('');
+                setDataFim('');
               }}
               className="btn-secondary"
               style={{ marginTop: 16, padding: '6px 14px', fontSize: '0.80rem' }}
