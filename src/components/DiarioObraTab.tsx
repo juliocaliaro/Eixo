@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   BookOpen,
   CheckCircle,
@@ -17,7 +17,9 @@ import {
   CalendarBlank,
   Buildings,
   ShareNetwork,
-  Scales
+  Scales,
+  Funnel,
+  Check,
 } from '@phosphor-icons/react';
 import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
@@ -71,11 +73,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   onUpdateTaskMedia,
 }) => {
   // Filtros
-  const [filterTipo, setFilterTipo] = useState<'todos' | 'etapas' | 'decisoes' | 'fotos' | 'financeiro'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [periodoFiltro, setPeriodoFiltro] = useState<'todos' | 'hoje' | '7dias' | '30dias' | 'intervalo'>('todos');
   const [dataInicio, setDataInicio] = useState<string>('');
   const [dataFim, setDataFim] = useState<string>('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterContainerRef = useRef<HTMLDivElement>(null);
 
   // Lightbox
   const [selectedImageModal, setSelectedImageModal] = useState<{
@@ -95,17 +98,29 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [novaFotoPreview, setNovaFotoPreview] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Listener para fechar modais e lightbox via tecla Escape
+  // Fechar dropdown de filtro ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterContainerRef.current && !filterContainerRef.current.contains(e.target as Node)) {
+        setIsFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Listener para fechar modais, popups e lightbox via tecla Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (selectedImageModal) setSelectedImageModal(null);
         if (isNovoRegistroOpen) setIsNovoRegistroOpen(false);
+        if (isFilterOpen) setIsFilterOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageModal, isNovoRegistroOpen]);
+  }, [selectedImageModal, isNovoRegistroOpen, isFilterOpen]);
 
   // Função auxiliar para extrair chave de data YYYY-MM-DD
   const extrairDataKey = (isoStr?: string): string => {
@@ -324,33 +339,11 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
     return entries;
   }, [obra]);
 
-  // 2. Filtragem dos Lançamentos
+  // 2. Filtragem dos Lançamentos (Período e Busca Textual)
   const lancamentosFiltrados = useMemo(() => {
     const cleanSearch = searchTerm.trim().toLowerCase();
-    const agora = Date.now();
 
     return todosLancamentos.filter((entry) => {
-      // Filtro de Categoria / Tipo
-      if (filterTipo === 'etapas') {
-        if (entry.tipo !== 'servico_concluido' && entry.tipo !== 'etapa_concluida' && entry.tipo !== 'vistoria_concluida') {
-          return false;
-        }
-      } else if (filterTipo === 'decisoes') {
-        if (entry.tipo !== 'decisao_criada' && entry.tipo !== 'decisao_aprovada' && entry.tipo !== 'decisao_recusada') {
-          return false;
-        }
-      } else if (filterTipo === 'fotos') {
-        if (!entry.fotos || entry.fotos.length === 0) {
-          return false;
-        }
-      } else if (filterTipo === 'financeiro') {
-        const temValor =
-          entry.valorAditivo !== undefined ||
-          entry.valorSupressivo !== undefined ||
-          (entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0);
-        if (!temValor) return false;
-      }
-
       // Filtro de Período (Hoje, 7 dias, 30 dias, Intervalo)
       if (periodoFiltro === 'hoje') {
         const hojeKey = new Date().toISOString().split('T')[0];
@@ -385,7 +378,31 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
 
       return true;
     });
-  }, [todosLancamentos, filterTipo, searchTerm, periodoFiltro, dataInicio, dataFim]);
+  }, [todosLancamentos, searchTerm, periodoFiltro, dataInicio, dataFim]);
+
+  // Helpers do filtro de período
+  const isPeriodoAtivo = periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim);
+
+  const labelPeriodoAtivo = useMemo(() => {
+    if (periodoFiltro === 'hoje') return 'Hoje';
+    if (periodoFiltro === '7dias') return 'Últimos 7 dias';
+    if (periodoFiltro === '30dias') return 'Últimos 30 dias';
+    if (periodoFiltro === 'intervalo') {
+      if (dataInicio && dataFim) {
+        const dI = dataInicio.split('-').reverse().slice(0, 2).join('/');
+        const dF = dataFim.split('-').reverse().slice(0, 2).join('/');
+        return `${dI} a ${dF}`;
+      }
+      if (dataInicio) {
+        return `A partir de ${dataInicio.split('-').reverse().slice(0, 2).join('/')}`;
+      }
+      if (dataFim) {
+        return `Até ${dataFim.split('-').reverse().slice(0, 2).join('/')}`;
+      }
+      return 'Intervalo';
+    }
+    return '';
+  }, [periodoFiltro, dataInicio, dataFim]);
 
   // 3. Agrupamento por Dia (Extrato Bancário) ordenado do mais recente ao mais antigo
   const extratoPorDia = useMemo(() => {
@@ -431,14 +448,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       };
     });
   }, [lancamentosFiltrados]);
-
-  // Indicadores Gerais do Diário (KPIs)
-  const totalRegistros = todosLancamentos.length;
-  const totalServicosConcluidos = todosLancamentos.filter((e) => e.tipo === 'servico_concluido').length;
-  const totalDecisoesDiario = todosLancamentos.filter(
-    (e) => e.tipo === 'decisao_criada' || e.tipo === 'decisao_aprovada' || e.tipo === 'decisao_recusada'
-  ).length;
-  const totalFotosDiario = todosLancamentos.reduce((acc, e) => acc + (e.fotos?.length || 0), 0);
 
   // Submissão do Modal de Novo Registro
   const handleSalvarNovoRegistro = (e: React.FormEvent) => {
@@ -498,7 +507,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ========================================================
-          CABEÇALHO MINIMALISTA: DIÁRIO DE OBRA & INDICADORES
+          CABEÇALHO MINIMALISTA: DIÁRIO DE OBRA COM BUSCA E FILTRO
          ======================================================== */}
       <div
         style={{
@@ -507,7 +516,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 12,
-          paddingBottom: 2,
+          paddingBottom: 4,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -515,231 +524,49 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             Diário de Obra
           </h2>
 
-          {/* Indicadores Minimalistas em Pílulas */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: '0.76rem',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border-hairline)',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-full)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-              title="Total de registros no histórico"
-            >
-              <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{totalRegistros}</strong> registros
-            </span>
-
-            <span
-              style={{
-                fontSize: '0.76rem',
-                color: '#15803d',
-                background: '#dcfce7',
-                border: '1px solid #bbf7d0',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-full)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-              title="Atividades e serviços finalizados"
-            >
-              <CheckCircle size={13} weight="bold" />
-              <strong>{totalServicosConcluidos}</strong> serviços
-            </span>
-
+          {isPeriodoAtivo && (
             <span
               style={{
                 fontSize: '0.76rem',
                 color: 'var(--primary-accent)',
                 background: 'var(--coral-glow-50)',
                 border: '1px solid var(--border-hairline)',
-                padding: '2px 8px',
+                padding: '3px 9px',
                 borderRadius: 'var(--radius-full)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 4,
+                gap: 5,
+                fontWeight: 600,
               }}
-              title="Decisões e acordos bilaterais"
             >
-              <Scales size={13} weight="bold" />
-              <strong>{totalDecisoesDiario}</strong> decisões
-            </span>
-
-            {totalFotosDiario > 0 && (
-              <span
+              <CalendarBlank size={13} weight="bold" />
+              <span>{labelPeriodoAtivo}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodoFiltro('todos');
+                  setDataInicio('');
+                  setDataFim('');
+                }}
                 style={{
-                  fontSize: '0.76rem',
-                  color: 'var(--dark-coffee-700)',
-                  background: 'var(--dark-coffee-50)',
-                  border: '1px solid var(--border-hairline)',
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-full)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary-accent)',
+                  cursor: 'pointer',
+                  padding: 0,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: 4,
                 }}
-                title="Fotos e evidências anexadas"
+                title="Limpar filtro de período"
               >
-                <Camera size={13} weight="bold" />
-                <strong>{totalFotosDiario}</strong> fotos
-              </span>
-            )}
-          </div>
+                <X size={12} weight="bold" />
+              </button>
+            </span>
+          )}
         </div>
 
-        {perfilAtivo === 'construtor' && (
-          <button
-            type="button"
-            onClick={() => setIsNovoRegistroOpen(true)}
-            className="btn-primary"
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.82rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <Plus size={15} weight="bold" />
-            <span>Novo Registro</span>
-          </button>
-        )}
-      </div>
-
-      {/* ========================================================
-          BARRA DE FERRAMENTAS: FILTROS & BUSCA
-         ======================================================== */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-          background: 'var(--bg-surface)',
-          padding: '10px 14px',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-hairline)',
-        }}
-      >
-        {/* Linha 1: Categorias e Busca */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          {/* Chips de Categoria */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setFilterTipo('todos')}
-              className={`filter-chip ${filterTipo === 'todos' ? 'active' : ''}`}
-              style={{
-                padding: '4px 11px',
-                fontSize: '0.80rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-full)',
-                border: filterTipo === 'todos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: filterTipo === 'todos' ? 'var(--coral-glow-50)' : 'transparent',
-                color: filterTipo === 'todos' ? 'var(--primary-accent)' : 'var(--text-body)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <span>Todos</span>
-              <span style={{ fontSize: '0.70rem', opacity: 0.8 }}>({todosLancamentos.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTipo('etapas')}
-              className={`filter-chip ${filterTipo === 'etapas' ? 'active' : ''}`}
-              style={{
-                padding: '4px 11px',
-                fontSize: '0.80rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-full)',
-                border: filterTipo === 'etapas' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: filterTipo === 'etapas' ? 'var(--coral-glow-50)' : 'transparent',
-                color: filterTipo === 'etapas' ? 'var(--primary-accent)' : 'var(--text-body)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <CheckCircle size={14} weight="bold" />
-              <span>Serviços & Etapas</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTipo('decisoes')}
-              className={`filter-chip ${filterTipo === 'decisoes' ? 'active' : ''}`}
-              style={{
-                padding: '4px 11px',
-                fontSize: '0.80rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-full)',
-                border: filterTipo === 'decisoes' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: filterTipo === 'decisoes' ? 'var(--coral-glow-50)' : 'transparent',
-                color: filterTipo === 'decisoes' ? 'var(--primary-accent)' : 'var(--text-body)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <Scales size={14} weight="bold" />
-              <span>Decisões</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTipo('fotos')}
-              className={`filter-chip ${filterTipo === 'fotos' ? 'active' : ''}`}
-              style={{
-                padding: '4px 11px',
-                fontSize: '0.80rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-full)',
-                border: filterTipo === 'fotos' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: filterTipo === 'fotos' ? 'var(--coral-glow-50)' : 'transparent',
-                color: filterTipo === 'fotos' ? 'var(--primary-accent)' : 'var(--text-body)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <Camera size={14} weight="bold" />
-              <span>Com Fotos</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setFilterTipo('financeiro')}
-              className={`filter-chip ${filterTipo === 'financeiro' ? 'active' : ''}`}
-              style={{
-                padding: '4px 11px',
-                fontSize: '0.80rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-full)',
-                border: filterTipo === 'financeiro' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: filterTipo === 'financeiro' ? 'var(--coral-glow-50)' : 'transparent',
-                color: filterTipo === 'financeiro' ? 'var(--primary-accent)' : 'var(--text-body)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <CurrencyDollar size={14} weight="bold" />
-              <span>Financeiro (R$)</span>
-            </button>
-          </div>
-
+        {/* Controles da Direita: Busca, Filtro de Período e Botão Novo Registro */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Campo de Busca Rápida */}
           <div style={{ position: 'relative', width: 220, minWidth: 180 }}>
             <input
@@ -748,10 +575,10 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
               style={{
                 width: '100%',
                 paddingLeft: 30,
-                paddingRight: 26,
-                fontSize: '0.80rem',
-                height: 30,
-                borderRadius: 'var(--radius-full)',
+                paddingRight: searchTerm ? 26 : 10,
+                fontSize: '0.82rem',
+                height: 38,
+                borderRadius: 'var(--radius-sm)',
               }}
               placeholder="Buscar no diário..."
               value={searchTerm}
@@ -760,7 +587,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             <div
               style={{
                 position: 'absolute',
-                left: 9,
+                left: 10,
                 top: '50%',
                 transform: 'translateY(-50%)',
                 color: 'var(--text-muted)',
@@ -768,7 +595,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                 pointerEvents: 'none',
               }}
             >
-              <MagnifyingGlass size={13} />
+              <MagnifyingGlass size={15} />
             </div>
             {searchTerm && (
               <button
@@ -786,185 +613,226 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   display: 'flex',
                   padding: 2,
                 }}
+                title="Limpar busca"
               >
-                <X size={12} />
+                <X size={13} />
               </button>
             )}
           </div>
-        </div>
 
-        {/* Linha 2: Filtro de Período (Hoje, Últimos 7 dias, Últimos 30 dias, Selecionar intervalo) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexWrap: 'wrap',
-            paddingTop: 8,
-            borderTop: '1px solid var(--border-hairline)',
-          }}
-        >
-          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Período:
-          </span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+          {/* BOTÃO FILTRO DE PERÍODO (POPUP FLUTUANTE) */}
+          <div style={{ position: 'relative' }} ref={filterContainerRef}>
             <button
               type="button"
-              onClick={() => setPeriodoFiltro('todos')}
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className="btn-icon"
               style={{
-                padding: '3px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-xs)',
-                border: periodoFiltro === 'todos' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
-                background: periodoFiltro === 'todos' ? 'var(--dark-coffee-100)' : 'transparent',
-                color: periodoFiltro === 'todos' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-                cursor: 'pointer',
+                width: 38,
+                height: 38,
+                border: '1px solid var(--border-hairline)',
+                background: isFilterOpen || isPeriodoAtivo ? 'var(--dark-coffee-100)' : '#ffffff',
+                color: isPeriodoAtivo ? 'var(--primary-accent)' : 'var(--text-body)',
+                position: 'relative',
               }}
+              title="Filtrar por período"
             >
-              Todos
+              <Funnel size={18} weight={isPeriodoAtivo ? 'fill' : 'regular'} />
+              {isPeriodoAtivo && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--primary-accent)',
+                  }}
+                />
+              )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setPeriodoFiltro('hoje')}
-              style={{
-                padding: '3px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-xs)',
-                border: periodoFiltro === 'hoje' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
-                background: periodoFiltro === 'hoje' ? 'var(--dark-coffee-100)' : 'transparent',
-                color: periodoFiltro === 'hoje' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
-            >
-              Hoje
-            </button>
+            {/* Popup Flutuante de Período */}
+            {isFilterOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: 290,
+                  background: '#ffffff',
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-floating)',
+                  padding: '14px',
+                  zIndex: 200,
+                  animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 10,
+                    paddingBottom: 6,
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.80rem',
+                      fontWeight: 700,
+                      color: 'var(--text-main)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    Filtrar Período
+                  </span>
+                  {isPeriodoAtivo && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPeriodoFiltro('todos');
+                        setDataInicio('');
+                        setDataFim('');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary-accent)',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
 
-            <button
-              type="button"
-              onClick={() => setPeriodoFiltro('7dias')}
-              style={{
-                padding: '3px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-xs)',
-                border: periodoFiltro === '7dias' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
-                background: periodoFiltro === '7dias' ? 'var(--dark-coffee-100)' : 'transparent',
-                color: periodoFiltro === '7dias' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
-            >
-              Últimos 7 dias
-            </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {[
+                    { id: 'todos', label: 'Todo o período' },
+                    { id: 'hoje', label: 'Hoje' },
+                    { id: '7dias', label: 'Últimos 7 dias' },
+                    { id: '30dias', label: 'Últimos 30 dias' },
+                    { id: 'intervalo', label: 'Selecionar intervalo' },
+                  ].map((opcao) => {
+                    const isSelected = periodoFiltro === opcao.id;
+                    return (
+                      <button
+                        key={opcao.id}
+                        type="button"
+                        onClick={() => {
+                          setPeriodoFiltro(opcao.id as any);
+                          if (opcao.id !== 'intervalo') {
+                            setIsFilterOpen(false);
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 10px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: 'none',
+                          background: isSelected ? 'var(--dark-coffee-50)' : 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontWeight: isSelected ? 700 : 500,
+                          color: isSelected ? 'var(--primary-accent)' : 'var(--text-body)',
+                          fontSize: '0.84rem',
+                        }}
+                      >
+                        <span>{opcao.label}</span>
+                        {isSelected && <Check size={14} weight="bold" color="var(--primary-accent)" />}
+                      </button>
+                    );
+                  })}
 
-            <button
-              type="button"
-              onClick={() => setPeriodoFiltro('30dias')}
-              style={{
-                padding: '3px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-xs)',
-                border: periodoFiltro === '30dias' ? '1px solid var(--dark-coffee-700)' : '1px solid var(--border-hairline)',
-                background: periodoFiltro === '30dias' ? 'var(--dark-coffee-100)' : 'transparent',
-                color: periodoFiltro === '30dias' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
-            >
-              Últimos 30 dias
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setPeriodoFiltro('intervalo')}
-              style={{
-                padding: '3px 10px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-xs)',
-                border: periodoFiltro === 'intervalo' ? '1px solid var(--primary-accent)' : '1px solid var(--border-hairline)',
-                background: periodoFiltro === 'intervalo' ? 'var(--coral-glow-50)' : 'transparent',
-                color: periodoFiltro === 'intervalo' ? 'var(--primary-accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <CalendarBlank size={13} weight="bold" />
-              <span>Selecionar intervalo</span>
-            </button>
+                  {/* Campos de Intervalo De / Até */}
+                  {periodoFiltro === 'intervalo' && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: '10px',
+                        background: 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-hairline)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}
+                    >
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>
+                          Data inicial (De):
+                        </label>
+                        <input
+                          type="date"
+                          value={dataInicio}
+                          onChange={(e) => setDataInicio(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            border: '1px solid var(--border-hairline)',
+                            borderRadius: 'var(--radius-xs)',
+                            padding: '6px 8px',
+                            fontSize: '0.80rem',
+                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>
+                          Data final (Até):
+                        </label>
+                        <input
+                          type="date"
+                          value={dataFim}
+                          onChange={(e) => setDataFim(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            border: '1px solid var(--border-hairline)',
+                            borderRadius: 'var(--radius-xs)',
+                            padding: '6px 8px',
+                            fontSize: '0.80rem',
+                            color: 'var(--text-main)',
+                            background: '#ffffff',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Campos de Data De / Até quando 'intervalo' está ativo */}
-          {periodoFiltro === 'intervalo' && (
-            <div
+          {/* Botão Novo Registro (Construtor) */}
+          {perfilAtivo === 'construtor' && (
+            <button
+              type="button"
+              onClick={() => setIsNovoRegistroOpen(true)}
+              className="btn-primary"
               style={{
+                height: 38,
+                padding: '0 14px',
+                fontSize: '0.82rem',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                marginLeft: 4,
-                background: '#ffffff',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-xs)',
-                border: '1px solid var(--border-hairline)',
+                whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>De:</span>
-              <input
-                type="date"
-                value={dataInicio}
-                onChange={(e) => setDataInicio(e.target.value)}
-                style={{
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '2px 6px',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-main)',
-                  background: 'transparent',
-                  outline: 'none',
-                }}
-              />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Até:</span>
-              <input
-                type="date"
-                value={dataFim}
-                onChange={(e) => setDataFim(e.target.value)}
-                style={{
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-xs)',
-                  padding: '2px 6px',
-                  fontSize: '0.78rem',
-                  color: 'var(--text-main)',
-                  background: 'transparent',
-                  outline: 'none',
-                }}
-              />
-              {(dataInicio || dataFim) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDataInicio('');
-                    setDataFim('');
-                  }}
-                  title="Limpar intervalo de datas"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    padding: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
+              <Plus size={15} weight="bold" />
+              <span>Novo Registro</span>
+            </button>
           )}
         </div>
       </div>
@@ -988,16 +856,15 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             Nenhum lançamento encontrado
           </h3>
           <p style={{ fontSize: '0.85rem', maxWidth: 420, margin: '0 auto', lineHeight: 1.4 }}>
-            {searchTerm || filterTipo !== 'todos' || periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim)
+            {searchTerm || isPeriodoAtivo
               ? 'Nenhum registro corresponde aos filtros selecionados. Tente limpar os critérios de busca.'
               : 'Conforme as etapas forem cumpridas e as decisões forem registradas, o extrato diário será gerado automaticamente.'}
           </p>
-          {(searchTerm || filterTipo !== 'todos' || periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim)) && (
+          {(searchTerm || isPeriodoAtivo) && (
             <button
               type="button"
               onClick={() => {
                 setSearchTerm('');
-                setFilterTipo('todos');
                 setPeriodoFiltro('todos');
                 setDataInicio('');
                 setDataFim('');

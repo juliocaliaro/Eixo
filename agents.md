@@ -258,13 +258,15 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
     - Miniaturas de fotos com clique para abertura de **Lightbox em Tela Cheia** (com suporte à tecla `Escape`).
     - Badges de impacto financeiro (`+ R$ X,XX (Aditivo)` / `- R$ X,XX (Supressivo)`).
     - Botões de navegação rápida: atalho para abrir os detalhes da tarefa no Cronograma ou atalho para navegar diretamente até a aba de Decisões.
-- **Cabeçalho Minimalista & Pílulas de Indicadores**:
-  - Remoção de banners prolixos e de cartões pesados no topo.
-  - Indicadores condensados em pílulas discretas inline com ícones temáticos: contagem de lançamentos totais, serviços concluídos, decisões registradas e evidências fotográficas anexadas.
-- **Filtros e Busca Instantânea**:
-  - **Chips por Categoria**: `Todos`, `Serviços & Etapas`, `Decisões`, `Com Fotos`, `Financeiro (R$)`.
-  - **Filtro de Período**: `Todos`, `Hoje`, `Últimos 7 dias`, `Últimos 30 dias` e `Selecionar intervalo` (com seleção de data inicial e data final `De: [data]` e `Até: [data]`).
-  - **Busca Textual em Tempo Real**: Filtra instantaneamente por título, anotações, nome do autor ou subtítulo.
+- **Cabeçalho Minimalista & Ausência de Contadores ("Menos é mais")**:
+  - Remoção de contadores e pílulas de indicadores no topo do diário, mantendo o cabeçalho estritamente limpo e executivo em linha única.
+  - Exibição de tag sutil de período ativo com botão de fechamento rápido (`✕`).
+- **Filtro de Período em Ícone Flutuante (Design System `ProjetosTab`)**:
+  - Eliminação de chips horizontais de categorias (`Todos`, `Serviços`, `Decisões`, etc.), desobstruindo a visualização do extrato.
+  - Filtro de período encapsulado em botão de ícone de funil (`<Funnel size={18} />`) de 38x38px com dot de destaque em `coral-glow` quando ativo.
+  - Popup flutuante com as opções `Todo o período`, `Hoje`, `Últimos 7 dias`, `Últimos 30 dias` e `Selecionar intervalo` (com inputs inline `De:` e `Até:`).
+- **Busca Textual em Tempo Real**:
+  - Campo de busca integrado diretamente no cabeçalho executivo, com filtragem instantânea por título, anotações técnicas, nome do autor ou subtítulo do evento.
 - **Permissões Rigorosas por Perfil**:
   - **Construtor**: Visualização completa + botão `[ + Novo Registro ]` abrindo modal para lançar anotação técnica ou foto direcionada a um serviço específico de qualquer etapa ou como anotação geral de canteiro.
   - **Cliente**: Modo 100% Read-Only de acompanhamento transparente (sem botões de inserção ou exclusão, permitindo inspecionar evidências, fotos em tela cheia e extrato completo).
