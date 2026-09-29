@@ -69,7 +69,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   onChange,
   minDate,
   label = 'Data Prevista de Conclusão',
-  helperText = 'Permitido apenas datas futuras (a partir de amanhã).',
+  helperText = 'Informe a previsão de conclusão da obra (DD/MM/AAAA).',
   required = false,
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -117,18 +117,20 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         setIsCalendarOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isCalendarOpen]);
 
@@ -154,7 +156,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         setAvisoErro('Dia inválido.');
         return;
       }
-      if (ano < 2024 || ano > 2100) {
+      if (ano < 1900 || ano > 2100) {
         setAvisoErro('Ano inválido.');
         return;
       }
@@ -171,7 +173,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
       const iso = brToIso(formatado);
       if (minDate && iso < minDate) {
-        setAvisoErro('A data deve ser futura (a partir de amanhã).');
+        setAvisoErro('A data não pode ser anterior à data mínima permitida.');
         return;
       }
 
@@ -200,7 +202,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   // Selecionar dia no calendário customizado
   const handleSelectDate = (iso: string) => {
     if (minDate && iso < minDate) {
-      setAvisoErro('A data deve ser futura (a partir de amanhã).');
+      setAvisoErro('A data não pode ser anterior à data mínima permitida.');
       return;
     }
     setAvisoErro('');
@@ -506,7 +508,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                   opacity: isDisabled ? 0.35 : 1,
                   transition: 'all 0.12s ease',
                 }}
-                title={isDisabled ? 'Data não permitida (deve ser futura)' : isoToBr(iso)}
+                title={isDisabled ? 'Data não permitida (anterior à data mínima)' : isoToBr(iso)}
               >
                 {dia}
               </button>

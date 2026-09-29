@@ -13,7 +13,6 @@ import {
   Eye,
   Check
 } from '@phosphor-icons/react';
-import confetti from 'canvas-confetti';
 import { Obra, Etapa, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
 import { ModalConfirm } from './ModalConfirm';
@@ -329,7 +328,17 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                     {/* Header da Etapa */}
                     <div
                       className="timeline-item-header"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isOpen}
                       onClick={() => toggleAccordion(etapa.id)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleAccordion(etapa.id);
+                        }
+                      }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                         {/* Drag Handle da Etapa */}
@@ -338,6 +347,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             draggable
                             onDragStart={(e) => handleEtapaDragStart(e, etapaIndex)}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                             className="drag-handle-grip"
                             title="Arrastar para reordenar etapa"
                           >
@@ -389,6 +399,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                           <div
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                           >
                             <button
                               type="button"
@@ -475,9 +486,12 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                         if (isReadOnly) return;
                                         onToggleTask(etapa.id, tarefa.id);
                                         if (!tarefa.concluida) {
-                                          try {
-                                            confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
-                                          } catch {}
+                                          import('canvas-confetti')
+                                            .then((confettiModule) => {
+                                              const fire = confettiModule.default || confettiModule;
+                                              fire({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
+                                            })
+                                            .catch(() => {});
                                         }
                                       }}
                                       title={isReadOnly ? 'Status gerenciado pelo construtor (somente leitura)' : tarefa.concluida ? 'Desmarcar' : 'Concluir'}

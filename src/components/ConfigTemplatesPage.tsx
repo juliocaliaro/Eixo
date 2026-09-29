@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Gear,
@@ -73,6 +73,19 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     tarefaId?: string;
     name: string;
   } | null>(null);
+
+  // Fechar modais de criação com tecla Escape
+  useEffect(() => {
+    if (!isAddTemplateOpen && !isAddEtapaOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isAddTemplateOpen) setIsAddTemplateOpen(false);
+        if (isAddEtapaOpen) setIsAddEtapaOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAddTemplateOpen, isAddEtapaOpen]);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) || templates[0];
 
@@ -639,6 +652,9 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
               >
                 {/* Header da Etapa */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isOpen}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -650,6 +666,13 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                     borderBottom: isOpen ? '1px solid var(--border-hairline)' : 'none',
                   }}
                   onClick={() => toggleAccordion(etapa.id)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleAccordion(etapa.id);
+                    }
+                  }}
                 >
                   {/* Ícone Temático */}
                   <div
@@ -728,6 +751,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                     onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                   >
                     <button
                       onClick={() => handleMoveEtapa(etapaIndex, 'up')}

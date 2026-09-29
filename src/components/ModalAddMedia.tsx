@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, NotePencil, X, Check, CaretDown, CaretUp, Sparkle, Plus } from '@phosphor-icons/react';
 import { Tarefa, Etapa } from '../types/obra';
 
@@ -27,6 +27,16 @@ export const ModalAddMedia: React.FC<ModalAddMediaProps> = ({
   const [anotacao, setAnotacao] = useState('');
   const [fotosPreview, setFotosPreview] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !tarefa) return null;
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
-import { parseMoedaBR } from '../utils/moeda';
+import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
@@ -177,13 +177,18 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   <span style={{ fontSize: '0.70rem', color: 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   className="form-input"
                   placeholder="0,00"
                   value={aditivo}
                   onChange={(e) => setAditivo(e.target.value)}
+                  onBlur={() => {
+                    const parsed = parseMoedaBR(aditivo);
+                    if (parsed !== undefined) {
+                      setAditivo(formatarMoeda(parsed));
+                    }
+                  }}
                 />
               </div>
 
@@ -193,13 +198,18 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>- Redução</span>
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
                   className="form-input"
                   placeholder="0,00"
                   value={supressivo}
                   onChange={(e) => setSupressivo(e.target.value)}
+                  onBlur={() => {
+                    const parsed = parseMoedaBR(supressivo);
+                    if (parsed !== undefined) {
+                      setSupressivo(formatarMoeda(parsed));
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -227,9 +237,9 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   }}
                 >
                   {saldoCalculado > 0
-                    ? `+ R$ ${saldoCalculado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Acréscimo)`
+                    ? `+ ${formatarMoeda(saldoCalculado)} (Acréscimo)`
                     : saldoCalculado < 0
-                    ? `- R$ ${Math.abs(saldoCalculado).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Economia / Redução)`
+                    ? `- ${formatarMoeda(Math.abs(saldoCalculado))} (Economia / Redução)`
                     : 'R$ 0,00 (Neutro)'}
                 </strong>
               </div>

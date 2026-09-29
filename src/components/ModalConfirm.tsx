@@ -1,5 +1,5 @@
-import React from 'react';
-import { Warning, Trash, Check, X } from '@phosphor-icons/react';
+import React, { useEffect } from 'react';
+import { Warning, Trash } from '@phosphor-icons/react';
 
 interface ModalConfirmProps {
   isOpen: boolean;
@@ -22,6 +22,15 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   const isDanger = variant === 'danger';

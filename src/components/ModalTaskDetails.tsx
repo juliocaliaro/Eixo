@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Camera,
@@ -37,6 +37,22 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   const [isAddingNota, setIsAddingNota] = useState(false);
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fechar com tecla Escape (fecha lightbox primeiro se estiver aberto, senão fecha o modal)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (lightboxFoto) {
+          setLightboxFoto(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, lightboxFoto, onClose]);
 
   const canEdit = !isReadOnly && Boolean(onUpdateTaskMedia);
 

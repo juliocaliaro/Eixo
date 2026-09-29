@@ -74,6 +74,22 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Fechar preview do PDF e menu de filtro com tecla Escape
+  useEffect(() => {
+    if (!previewProjeto && !isFilterOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (previewProjeto) {
+          setPreviewProjeto(null);
+        } else if (isFilterOpen) {
+          setIsFilterOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewProjeto, isFilterOpen]);
+
   const projetos = obra.projetos || [];
 
   // Filtragem dos projetos

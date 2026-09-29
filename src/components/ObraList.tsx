@@ -172,7 +172,17 @@ export const ObraList: React.FC<ObraListProps> = ({
             <div
               key={obra.id}
               className="cardless-row"
+              role="button"
+              tabIndex={0}
+              aria-label={`Abrir detalhes da obra ${obra.nome}`}
               onClick={() => onSelectObra(obra.id)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectObra(obra.id);
+                }
+              }}
             >
               {/* Identificação da Obra */}
               <div style={{ minWidth: '220px', flex: 1.2 }}>
@@ -240,6 +250,7 @@ export const ObraList: React.FC<ObraListProps> = ({
                       e.stopPropagation();
                       setDeleteObraTarget({ id: obra.id, nome: obra.nome });
                     }}
+                    onKeyDown={(e) => e.stopPropagation()}
                     className="btn-icon"
                     style={{ color: 'var(--text-muted)' }}
                     title="Excluir obra"

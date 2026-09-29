@@ -22,6 +22,16 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
     setValue(initialValue);
   }, [initialValue, isOpen]);
 
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {

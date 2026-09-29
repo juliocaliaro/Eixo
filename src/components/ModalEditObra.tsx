@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
+import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
-import { parseMoedaBR } from '../utils/moeda';
+import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
 
 interface ModalEditObraProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       setCliente(obra.cliente);
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
-      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? String(obra.orcamentoInicial) : '');
+      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? formatarMoeda(obra.orcamentoInicial) : '');
       setErro('');
     }
   }, [obra, isOpen]);
@@ -65,6 +65,14 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
     }
 
     const valorNumerico = parseMoedaBR(orcamentoInicial);
+    if (orcamentoInicial.trim() && valorNumerico === undefined) {
+      setErro('Valor do orçamento inválido. Use formato numérico (ex: 185.000,00).');
+      return;
+    }
+    if (valorNumerico !== undefined && valorNumerico < 0) {
+      setErro('O valor do orçamento não pode ser negativo.');
+      return;
+    }
 
     onSave({
       nome: nome.trim(),
@@ -171,13 +179,18 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
                 </span>
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
                 className="form-input"
-                placeholder="Ex: 185000"
+                placeholder="Ex: 185.000,00"
                 value={orcamentoInicial}
                 onChange={(e) => setOrcamentoInicial(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseMoedaBR(orcamentoInicial);
+                  if (parsed !== undefined) {
+                    setOrcamentoInicial(formatarMoeda(parsed));
+                  }
+                }}
               />
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
                 Base financeira para cálculo automático dos aditivos contratuais aprovados.

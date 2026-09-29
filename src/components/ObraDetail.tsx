@@ -12,7 +12,10 @@ import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
-import { ModalPreviewRelatorio } from './ModalPreviewRelatorio';
+
+const ModalPreviewRelatorio = React.lazy(() =>
+  import('./ModalPreviewRelatorio').then((m) => ({ default: m.ModalPreviewRelatorio }))
+);
 
 interface ObraDetailProps {
   obra: Obra;
@@ -721,12 +724,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         onEmitirRelatorio={handleEmitirRelatorio}
       />
 
-      <ModalPreviewRelatorio
-        isOpen={isPreviewRelatorioOpen}
-        onClose={() => setIsPreviewRelatorioOpen(false)}
-        obra={obra}
-        autoPrint={autoPrintRelatorio}
-      />
+      {isPreviewRelatorioOpen && (
+        <React.Suspense fallback={null}>
+          <ModalPreviewRelatorio
+            isOpen={isPreviewRelatorioOpen}
+            onClose={() => setIsPreviewRelatorioOpen(false)}
+            obra={obra}
+            autoPrint={autoPrintRelatorio}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

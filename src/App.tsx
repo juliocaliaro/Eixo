@@ -5,9 +5,14 @@ import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
-import { ConfigTemplatesPage } from './components/ConfigTemplatesPage';
-import { PublicUploadProjetoPage } from './components/PublicUploadProjetoPage';
 import { ToastContainer } from './components/Toast';
+
+const ConfigTemplatesPage = React.lazy(() =>
+  import('./components/ConfigTemplatesPage').then((m) => ({ default: m.ConfigTemplatesPage }))
+);
+const PublicUploadProjetoPage = React.lazy(() =>
+  import('./components/PublicUploadProjetoPage').then((m) => ({ default: m.PublicUploadProjetoPage }))
+);
 
 export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
@@ -507,20 +512,22 @@ export const App: React.FC = () => {
     if (obraDestino) {
       return (
         <div className="app-container">
-          <PublicUploadProjetoPage
-            obra={obraDestino}
-            onUploadProjeto={handlePublicUploadProjeto}
-            onBackToApp={() => {
-              setPublicUploadObraId(null);
-              setCurrentObraId(obraDestino.id);
-              setActiveTab('projetos');
-              try {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('upload');
-                window.history.replaceState({}, '', url.toString());
-              } catch {}
-            }}
-          />
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando tela de envio...</div>}>
+            <PublicUploadProjetoPage
+              obra={obraDestino}
+              onUploadProjeto={handlePublicUploadProjeto}
+              onBackToApp={() => {
+                setPublicUploadObraId(null);
+                setCurrentObraId(obraDestino.id);
+                setActiveTab('projetos');
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('upload');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {}
+              }}
+            />
+          </React.Suspense>
           <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
         </div>
       );
@@ -563,12 +570,14 @@ export const App: React.FC = () => {
       {/* Conteúdo Principal */}
       <main className="main-content">
         {isConfigOpen ? (
-          <ConfigTemplatesPage
-            templates={templates}
-            onUpdateTemplates={handleUpdateTemplates}
-            onBack={() => setIsConfigOpen(false)}
-            showToast={showToast}
-          />
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando modelos de obra...</div>}>
+            <ConfigTemplatesPage
+              templates={templates}
+              onUpdateTemplates={handleUpdateTemplates}
+              onBack={() => setIsConfigOpen(false)}
+              showToast={showToast}
+            />
+          </React.Suspense>
         ) : !currentObra ? (
           /* Visão Externa: Empty State ou Lista de Obras */
           <ObraList

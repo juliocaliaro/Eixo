@@ -272,3 +272,24 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Permissões Rigorosas por Perfil**:
   - **Construtor**: Visualização completa + botão `[ + Novo Registro ]` abrindo modal para lançar anotação técnica ou foto direcionada a um serviço específico de qualquer etapa ou como anotação geral de canteiro.
   - **Cliente**: Modo 100% Read-Only de acompanhamento transparente (sem botões de inserção ou exclusão, permitindo inspecionar evidências, fotos em tela cheia e extrato completo).
+
+---
+
+## 17. Otimizações de Engenharia Web Wizard (Frontend Design, CRO & A11y)
+
+- **Cadastro de Obra em Tela Única (`ModalCreateObra`)**:
+  - Substituição do antigo assistente de 3 etapas com 1 campo por tela por um modal unificado, fluido e direto, eliminando o timer artificial de 250ms contra duplo toque no mobile.
+  - Campos monetários integrados com `inputMode="decimal"`, `parseMoedaBR` e `formatarMoeda` no evento de blur, permitindo digitação fluida em dispositivos móveis.
+  - Permissão de data de entrega para a data atual (hoje em diante).
+- **Acessibilidade Universal & Fechamento com `Escape`**:
+  - Implementação consistente de listeners da tecla `Escape` em todos os 11 modais e diálogos do sistema.
+  - Tratamento de precedência no `DatePickerInput` para que pressionar `Escape` feche apenas o popover de calendário sem fechar o modal pai.
+  - Alvos de toque expandidos para o padrão WCAG 2.5.5 (mínimo de 44px × 44px) em checkboxes de tarefas (`.task-checkbox::before`) e handles de arraste.
+  - Navegação por teclado completa com `tabIndex={0}`, `role="button"` e estilos de `:focus-visible` em linhas de obras e cabeçalhos sanfonados de etapas, com bloqueio estrito de propagação de eventos (`e.target !== e.currentTarget`).
+- **Code-Splitting & Otimização de Bundle**:
+  - Divisão de código com `React.lazy()` e `Suspense` em telas e modais volumosos (`ModalPreviewRelatorio`, `ConfigTemplatesPage`, `PublicUploadProjetoPage`).
+  - Importação dinâmica assíncrona do motor de celebração `canvas-confetti` apenas no ato de conclusão da etapa/tarefa.
+  - Redução expressiva do chunk inicial de 668 kB para 588 kB.
+- **Higienização de Código Morto**:
+  - Remoção definitiva de componentes órfãos descontinuados (`AnexosTab.tsx` e `ModalShareClient.tsx`).
+
