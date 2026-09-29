@@ -12,15 +12,49 @@ import { ToastContainer } from './components/Toast';
 export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
   const [templates, setTemplates] = useState<PresetTipoObra[]>(() => loadTemplatesFromStorage());
-  const [currentObraId, setCurrentObraId] = useState<string | null>(null);
+  const [currentObraId, setCurrentObraId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('obra');
+    } catch {
+      return null;
+    }
+  });
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>('etapas');
+  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const perfilParam = params.get('perfil');
+      if (perfilParam === 'cliente' || perfilParam === 'construtor') {
+        return perfilParam;
+      }
+    } catch {}
+    return 'construtor';
+  });
+  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'anexos') return 'diario';
+      if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
+        return tabParam;
+      }
+    } catch {}
+    return 'etapas';
+  });
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
+  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('upload') === 'projeto') {
+        return params.get('obra');
+      }
+    } catch {}
+    return null;
+  });
 
-  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=... ou ?upload=projeto&obra=...)
+  // Verificar reset/limpeza inicial de dados via parâmetro de URL
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -39,25 +73,74 @@ export const App: React.FC = () => {
           return;
         }
       }
+    } catch {}
+  }, []);
 
-      const perfilParam = params.get('perfil');
-      const obraParam = params.get('obra');
-      const uploadParam = params.get('upload');
-      const tabParam = params.get('tab');
+  // Sincronizar parâmetros de URL em tempo real para evitar perda de contexto ao dar F5
+  useEffect(() => {
+    if (publicUploadObraId) return;
 
-      if (uploadParam === 'projeto' && obraParam) {
-        setPublicUploadObraId(obraParam);
+    try {
+      const url = new URL(window.location.href);
+      const prevSearch = url.search;
+
+      if (currentObraId) {
+        url.searchParams.set('obra', currentObraId);
+
+        if (perfilAtivo === 'cliente') {
+          url.searchParams.set('perfil', 'cliente');
+        } else {
+          url.searchParams.delete('perfil');
+        }
+
+        if (activeTab && activeTab !== 'etapas') {
+          url.searchParams.set('tab', activeTab);
+        } else {
+          url.searchParams.delete('tab');
+        }
+      } else {
+        url.searchParams.delete('obra');
+        url.searchParams.delete('tab');
+        if (perfilAtivo === 'cliente') {
+          url.searchParams.set('perfil', 'cliente');
+        } else {
+          url.searchParams.delete('perfil');
+        }
       }
-      if (perfilParam === 'cliente' || perfilParam === 'construtor') {
-        setPerfilAtivo(perfilParam);
-      }
-      if (obraParam) {
-        setCurrentObraId(obraParam);
-      }
-      if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'anexos' || tabParam === 'compartilhar') {
-        setActiveTab(tabParam === 'anexos' ? 'diario' : tabParam);
+
+      if (url.search !== prevSearch) {
+        window.history.replaceState({}, '', url.toString());
       }
     } catch {}
+  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId]);
+
+  // Suporte a navegação nativa do navegador (botões Voltar e Avançar via popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const obraParam = params.get('obra');
+        const perfilParam = params.get('perfil');
+        const tabParam = params.get('tab');
+
+        setCurrentObraId(obraParam);
+        if (perfilParam === 'cliente' || perfilParam === 'construtor') {
+          setPerfilAtivo(perfilParam);
+        } else {
+          setPerfilAtivo('construtor');
+        }
+        if (tabParam === 'anexos') {
+          setActiveTab('diario');
+        } else if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
+          setActiveTab(tabParam);
+        } else {
+          setActiveTab('etapas');
+        }
+      } catch {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Salvar no localStorage sempre que obras mudarem
@@ -135,6 +218,39 @@ export const App: React.FC = () => {
     saveTemplatesToStorage(updated);
   };
 
+  // Navegação para dentro de uma obra
+  const handleSelectObra = (id: string) => {
+    setIsConfigOpen(false);
+    setCurrentObraId(id);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('obra', id);
+      if (perfilAtivo === 'cliente') {
+        url.searchParams.set('perfil', 'cliente');
+      } else {
+        url.searchParams.delete('perfil');
+      }
+      if (activeTab && activeTab !== 'etapas') {
+        url.searchParams.set('tab', activeTab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+  };
+
+  // Voltar para a lista de obras
+  const handleBackToObras = () => {
+    setCurrentObraId(null);
+    setIsConfigOpen(false);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('obra');
+      url.searchParams.delete('tab');
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+  };
+
   // Criar nova obra
   const handleCreateObra = (dados: {
     nome: string;
@@ -167,7 +283,7 @@ export const App: React.FC = () => {
     setObras(updated);
     setIsCreateObraOpen(false);
     // Já entra diretamente nos detalhes da obra recém criada!
-    setCurrentObraId(novaObra.id);
+    handleSelectObra(novaObra.id);
 
     showToast(
       'Obra criada com sucesso!',
@@ -325,7 +441,7 @@ export const App: React.FC = () => {
     };
 
     setObras([demoObra, ...obras]);
-    setCurrentObraId(demoObra.id);
+    handleSelectObra(demoObra.id);
     showToast('Obra de Exemplo Carregada!', 'Explore as etapas, arquivos, decisões e o diário.');
   };
 
@@ -333,7 +449,7 @@ export const App: React.FC = () => {
   const handleDeleteObra = (obraId: string) => {
     setObras((prev) => prev.filter((o) => o.id !== obraId));
     if (currentObraId === obraId) {
-      setCurrentObraId(null);
+      handleBackToObras();
     }
   };
 
@@ -419,10 +535,7 @@ export const App: React.FC = () => {
       {/* Barra de Navegação Superior com Perfis e Notificações */}
       <Navbar
         currentObra={currentObra}
-        onBackToObras={() => {
-          setCurrentObraId(null);
-          setIsConfigOpen(false);
-        }}
+        onBackToObras={handleBackToObras}
         perfilAtivo={perfilAtivo}
         onTogglePerfil={(novo) => {
           setPerfilAtivo(novo);
@@ -438,7 +551,7 @@ export const App: React.FC = () => {
         obras={obras}
         onNavigateToDecisao={(obraId) => {
           setIsConfigOpen(false);
-          setCurrentObraId(obraId);
+          handleSelectObra(obraId);
           setActiveTab('decisoes');
         }}
         onOpenSettings={() => {
@@ -460,10 +573,7 @@ export const App: React.FC = () => {
           /* Visão Externa: Empty State ou Lista de Obras */
           <ObraList
             obras={obras}
-            onSelectObra={(id) => {
-              setIsConfigOpen(false);
-              setCurrentObraId(id);
-            }}
+            onSelectObra={handleSelectObra}
             onOpenCreateModal={() => setIsCreateObraOpen(true)}
             onDeleteObra={handleDeleteObra}
             onLoadDemo={handleLoadDemo}
@@ -479,7 +589,7 @@ export const App: React.FC = () => {
             perfilAtivo={perfilAtivo}
             activeTab={activeTab}
             onChangeTab={(t) => setActiveTab(t)}
-            onBackToObras={() => setCurrentObraId(null)}
+            onBackToObras={handleBackToObras}
             onSwitchToClient={() => {
               setPerfilAtivo('cliente');
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');

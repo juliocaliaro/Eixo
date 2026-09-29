@@ -54,8 +54,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Acesso Completo às Evidências e Documentos**: Visualização irrestrita de fotos ampliadas, anotações do diário, datas de conclusão de cada serviço e download/visualização de projetos em PDF.
 
 ### 3.3 Compartilhamento e Sincronização
-- Parâmetros de URL sincronizados automaticamente (`?perfil=cliente&obra=ID_DA_OBRA`).
-- Aba dedicada no corpo da obra (**Link do Cliente**) com botão de cópia rápida e resumo claro de permissões.
+- Parâmetros de URL sincronizados automaticamente em tempo real (`?obra=ID_DA_OBRA&tab=ABA_ATIVA&perfil=PERFIL`), garantindo que ao atualizar a página (F5) o usuário nunca perca o contexto da obra aberta.
+- Suporte à navegação nativa do navegador (botões Voltar/Avançar via evento `popstate`).
+- Aba dedicada no corpo da obra (**Compartilhar**) com botão de cópia rápida e resumo claro de permissões.
 
 ---
 
