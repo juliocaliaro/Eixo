@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
-import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
+import { parseMoedaBR, formatarMoeda, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
@@ -178,17 +178,12 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                 </label>
                 <input
                   type="text"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   className="form-input"
                   placeholder="0,00"
                   value={aditivo}
-                  onChange={(e) => setAditivo(e.target.value)}
-                  onBlur={() => {
-                    const parsed = parseMoedaBR(aditivo);
-                    if (parsed !== undefined) {
-                      setAditivo(formatarMoeda(parsed));
-                    }
-                  }}
+                  onChange={(e) => setAditivo(mascararMoedaInput(e.target.value))}
+                  onKeyDown={proibirNaoNumericosMoeda}
                 />
               </div>
 
@@ -199,17 +194,12 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                 </label>
                 <input
                   type="text"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   className="form-input"
                   placeholder="0,00"
                   value={supressivo}
-                  onChange={(e) => setSupressivo(e.target.value)}
-                  onBlur={() => {
-                    const parsed = parseMoedaBR(supressivo);
-                    if (parsed !== undefined) {
-                      setSupressivo(formatarMoeda(parsed));
-                    }
-                  }}
+                  onChange={(e) => setSupressivo(mascararMoedaInput(e.target.value))}
+                  onKeyDown={proibirNaoNumericosMoeda}
                 />
               </div>
             </div>

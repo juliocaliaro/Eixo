@@ -53,3 +53,77 @@ export function formatarMoeda(valor?: number | null, maxDecimais: number = 2): s
     maximumFractionDigits: maxDecimais,
   });
 }
+
+/**
+ * Aplica máscara monetária brasileira (pt-BR) em tempo real durante a digitação.
+ * - Proíbe letras e caracteres não numéricos.
+ * - Desloca centavos da direita para a esquerda (ex: "1" -> "0,01", "1500" -> "15,00", "18500000" -> "185.000,00").
+ * - Permite apagar completamente o campo com Backspace (retorna string vazia "").
+ * - Aceita tanto números brutos (number) quanto strings digitadas/coladas.
+ */
+export function mascararMoedaInput(valor: string | number | undefined | null): string {
+  if (valor === undefined || valor === null || valor === '') {
+    return '';
+  }
+
+  if (typeof valor === 'number') {
+    if (isNaN(valor) || valor <= 0) return '';
+    return valor.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  // Remove qualquer caractere que não seja dígito numérico (proíbe letras e símbolos)
+  const digitos = valor.replace(/\D/g, '');
+
+  if (!digitos || /^0+$/.test(digitos)) {
+    return '';
+  }
+
+  const centavos = parseInt(digitos, 10);
+  const valorDecimal = centavos / 100;
+
+  return valorDecimal.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * Intercepta o evento onKeyDown para proibir a digitação de letras e caracteres não numéricos em inputs monetários.
+ * Permite apenas dígitos (0-9), teclas de controle (Backspace, Tab, Delete, setas, Enter, Escape) e atalhos de clipboard.
+ */
+export function proibirNaoNumericosMoeda(e: React.KeyboardEvent<HTMLInputElement>): void {
+  // Teclas de controle e navegação permitidas
+  const teclasPermitidas = [
+    'Backspace',
+    'Delete',
+    'Tab',
+    'Escape',
+    'Enter',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Home',
+    'End',
+  ];
+
+  if (teclasPermitidas.includes(e.key)) {
+    return;
+  }
+
+  // Atalhos de teclado (Ctrl/Cmd + C, V, A, X, Z)
+  if (e.ctrlKey || e.metaKey) {
+    return;
+  }
+
+  // Permite dígitos de 0 a 9
+  if (/^[0-9]$/.test(e.key)) {
+    return;
+  }
+
+  // Bloqueia qualquer outro caractere (letras, símbolos, espaço, etc.)
+  e.preventDefault();
+}

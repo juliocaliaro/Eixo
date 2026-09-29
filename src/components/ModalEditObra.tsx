@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
-import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
+import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalEditObraProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       setCliente(obra.cliente);
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
-      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? formatarMoeda(obra.orcamentoInicial) : '');
+      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? mascararMoedaInput(obra.orcamentoInicial) : '');
       setErro('');
     }
   }, [obra, isOpen]);
@@ -180,17 +180,12 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               </label>
               <input
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 className="form-input"
-                placeholder="Ex: 185.000,00"
+                placeholder="0,00"
                 value={orcamentoInicial}
-                onChange={(e) => setOrcamentoInicial(e.target.value)}
-                onBlur={() => {
-                  const parsed = parseMoedaBR(orcamentoInicial);
-                  if (parsed !== undefined) {
-                    setOrcamentoInicial(formatarMoeda(parsed));
-                  }
-                }}
+                onChange={(e) => setOrcamentoInicial(mascararMoedaInput(e.target.value))}
+                onKeyDown={proibirNaoNumericosMoeda}
               />
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
                 Base financeira para cálculo automático dos aditivos contratuais aprovados.

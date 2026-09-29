@@ -279,8 +279,13 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 - **Cadastro de Obra em Tela Única (`ModalCreateObra`)**:
   - Substituição do antigo assistente de 3 etapas com 1 campo por tela por um modal unificado, fluido e direto, eliminando o timer artificial de 250ms contra duplo toque no mobile.
-  - Campos monetários integrados com `inputMode="decimal"`, `parseMoedaBR` e `formatarMoeda` no evento de blur, permitindo digitação fluida em dispositivos móveis.
   - Permissão de data de entrega para a data atual (hoje em diante).
+- **Máscara Monetária em Tempo Real & Proibição de Letras (`src/utils/moeda.ts`)**:
+  - Implementação das funções `mascararMoedaInput(valor)` e `proibirNaoNumericosMoeda(e)` em todos os campos de entrada monetária (`ModalCreateObra`, `ModalEditObra` e campos de Aditivo e Supressivo em `ModalCreateDecisao`).
+  - Máscara dinâmica com deslocamento de centavos em tempo real durante a digitação (`onChange`), com formatação no padrão brasileiro (`pt-BR`) e separadores automáticos de milhar e centavos.
+  - Permite apagar completamente o campo com Backspace/Delete (retornando string vazia `""` para evitar engasgos em `"0,00"`).
+  - Bloqueio estrito de digitação de letras, pontuações e símbolos não numéricos via interceptação em `onKeyDown` (`proibirNaoNumericosMoeda`), preservando atalhos de sistema/clipboard (`Ctrl/Cmd + C, V, A, X, Z`) e navegação por setas.
+  - Teclado numérico invocado automaticamente no mobile com `inputMode="numeric"`.
 - **Acessibilidade Universal & Fechamento com `Escape`**:
   - Implementação consistente de listeners da tecla `Escape` em todos os 11 modais e diálogos do sistema.
   - Tratamento de precedência no `DatePickerInput` para que pressionar `Escape` feche apenas o popover de calendário sem fechar o modal pai.

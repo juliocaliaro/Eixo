@@ -9,7 +9,7 @@ import {
   CurrencyDollar,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
-import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
+import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalCreateObraProps {
   isOpen: boolean;
@@ -60,13 +60,6 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
   };
 
   const minDate = getTodayDateStr();
-
-  const handleBlurOrcamento = () => {
-    const parsed = parseMoedaBR(orcamentoInicial);
-    if (parsed !== undefined) {
-      setOrcamentoInicial(formatarMoeda(parsed));
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,12 +237,12 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
               </label>
               <input
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 className="form-input"
-                placeholder="Ex: 185.000,00"
+                placeholder="0,00"
                 value={orcamentoInicial}
-                onChange={(e) => setOrcamentoInicial(e.target.value)}
-                onBlur={handleBlurOrcamento}
+                onChange={(e) => setOrcamentoInicial(mascararMoedaInput(e.target.value))}
+                onKeyDown={proibirNaoNumericosMoeda}
               />
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
                 Base financeira para cálculo automático dos aditivos e supressivos aprovados.
