@@ -81,9 +81,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 2. **Seta de Voltar no Corpo**:
    - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, totalmente desacoplado da barra superior.
 3. **Link do Cliente como Aba**:
-   - O compartilhamento com o cliente foi integrado como a 5ª aba da obra (ordem oficial: `Etapas & Cronograma`, `Projetos (PDF)`, `Decisões & Aprovações`, `Anexos & Diário`, `Link do Cliente`).
-4. **Navegação Cruzada (Anexos $\rightarrow$ Cronograma)**:
-   - Clicar nos detalhes de uma anotação ou serviço na aba de Anexos navega instantaneamente para a aba de etapas.
+   - O compartilhamento com o cliente foi integrado como a 5ª aba da obra (ordem oficial: `Etapas & Cronograma`, `Projetos (PDF)`, `Decisões & Aprovações`, `Diário de Obra`, `Link do Cliente`).
+4. **Navegação Cruzada (Diário de Obra $\rightarrow$ Cronograma)**:
+   - Clicar nos detalhes de uma anotação ou serviço no Diário de Obra navega instantaneamente para a aba de etapas.
    - O accordion da etapa é expandido automaticamente caso esteja fechado.
    - O cronograma rola suavemente até centralizar a tarefa na tela.
    - A tarefa recebe destaque pulsante temporário (`.task-highlight-pulse`).
@@ -238,6 +238,35 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Inclusão no Dossiê de Conclusão**:
   - Seção integrada no Capítulo 5 do Relatório de Conclusão (`ModalPreviewRelatorio`), servindo como termo de vistoria técnica e aceite de entrega de chaves.
 
+---
 
+## 16. Diário de Obra (Extrato Diário de Canteiro - "Extrato de Banco")
 
-
+- **Conceito & Filosofia**:
+  - Substituição da antiga aba "Anexos & Diário" pela aba exclusiva **"Diário de Obra"** (`DiarioObraTab`).
+  - Consolidação unificada de todas as movimentações importantes da obra (serviços concluídos, etapas finalizadas, propostas e aprovações de decisões bilaterais com aditivos/supressivos, evidências fotográficas, anotações de canteiro e itens de vistoria técnica validados).
+  - Apresentação em formato de **extrato de banco**, agrupando todos os eventos cronologicamente por dia (do mais recente ao mais antigo: `Hoje`, `Ontem`, seguido por datas anteriores formatadas com o dia da semana).
+- **Estrutura por Dia ("Extrato Bancário")**:
+  - **Cabeçalho Diário**: Data completa formatada, contador de eventos do dia e pílula de saldo financeiro do dia (se houver decisões com impacto monetário aprovadas ou propostas naquela data).
+  - **Linhas de Lançamento (Movimentações)**:
+    - Coluna de horário de registro (`HH:mm`).
+    - Container de ícone temático vetorizado (Phosphor Icons) categorizado por cor.
+    - Badge de categoria (`Etapa`, `Decisão`, `Evidência`, `Financeiro`).
+    - Título do evento em destaque e subtítulo contextual (ex: Etapa de origem, autor da proposta, status).
+    - Bloco de descrição e anotações técnicas quando houver.
+    - Miniaturas de fotos com clique para abertura de **Lightbox em Tela Cheia** (com suporte à tecla `Escape`).
+    - Badges de impacto financeiro (`+ R$ X,XX (Aditivo)` / `- R$ X,XX (Supressivo)`).
+    - Botões de navegação rápida: atalho para abrir os detalhes da tarefa no Cronograma ou atalho para navegar diretamente até a aba de Decisões.
+- **Painel Superior de Indicadores (KPIs do Diário)**:
+  - Total de Registros consolidados.
+  - Serviços Executados no diário.
+  - Decisões Registradas.
+  - Evidências Fotográficas anexadas.
+  - Saldo de Alterações Aprovadas (R$).
+- **Filtros e Busca Instantânea**:
+  - **Chips por Categoria**: `Todos`, `Serviços & Etapas`, `Decisões & Aprovações`, `Com Fotos`, `Financeiro (R$)`.
+  - **Período**: `Todo o período`, `Últimos 7 dias`, `Últimos 30 dias`.
+  - **Busca Textual em Tempo Real**: Filtra instantaneamente por título, anotações, nome do autor ou subtítulo.
+- **Permissões Rigorosas por Perfil**:
+  - **Construtor**: Visualização completa + botão `[ + Novo Registro ]` abrindo modal para lançar anotação técnica ou foto direcionada a um serviço específico de qualquer etapa ou como anotação geral de canteiro.
+  - **Cliente**: Modo 100% Read-Only de acompanhamento transparente (sem botões de inserção ou exclusão, permitindo inspecionar evidências, fotos em tela cheia e extrato completo).

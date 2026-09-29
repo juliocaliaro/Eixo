@@ -16,7 +16,7 @@ export const App: React.FC = () => {
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
+  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>('etapas');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
 
@@ -43,6 +43,7 @@ export const App: React.FC = () => {
       const perfilParam = params.get('perfil');
       const obraParam = params.get('obra');
       const uploadParam = params.get('upload');
+      const tabParam = params.get('tab');
 
       if (uploadParam === 'projeto' && obraParam) {
         setPublicUploadObraId(obraParam);
@@ -52,6 +53,9 @@ export const App: React.FC = () => {
       }
       if (obraParam) {
         setCurrentObraId(obraParam);
+      }
+      if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'anexos' || tabParam === 'compartilhar') {
+        setActiveTab(tabParam === 'anexos' ? 'diario' : tabParam);
       }
     } catch {}
   }, []);

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
+import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
 import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
 import { VistoriaPunchList } from './VistoriaPunchList';
 import { DecisoesTab } from './DecisoesTab';
-import { AnexosTab } from './AnexosTab';
+import { DiarioObraTab } from './DiarioObraTab';
 import { ProjetosTab } from './ProjetosTab';
 import { ClientShareTab } from './ClientShareTab';
 import { ModalEditObra } from './ModalEditObra';
@@ -19,8 +19,8 @@ interface ObraDetailProps {
   onUpdateObra: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
   perfilAtivo?: PerfilUsuario;
-  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar';
-  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => void;
+  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar';
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar') => void;
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
   templates?: PresetTipoObra[];
@@ -37,13 +37,15 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onSwitchToClient,
   templates,
 }) => {
-  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
-  const activeTab = activeTabProp || localActiveTab;
+  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>('etapas');
+  const rawActiveTab = activeTabProp || localActiveTab;
+  const activeTab = rawActiveTab === 'anexos' ? 'diario' : rawActiveTab;
 
-  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => {
-    setLocalActiveTab(tab);
-    if (onChangeTab) onChangeTab(tab);
+  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar') => {
+    const canonicalTab = tab === 'anexos' ? 'diario' : tab;
+    setLocalActiveTab(canonicalTab);
+    if (onChangeTab) onChangeTab(canonicalTab);
   };
 
   // Navegação direta para uma tarefa vinda de outra aba (ex: Anexos)
@@ -593,11 +595,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         </button>
 
         <button
-          className={`tab-btn ${activeTab === 'anexos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('anexos')}
+          className={`tab-btn ${activeTab === 'diario' ? 'active' : ''}`}
+          onClick={() => handleSelectTab('diario')}
         >
-          <ImageIcon size={20} weight={activeTab === 'anexos' ? 'fill' : 'bold'} />
-          <span>Anexos & Diário</span>
+          <BookOpen size={20} weight={activeTab === 'diario' ? 'fill' : 'bold'} />
+          <span>Diário de Obra</span>
         </button>
 
         <button
@@ -661,13 +663,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         />
       )}
 
-      {activeTab === 'anexos' && (
-        <AnexosTab
+      {activeTab === 'diario' && (
+        <DiarioObraTab
           obra={obra}
           perfilAtivo={perfilAtivo}
           onAddAnexoGeral={handleAddAnexoGeral}
           onDeleteAnexo={handleDeleteAnexoGeral}
           onNavigateToTask={handleNavigateToTask}
+          onNavigateToDecisoes={() => handleSelectTab('decisoes')}
           onUpdateTaskMedia={handleUpdateTaskMedia}
         />
       )}
