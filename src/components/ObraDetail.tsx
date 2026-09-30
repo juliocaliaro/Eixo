@@ -41,7 +41,9 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   templates,
 }) => {
   // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>('etapas');
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(
+    perfilAtivo === 'cliente' ? 'diario' : 'etapas'
+  );
   const rawActiveTab = activeTabProp || localActiveTab;
   const activeTab = rawActiveTab === 'anexos' ? 'diario' : rawActiveTab;
 
@@ -540,78 +542,108 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         perfilAtivo={perfilAtivo}
       />
 
-      {/* Navegação por Abas: Etapas, Arquivos, Decisões, Diário, Compartilhar */}
+      {/* Navegação por Abas:
+          Construtor: Etapas -> Arquivos -> Decisões -> Diário -> Compartilhar
+          Cliente: Diário -> Etapas -> Arquivos -> Decisões -> Compartilhar
+      */}
       <nav className="tabs-nav" aria-label="Abas da Obra">
-        <button
-          className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('etapas')}
-        >
-          <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
-          <span>Etapas</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('projetos')}
-        >
-          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
-          <span>Arquivos</span>
-          {(obra.projetos || []).length > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {obra.projetos!.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'decisoes' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('decisoes')}
-          style={{ position: 'relative' }}
-        >
-          <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
-          <span>Decisões</span>
-          {pendenciasDecisao > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--coral-glow-500)',
-                color: '#ffffff',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {pendenciasDecisao}
-            </span>
-          )}
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'diario' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('diario')}
-        >
-          <BookOpen size={20} weight={activeTab === 'diario' ? 'fill' : 'bold'} />
-          <span>Diário</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'compartilhar' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('compartilhar')}
-        >
-          <ShareNetwork size={20} weight={activeTab === 'compartilhar' ? 'fill' : 'bold'} />
-          <span>Compartilhar</span>
-        </button>
+        {(perfilAtivo === 'cliente'
+          ? (['diario', 'etapas', 'projetos', 'decisoes', 'compartilhar'] as const)
+          : (['etapas', 'projetos', 'decisoes', 'diario', 'compartilhar'] as const)
+        ).map((tabKey) => {
+          if (tabKey === 'diario') {
+            return (
+              <button
+                key="diario"
+                className={`tab-btn ${activeTab === 'diario' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('diario')}
+              >
+                <BookOpen size={20} weight={activeTab === 'diario' ? 'fill' : 'bold'} />
+                <span>Diário</span>
+              </button>
+            );
+          }
+          if (tabKey === 'etapas') {
+            return (
+              <button
+                key="etapas"
+                className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('etapas')}
+              >
+                <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
+                <span>Etapas</span>
+              </button>
+            );
+          }
+          if (tabKey === 'projetos') {
+            return (
+              <button
+                key="projetos"
+                className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('projetos')}
+              >
+                <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
+                <span>Arquivos</span>
+                {(obra.projetos || []).length > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 4,
+                      background: 'var(--dark-coffee-100)',
+                      color: 'var(--dark-coffee-800)',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {obra.projetos!.length}
+                  </span>
+                )}
+              </button>
+            );
+          }
+          if (tabKey === 'decisoes') {
+            return (
+              <button
+                key="decisoes"
+                className={`tab-btn ${activeTab === 'decisoes' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('decisoes')}
+                style={{ position: 'relative' }}
+              >
+                <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
+                <span>Decisões</span>
+                {pendenciasDecisao > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 4,
+                      background: 'var(--coral-glow-500)',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {pendenciasDecisao}
+                  </span>
+                )}
+              </button>
+            );
+          }
+          if (tabKey === 'compartilhar') {
+            return (
+              <button
+                key="compartilhar"
+                className={`tab-btn ${activeTab === 'compartilhar' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('compartilhar')}
+              >
+                <ShareNetwork size={20} weight={activeTab === 'compartilhar' ? 'fill' : 'bold'} />
+                <span>Compartilhar</span>
+              </button>
+            );
+          }
+          return null;
+        })}
       </nav>
 
       {/* Conteúdo da Aba Ativa */}

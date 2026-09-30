@@ -81,8 +81,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
    - O botão "Nova Obra" foi removido do header e vive apenas na listagem de obras do construtor.
 2. **Seta de Voltar no Corpo**:
    - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, totalmente desacoplado da barra superior.
-3. **Aba Compartilhar**:
-   - O compartilhamento com o cliente foi integrado como a 5ª aba da obra (ordem oficial: `Etapas`, `Arquivos`, `Decisões`, `Diário`, `Compartilhar`).
+3. **Sequência Oficial de Abas por Perfil**:
+   - **Visão do Construtor**: `Etapas`, `Arquivos`, `Decisões`, `Diário`, `Compartilhar`.
+   - **Visão do Cliente**: `Diário`, `Etapas`, `Arquivos`, `Decisões`, `Compartilhar`. Na visão do cliente, o Diário de Obra assume a primeira posição do menu, permitindo que o cliente acompanhe imediatamente o feed/extrato diário do canteiro ao abrir a obra.
 4. **Navegação Cruzada (Diário $\rightarrow$ Etapas)**:
    - Clicar nos detalhes de uma anotação ou serviço no Diário navega instantaneamente para a aba de Etapas.
    - O accordion da etapa é expandido automaticamente caso esteja fechado.

@@ -45,6 +45,10 @@ export const App: React.FC = () => {
       if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
         return tabParam;
       }
+      const perfilParam = params.get('perfil');
+      if (perfilParam === 'cliente') {
+        return 'diario';
+      }
     } catch {}
     return 'etapas';
   });
@@ -98,7 +102,8 @@ export const App: React.FC = () => {
           url.searchParams.delete('perfil');
         }
 
-        if (activeTab && activeTab !== 'etapas') {
+        const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
+        if (activeTab && activeTab !== defaultTab) {
           url.searchParams.set('tab', activeTab);
         } else {
           url.searchParams.delete('tab');
@@ -139,7 +144,7 @@ export const App: React.FC = () => {
         } else if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
           setActiveTab(tabParam);
         } else {
-          setActiveTab('etapas');
+          setActiveTab(perfilParam === 'cliente' ? 'diario' : 'etapas');
         }
       } catch {}
     };
@@ -235,7 +240,8 @@ export const App: React.FC = () => {
       } else {
         url.searchParams.delete('perfil');
       }
-      if (activeTab && activeTab !== 'etapas') {
+      const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
+      if (activeTab && activeTab !== defaultTab) {
         url.searchParams.set('tab', activeTab);
       } else {
         url.searchParams.delete('tab');
@@ -549,6 +555,11 @@ export const App: React.FC = () => {
           if (novo === 'cliente' && isConfigOpen) {
             setIsConfigOpen(false);
           }
+          if (novo === 'cliente' && activeTab === 'etapas') {
+            setActiveTab('diario');
+          } else if (novo === 'construtor' && activeTab === 'diario') {
+            setActiveTab('etapas');
+          }
           showToast(
             `Perfil alterado para ${novo === 'construtor' ? 'Construtor' : 'Cliente'}`,
             novo === 'construtor' ? 'Acesso pleno à gestão e edição.' : 'Modo de acompanhamento transparente e aprovação de decisões.',
@@ -601,6 +612,9 @@ export const App: React.FC = () => {
             onBackToObras={handleBackToObras}
             onSwitchToClient={() => {
               setPerfilAtivo('cliente');
+              if (activeTab === 'etapas') {
+                setActiveTab('diario');
+              }
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
             templates={templates}
