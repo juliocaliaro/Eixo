@@ -20,8 +20,9 @@ import {
   Scales,
   Funnel,
   Check,
+  Package,
 } from '@phosphor-icons/react';
-import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem } from '../types/obra';
+import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { formatarMoeda } from '../utils/moeda';
 
@@ -37,8 +38,9 @@ export interface DiarioEntry {
     | 'decisao_recusada'
     | 'evidencia_tarefa'
     | 'anexo_geral'
-    | 'vistoria_concluida';
-  categoria: 'etapa' | 'decisao' | 'evidencia' | 'financeiro';
+    | 'vistoria_concluida'
+    | 'material_registrado';
+  categoria: 'etapa' | 'decisao' | 'evidencia' | 'financeiro' | 'material';
   titulo: string;
   subtitulo?: string;
   descricao?: string;
@@ -62,6 +64,7 @@ interface DiarioObraTabProps {
   onNavigateToTask?: (etapaId: string, tarefaId: string) => void;
   onNavigateToDecisoes?: () => void;
   onUpdateTaskMedia?: (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => void;
+  onOpenRegistroMaterial?: () => void;
 }
 
 export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
@@ -71,6 +74,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   onNavigateToTask,
   onNavigateToDecisoes,
   onUpdateTaskMedia,
+  onOpenRegistroMaterial,
 }) => {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -341,6 +345,22 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           subtitulo: `Ambiente: ${item.ambiente || 'Geral'} • Validado`,
         });
       }
+    });
+
+    // E) Registros de Materiais
+    (obra.materiais || []).forEach((material) => {
+      const timestamp = material.criadoEm || obraCriadaEm;
+      entries.push({
+        id: `entry_material_${material.id}`,
+        dataHora: timestamp,
+        dataKey: extrairDataKey(timestamp),
+        tipo: 'material_registrado',
+        categoria: 'material',
+        titulo: material.nome,
+        subtitulo: `Material • ${material.status}`,
+        descricao: material.observacoes,
+        fotos: material.fotos,
+      });
     });
 
     return entries;
@@ -857,25 +877,47 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             )}
           </div>
 
-          {/* Botão Novo Registro (Construtor) */}
+          {/* Botão Novo Registro e Registrar Material (Construtor) */}
           {perfilAtivo === 'construtor' && (
-            <button
-              type="button"
-              onClick={() => setIsNovoRegistroOpen(true)}
-              className="btn-primary"
-              style={{
-                height: 38,
-                padding: '0 14px',
-                fontSize: '0.82rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Plus size={15} weight="bold" />
-              <span>Novo Registro</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {onOpenRegistroMaterial && (
+                <button
+                  type="button"
+                  onClick={onOpenRegistroMaterial}
+                  className="btn-secondary"
+                  style={{
+                    height: 38,
+                    padding: '0 13px',
+                    fontSize: '0.82rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Cadastrar compra ou entrega de materiais nesta obra"
+                >
+                  <Package size={15} weight="bold" />
+                  <span>Registrar Material</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsNovoRegistroOpen(true)}
+                className="btn-primary"
+                style={{
+                  height: 38,
+                  padding: '0 14px',
+                  fontSize: '0.82rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Plus size={15} weight="bold" />
+                <span>Novo Registro</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1038,6 +1080,13 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     tagBg = '#dcfce7';
                     tagColor = '#15803d';
                     IconComponent = CheckCircle;
+                  } else if (entry.tipo === 'material_registrado') {
+                    iconBg = '#ffedd5';
+                    iconColor = '#c2410c';
+                    tagLabel = entry.subtitulo ? entry.subtitulo.toUpperCase() : 'MATERIAL';
+                    tagBg = '#ffedd5';
+                    tagColor = '#c2410c';
+                    IconComponent = Package;
                   }
 
                   const temAditivo = entry.valorAditivo !== undefined && entry.valorAditivo > 0;

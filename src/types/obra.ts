@@ -85,6 +85,16 @@ export interface PunchListItem {
   ambiente?: string; // ex: 'Geral', 'Sala', 'Cozinha', 'Banheiros', 'Fachada'
 }
 
+export interface RegistroMaterial {
+  id: string;
+  obraId: string;
+  nome: string;
+  status: string;
+  fotos?: string[];
+  observacoes?: string;
+  criadoEm: string;
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -99,6 +109,7 @@ export interface Obra {
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];
   projetos?: ProjetoPDF[];
+  materiais?: RegistroMaterial[];
 }
 
 export interface AnexoItem {

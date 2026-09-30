@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from './types/obra';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroMaterial } from './types/obra';
 import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
+import { ModalRegistroMaterial, NovoMaterialData } from './components/ModalRegistroMaterial';
 import { ToastContainer } from './components/Toast';
 
 const ConfigTemplatesPage = React.lazy(() =>
@@ -26,6 +27,8 @@ export const App: React.FC = () => {
     }
   });
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
+  const [isRegistroMaterialOpen, setIsRegistroMaterialOpen] = useState(false);
+  const [materialPreselectedObraId, setMaterialPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>(() => {
     try {
@@ -307,6 +310,55 @@ export const App: React.FC = () => {
     setObras((prev) => prev.map((o) => (o.id === updatedObra.id ? updatedObra : o)));
   };
 
+  // Controle de Registro de Materiais
+  const handleOpenRegistroMaterial = (targetObraId?: string) => {
+    if (obras.length === 0) {
+      showToast(
+        'Nenhuma obra cadastrada',
+        'Cadastre uma obra antes de realizar o registro de materiais.',
+        'warning'
+      );
+      return;
+    }
+    setMaterialPreselectedObraId(targetObraId || currentObraId || undefined);
+    setIsRegistroMaterialOpen(true);
+  };
+
+  const handleSaveMaterial = (dados: NovoMaterialData) => {
+    const obraAlvo = obras.find((o) => o.id === dados.obraId);
+    if (!obraAlvo) return;
+
+    const novoRegistro: RegistroMaterial = {
+      id: `mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      obraId: dados.obraId,
+      nome: dados.nome,
+      status: dados.status,
+      fotos: dados.fotos,
+      observacoes: dados.observacoes,
+      criadoEm: new Date().toISOString(),
+    };
+
+    const updatedObra: Obra = {
+      ...obraAlvo,
+      materiais: [novoRegistro, ...(obraAlvo.materiais || [])],
+    };
+
+    handleUpdateObra(updatedObra);
+    setIsRegistroMaterialOpen(false);
+
+    showToast(
+      'Material Registrado!',
+      `"${dados.nome}" foi vinculado com sucesso à obra "${obraAlvo.nome}".`,
+      'success'
+    );
+
+    // Se estiver na visão geral de obras, navega diretamente para os detalhes da obra no diário
+    if (!currentObraId || currentObraId !== dados.obraId) {
+      handleSelectObra(dados.obraId);
+      setActiveTab('diario');
+    }
+  };
+
   // Carregar Obra de Demonstração (atende o exemplo exato: 2 etapas com 2 tarefas cada = 25% por tarefa)
   const handleLoadDemo = () => {
     const demoObra: Obra = {
@@ -449,6 +501,19 @@ export const App: React.FC = () => {
         },
       ],
       punchList: [],
+      materiais: [
+        {
+          id: 'mat_demo_1',
+          obraId: `obra_demo_${Date.now()}`,
+          nome: '50 sacos de Cimento CP-II 32 e Areia Lavada',
+          status: 'Entregue na Obra',
+          observacoes: 'Entrega realizada pelo Depósito São Paulo. NF nº 48.912 conferida e material armazenado no canteiro.',
+          fotos: [
+            'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=600&auto=format&fit=crop&q=80',
+          ],
+          criadoEm: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+        },
+      ],
     };
 
     setObras([demoObra, ...obras]);
@@ -599,6 +664,7 @@ export const App: React.FC = () => {
             onLoadDemo={handleLoadDemo}
             perfilAtivo={perfilAtivo}
             onOpenSettings={() => setIsConfigOpen(true)}
+            onOpenRegistroMaterial={() => handleOpenRegistroMaterial()}
           />
         ) : (
           /* Visão Interna: Detalhes da Obra com Abas e Timeline */
@@ -618,6 +684,7 @@ export const App: React.FC = () => {
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
             templates={templates}
+            onOpenRegistroMaterial={() => handleOpenRegistroMaterial(currentObra.id)}
           />
         )}
       </main>
@@ -627,6 +694,15 @@ export const App: React.FC = () => {
         isOpen={isCreateObraOpen}
         onClose={() => setIsCreateObraOpen(false)}
         onSubmit={handleCreateObra}
+      />
+
+      {/* Modal de Registro de Materiais */}
+      <ModalRegistroMaterial
+        isOpen={isRegistroMaterialOpen}
+        onClose={() => setIsRegistroMaterialOpen(false)}
+        obras={obras}
+        preselectedObraId={materialPreselectedObraId}
+        onSave={handleSaveMaterial}
       />
 
       {/* Notificações Toast Flutuantes */}

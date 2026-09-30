@@ -10,7 +10,8 @@ import {
   Trash,
   CheckCircle,
   Clock,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Package
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -23,6 +24,7 @@ interface ObraListProps {
   onLoadDemo?: () => void;
   perfilAtivo?: PerfilUsuario;
   onOpenSettings?: () => void;
+  onOpenRegistroMaterial?: () => void;
 }
 
 export const ObraList: React.FC<ObraListProps> = ({
@@ -33,6 +35,7 @@ export const ObraList: React.FC<ObraListProps> = ({
   onLoadDemo,
   perfilAtivo = 'construtor',
   onOpenSettings,
+  onOpenRegistroMaterial,
 }) => {
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
   // Empty State com âncora visual fotográfica forte (conforme frontend-skill)
@@ -54,14 +57,35 @@ export const ObraList: React.FC<ObraListProps> = ({
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {perfilAtivo !== 'cliente' && (
-                <button
-                  onClick={onOpenCreateModal}
-                  className="btn-primary"
-                  style={{ padding: '12px 22px', fontSize: '0.96rem' }}
-                >
-                  <Plus size={20} weight="bold" />
-                  <span>Cadastrar Primeira Obra</span>
-                </button>
+                <>
+                  <button
+                    onClick={onOpenCreateModal}
+                    className="btn-primary"
+                    style={{ padding: '12px 22px', fontSize: '0.96rem' }}
+                  >
+                    <Plus size={20} weight="bold" />
+                    <span>Cadastrar Primeira Obra</span>
+                  </button>
+                  {onOpenRegistroMaterial && (
+                    <button
+                      onClick={onOpenRegistroMaterial}
+                      className="btn-secondary"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.12)',
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        color: '#ffffff',
+                        padding: '12px 20px',
+                        fontSize: '0.96rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <Package size={20} weight="bold" />
+                      <span>Registro de Materiais</span>
+                    </button>
+                  )}
+                </>
               )}
               {onLoadDemo && (
                 <button
@@ -142,6 +166,17 @@ export const ObraList: React.FC<ObraListProps> = ({
 
         {perfilAtivo !== 'cliente' && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {onOpenRegistroMaterial && (
+              <button
+                type="button"
+                onClick={onOpenRegistroMaterial}
+                className="btn-secondary"
+                title="Cadastrar entrada ou compra de materiais vinculados a uma obra"
+              >
+                <Package size={17} weight="bold" />
+                <span>Registro de Materiais</span>
+              </button>
+            )}
             {onOpenSettings && (
               <button
                 type="button"

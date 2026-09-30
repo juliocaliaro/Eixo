@@ -27,6 +27,7 @@ interface ObraDetailProps {
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
   templates?: PresetTipoObra[];
+  onOpenRegistroMaterial?: () => void;
 }
 
 export const ObraDetail: React.FC<ObraDetailProps> = ({
@@ -39,6 +40,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onBackToObras,
   onSwitchToClient,
   templates,
+  onOpenRegistroMaterial,
 }) => {
   // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'
   const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(
@@ -707,6 +709,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           onNavigateToTask={handleNavigateToTask}
           onNavigateToDecisoes={() => handleSelectTab('decisoes')}
           onUpdateTaskMedia={handleUpdateTaskMedia}
+          onOpenRegistroMaterial={onOpenRegistroMaterial}
         />
       )}
 

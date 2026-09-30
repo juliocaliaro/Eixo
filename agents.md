@@ -299,3 +299,22 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Higienização de Código Morto**:
   - Remoção definitiva de componentes órfãos descontinuados (`AnexosTab.tsx` e `ModalShareClient.tsx`).
 
+---
+
+## 18. Módulo de Registro de Materiais & Histórico de Canteiro
+
+- **Acesso pelo Menu / Página Inicial**:
+  - Botão dedicado `[ Registro de Materiais ]` com ícone `<Package />` disponível na Página Inicial (`ObraList`) para o perfil Construtor, tanto na listagem de obras quanto no cabeçalho.
+  - Acesso contextual complementar disponibilizado diretamente na aba de Diário (`DiarioObraTab`) com a obra já pré-selecionada.
+- **Vínculo Obrigatório de Obra**:
+  - O modal `ModalRegistroMaterial` exige a seleção obrigatória de uma obra já cadastrada via dropdown (`<select>`), garantindo integridade referencial dos dados (`obraId`).
+- **Campos Oficiais do Formulário**:
+  - **Status do Material**: Dropdown seletor com opção padrão `"Materiais"`, além de estados de conferência (`Entregue na Obra`, `Comprado / A caminho`, `Pendente / Em cotação`).
+  - **Descrição / Nome do Material**: Campo de texto curto para denominação e especificação do insumo.
+  - **Fotos e Comprovantes**: Upload múltiplo com miniaturas de pré-visualização, remoção rápida e compressão automática para notas fiscais e fotos físicas no canteiro.
+  - **Observações**: Campo de texto longo para fornecedor, conferência quantitativa, lote e número de nota fiscal.
+- **Exibição Bilateral Transparente**:
+  - O material registrado é consolidado no feed e no histórico diário da obra (`DiarioObraTab`), visível tanto para o Construtor quanto para o Cliente.
+  - Exibição com badge temático `MATERIAL`, linha temporal detalhada, notas e galeria de fotos com suporte a Lightbox em tela cheia.
+
+
