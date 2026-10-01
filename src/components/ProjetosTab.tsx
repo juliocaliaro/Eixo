@@ -146,7 +146,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px', margin: 0 }}>
               Projetos & Pranchas em PDF
             </h2>
             <span
@@ -162,9 +162,6 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
               {projetos.length} {projetos.length === 1 ? 'prancha' : 'pranchas'}
             </span>
           </div>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            Plantas executivas categorizadas por disciplina técnica
-          </p>
         </div>
 
         {/* Grupo de Ações do Topo: Lupa, Filtro e Anexar Projeto */}

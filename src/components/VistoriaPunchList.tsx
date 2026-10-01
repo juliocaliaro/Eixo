@@ -147,9 +147,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
                 </span>
               )}
             </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-              Checklist de conformidade técnica e validação final da obra para entrega a {clienteNome}
-            </p>
           </div>
         </div>
 

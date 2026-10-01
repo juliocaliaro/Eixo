@@ -33,9 +33,6 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
         <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px', margin: 0 }}>
           Link de Acesso do Cliente
         </h2>
-        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: 4 }}>
-          Envie este link direto para <strong>{obra.cliente}</strong> acompanhar o cronograma, fotos e assinar decisões da obra sem precisar de login.
-        </p>
       </div>
 
       {/* Caixa do Link */}
