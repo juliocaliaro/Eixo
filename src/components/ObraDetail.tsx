@@ -655,7 +655,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
                 style={{ position: 'relative' }}
               >
                 <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
-                <span>Decisões</span>
+                <span>Decisões e Aprovações</span>
                 {pendenciasDecisao > 0 && (
                   <span
                     style={{

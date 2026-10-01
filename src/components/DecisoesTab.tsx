@@ -505,7 +505,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
       >
         <div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>
-            Central de Decisões e Aprovações
+            Decisões e Aprovações
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
             Registro de escolhas com validade de assinatura digital entre Construtor e Cliente.
@@ -631,13 +631,8 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
             <PenNib size={22} weight="bold" color="var(--primary-accent)" />
             <div>
               <strong style={{ fontSize: '0.92rem', color: 'var(--coral-glow-700)', display: 'block' }}>
-                {pendenciasUsuario.length} decisão{pendenciasUsuario.length > 1 ? 'ões' : ''} aguardando sua assinatura digital!
+                {pendenciasUsuario.length} {pendenciasUsuario.length > 1 ? 'decisões' : 'decisão'} aguardando sua assinatura digital!
               </strong>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                {perfilAtivo === 'cliente'
-                  ? 'O construtor propôs escolhas que necessitam do seu aval para execução.'
-                  : 'O cliente solicitou escolhas/mudanças que aguardam sua aprovação técnica.'}
-              </span>
             </div>
           </div>
 
