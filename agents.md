@@ -68,7 +68,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - A decisão fica em estado `pendente` (com selo e ícone `<Clock />`) até a contraparte analisar.
   - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar**.
   - Uma vez assinada pela contraparte, a decisão torna-se `aprovada` e exibe carimbo digital auditável com nome, perfil e data/hora exatos de ambas as assinaturas.
-- **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) — com suporte a preenchimento conjunto na mesma decisão para compensação direta (ex: troca de material com crédito e acréscimo simultâneos) — e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
+- **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) com exclusão mútua estrita (apenas um dos campos pode ser preenchido por decisão, impedindo preenchimento simultâneo) e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
 - **Remoção de Categorias**: O seletor de categorias foi removido da criação para desburocratizar o registro de decisões pelo usuário.
 - **Central de Notificações**: Sininho com contador em tempo real no topo informando decisões pendentes da assinatura do perfil logado, com dropdown para navegação direta.
 - **Card de Decisões Responsivo (Accordion Exclusivo no Mobile)**:
@@ -214,7 +214,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - **Mecânica de Aditivo e Supressivo**:
     - **Aditivo (+R$)**: acréscimo de escopo ou melhoria técnica que eleva o investimento final.
     - **Supressivo (-R$)**: exclusão de escopo, permuta de acabamentos por itens mais econômicos ou reajuste contratual para baixo, deduzindo diretamente do saldo do contrato.
-    - **Registro Conjunto**: capacidade de lançar na mesma decisão tanto o Aditivo quanto o Supressivo (ex: permuta onde se deduz o revestimento original e se acrescenta o novo padrão), calculando automaticamente o saldo líquido da decisão e somando corretamente cada componente nos painéis gerais.
+    - **Exclusão Mútua**: cada decisão pode conter estritamente um Aditivo ou um Supressivo (nunca ambos simultâneos), garantindo que cada pleito seja auditável e claro quanto à sua natureza de acréscimo ou dedução.
   - Soma automática e auditável de todos os aditivos e supressivos aprovados bilateralmente (`status === 'aprovada'`).
   - Fórmula matemática consolidada: `Investimento Atualizado = Orçamento Base + Aditivos Aprovados + Supressivos Aprovados (negativo)`.
 - **Visualização em Pílulas e Cards**:

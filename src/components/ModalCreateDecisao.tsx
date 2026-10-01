@@ -54,6 +54,24 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     setFotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleAditivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = mascararMoedaInput(e.target.value);
+    setAditivo(masked);
+    const parsed = parseMoedaBR(masked);
+    if (parsed && parsed > 0) {
+      setSupressivo('');
+    }
+  };
+
+  const handleSupressivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const masked = mascararMoedaInput(e.target.value);
+    setSupressivo(masked);
+    const parsed = parseMoedaBR(masked);
+    if (parsed && parsed > 0) {
+      setAditivo('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!titulo.trim() || !descricao.trim()) return;
@@ -64,24 +82,19 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     const parsedSupressivo = parseMoedaBR(supressivo);
 
     const temAditivo = parsedAditivo !== undefined && parsedAditivo > 0;
-    const temSupressivo = parsedSupressivo !== undefined && parsedSupressivo > 0;
+    const temSupressivo = !temAditivo && parsedSupressivo !== undefined && parsedSupressivo > 0;
 
     let valorAditivoFinal: number | undefined = undefined;
     let valorSupressivoFinal: number | undefined = undefined;
     let impactoFinanceiroCalculado: number | undefined = undefined;
-    let tipoImpacto: 'aditivo' | 'supressivo' | 'ambos' | undefined = undefined;
+    let tipoImpacto: 'aditivo' | 'supressivo' | undefined = undefined;
 
-    if (temAditivo && temSupressivo) {
-      valorAditivoFinal = Math.abs(parsedAditivo);
-      valorSupressivoFinal = Math.abs(parsedSupressivo);
-      impactoFinanceiroCalculado = valorAditivoFinal - valorSupressivoFinal;
-      tipoImpacto = 'ambos';
-    } else if (temAditivo) {
-      valorAditivoFinal = Math.abs(parsedAditivo);
+    if (temAditivo) {
+      valorAditivoFinal = Math.abs(parsedAditivo!);
       impactoFinanceiroCalculado = valorAditivoFinal;
       tipoImpacto = 'aditivo';
     } else if (temSupressivo) {
-      valorSupressivoFinal = Math.abs(parsedSupressivo);
+      valorSupressivoFinal = Math.abs(parsedSupressivo!);
       impactoFinanceiroCalculado = -valorSupressivoFinal;
       tipoImpacto = 'supressivo';
     }
@@ -123,7 +136,6 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
   const numSupressivo = parseMoedaBR(supressivo);
   const hasAditivo = numAditivo !== undefined && numAditivo > 0;
   const hasSupressivo = numSupressivo !== undefined && numSupressivo > 0;
-  const saldoCalculado = (hasAditivo ? numAditivo : 0) - (hasSupressivo ? numSupressivo : 0);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -170,11 +182,11 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: hasAditivo && hasSupressivo ? 8 : 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: hasAditivo || hasSupressivo ? 8 : 14 }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>Aditivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
+                  <span style={{ fontSize: '0.70rem', color: hasSupressivo ? 'var(--text-muted)' : 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
                 </label>
                 <input
                   type="text"
@@ -182,7 +194,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   className="form-input"
                   placeholder="0,00"
                   value={aditivo}
-                  onChange={(e) => setAditivo(mascararMoedaInput(e.target.value))}
+                  onChange={handleAditivoChange}
                   onKeyDown={proibirNaoNumericosMoeda}
                 />
               </div>
@@ -190,7 +202,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>Supressivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>- Redução</span>
+                  <span style={{ fontSize: '0.70rem', color: hasAditivo ? 'var(--text-muted)' : '#16a34a', fontWeight: 600 }}>- Redução</span>
                 </label>
                 <input
                   type="text"
@@ -198,39 +210,51 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                   className="form-input"
                   placeholder="0,00"
                   value={supressivo}
-                  onChange={(e) => setSupressivo(mascararMoedaInput(e.target.value))}
+                  onChange={handleSupressivoChange}
                   onKeyDown={proibirNaoNumericosMoeda}
                 />
               </div>
             </div>
 
-            {/* Resumo Dinâmico do Saldo quando ambos preenchidos */}
-            {hasAditivo && hasSupressivo && (
+            {/* Resumo do Impacto Financeiro Selecionado */}
+            {hasAditivo && numAditivo && (
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '8px 12px',
-                  background: 'var(--dark-coffee-50)',
-                  border: '1px solid var(--border-hairline)',
+                  background: 'var(--cinnamon-wood-50)',
+                  border: '1px solid var(--cinnamon-wood-200)',
                   borderRadius: 'var(--radius-sm)',
                   marginBottom: 14,
                   fontSize: '0.80rem',
                 }}
               >
-                <span style={{ color: 'var(--text-muted)' }}>Saldo Líquido da Decisão:</span>
-                <strong
-                  style={{
-                    color: saldoCalculado > 0 ? 'var(--primary-accent)' : saldoCalculado < 0 ? '#16a34a' : 'var(--text-main)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {saldoCalculado > 0
-                    ? `+ ${formatarMoeda(saldoCalculado)} (Acréscimo)`
-                    : saldoCalculado < 0
-                    ? `- ${formatarMoeda(Math.abs(saldoCalculado))} (Economia / Redução)`
-                    : 'R$ 0,00 (Neutro)'}
+                <span style={{ color: 'var(--cinnamon-wood-700)', fontWeight: 600 }}>Impacto no Contrato:</span>
+                <strong style={{ color: 'var(--cinnamon-wood-700)', fontWeight: 700 }}>
+                  + {formatarMoeda(numAditivo)} (Aditivo / Acréscimo)
+                </strong>
+              </div>
+            )}
+
+            {hasSupressivo && numSupressivo && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  background: '#dcfce7',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 14,
+                  fontSize: '0.80rem',
+                }}
+              >
+                <span style={{ color: '#15803d', fontWeight: 600 }}>Impacto no Contrato:</span>
+                <strong style={{ color: '#15803d', fontWeight: 700 }}>
+                  - {formatarMoeda(numSupressivo)} (Supressivo / Redução)
                 </strong>
               </div>
             )}
