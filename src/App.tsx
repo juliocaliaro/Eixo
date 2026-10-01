@@ -791,7 +791,6 @@ export const App: React.FC = () => {
             onLoadDemo={handleLoadDemo}
             perfilAtivo={perfilAtivo}
             onOpenSettings={Role === 'Construtor' ? () => setIsConfigOpen(true) : undefined}
-            onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial() : undefined}
           />
         ) : (
           /* Visão Interna: Detalhes da Obra com Abas e Timeline */
