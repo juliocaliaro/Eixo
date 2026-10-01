@@ -21,6 +21,7 @@ import {
   Funnel,
   Check,
   Package,
+  CaretDown,
 } from '@phosphor-icons/react';
 import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
@@ -85,6 +86,16 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
+
+  // Accordion Mobile
+  const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
+
+  const toggleMobileExpand = (id: string) => {
+    setExpandedMobileIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   // Lightbox
   const [selectedImageModal, setSelectedImageModal] = useState<{
@@ -1092,257 +1103,552 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   const temAditivo = entry.valorAditivo !== undefined && entry.valorAditivo > 0;
                   const temSupressivo = entry.valorSupressivo !== undefined && entry.valorSupressivo > 0;
 
+                  const isExpandedMobile = Boolean(expandedMobileIds[entry.id]);
+
                   return (
-                    <div
-                      key={entry.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 14,
-                        padding: '12px 16px',
-                        borderBottom: isUltimo ? 'none' : '1px solid var(--border-hairline)',
-                        transition: 'background 0.15s ease',
-                      }}
-                      className="diario-extrato-row"
-                    >
-                      {/* Horário do Extrato */}
-                      <div
-                        style={{
-                          width: 48,
-                          fontSize: '0.78rem',
-                          fontWeight: 700,
-                          color: 'var(--text-muted)',
-                          paddingTop: 4,
-                          flexShrink: 0,
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {horaStr}
-                      </div>
-
-                      {/* Ícone com container temático */}
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 'var(--radius-xs)',
-                          background: iconBg,
-                          color: iconColor,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          marginTop: 1,
-                        }}
-                      >
-                        <IconComponent size={17} weight="bold" />
-                      </div>
-
-                      {/* Corpo do Lançamento */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
-                          <span
+                    <div key={entry.id} style={{ borderBottom: isUltimo ? 'none' : '1px solid var(--border-hairline)' }}>
+                      {/* Versão Desktop (Inalterada, aberta integralmente) */}
+                      <div className="diario-card-desktop">
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 14,
+                            padding: '12px 16px',
+                            transition: 'background 0.15s ease',
+                          }}
+                          className="diario-extrato-row"
+                        >
+                          {/* Horário do Extrato */}
+                          <div
                             style={{
-                              fontSize: '0.66rem',
-                              fontWeight: 800,
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.5px',
-                              padding: '1px 6px',
-                              borderRadius: 3,
-                              background: tagBg,
-                              color: tagColor,
+                              width: 48,
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: 'var(--text-muted)',
+                              paddingTop: 4,
+                              flexShrink: 0,
+                              fontFamily: 'monospace',
                             }}
                           >
-                            {tagLabel}
-                          </span>
+                            {horaStr}
+                          </div>
 
-                          {entry.subtitulo && (
-                            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                              • {entry.subtitulo}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Título Principal */}
-                        <div style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.3 }}>
-                          {entry.titulo}
-                        </div>
-
-                        {/* Descrição ou anotação se houver */}
-                        {entry.descricao && (
-                          <p
+                          {/* Ícone com container temático */}
+                          <div
                             style={{
-                              fontSize: '0.80rem',
-                              color: 'var(--text-body)',
-                              margin: '5px 0 0 0',
-                              lineHeight: 1.4,
-                              background: 'var(--dark-coffee-50)',
-                              padding: '6px 10px',
+                              width: 32,
+                              height: 32,
                               borderRadius: 'var(--radius-xs)',
-                              borderLeft: '2px solid var(--border-hairline)',
+                              background: iconBg,
+                              color: iconColor,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              marginTop: 1,
                             }}
                           >
-                            {entry.descricao}
-                          </p>
-                        )}
+                            <IconComponent size={17} weight="bold" />
+                          </div>
 
-                        {/* Lista de Anotações Técnicas de Campo */}
-                        {entry.anotacoes && entry.anotacoes.length > 0 && (
-                          <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {entry.anotacoes.map((nota, nIdx) => (
-                              <div
-                                key={nIdx}
+                          {/* Corpo do Lançamento */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                              <span
                                 style={{
-                                  fontSize: '0.78rem',
+                                  fontSize: '0.66rem',
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  padding: '1px 6px',
+                                  borderRadius: 3,
+                                  background: tagBg,
+                                  color: tagColor,
+                                }}
+                              >
+                                {tagLabel}
+                              </span>
+
+                              {entry.subtitulo && (
+                                <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                                  • {entry.subtitulo}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Título Principal */}
+                            <div style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.3 }}>
+                              {entry.titulo}
+                            </div>
+
+                            {/* Descrição ou anotação se houver */}
+                            {entry.descricao && (
+                              <p
+                                style={{
+                                  fontSize: '0.80rem',
                                   color: 'var(--text-body)',
+                                  margin: '5px 0 0 0',
+                                  lineHeight: 1.4,
                                   background: 'var(--dark-coffee-50)',
-                                  padding: '5px 8px',
+                                  padding: '6px 10px',
+                                  borderRadius: 'var(--radius-xs)',
+                                  borderLeft: '2px solid var(--border-hairline)',
+                                }}
+                              >
+                                {entry.descricao}
+                              </p>
+                            )}
+
+                            {/* Lista de Anotações Técnicas de Campo */}
+                            {entry.anotacoes && entry.anotacoes.length > 0 && (
+                              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {entry.anotacoes.map((nota, nIdx) => (
+                                  <div
+                                    key={nIdx}
+                                    style={{
+                                      fontSize: '0.78rem',
+                                      color: 'var(--text-body)',
+                                      background: 'var(--dark-coffee-50)',
+                                      padding: '5px 8px',
+                                      borderRadius: 4,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                    }}
+                                  >
+                                    <NotePencil size={13} color="var(--primary-accent)" />
+                                    <span>{nota}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Miniaturas de Fotos Anexadas */}
+                            {entry.fotos && entry.fotos.length > 0 && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                                {entry.fotos.map((fotoUrl, fIdx) => (
+                                  <button
+                                    key={fIdx}
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedImageModal({
+                                        url: fotoUrl,
+                                        titulo: entry.titulo,
+                                        subtitulo: entry.subtitulo,
+                                      })
+                                    }
+                                    style={{
+                                      padding: 0,
+                                      border: '1px solid var(--border-hairline)',
+                                      background: 'var(--dark-coffee-100)',
+                                      borderRadius: 6,
+                                      cursor: 'pointer',
+                                      overflow: 'hidden',
+                                      display: 'block',
+                                      position: 'relative',
+                                      width: 64,
+                                      height: 64,
+                                      transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                                    }}
+                                    title="Clique para ampliar imagem do canteiro"
+                                  >
+                                    <img
+                                      src={fotoUrl}
+                                      alt={`Evidência ${fIdx + 1}`}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Coluna Direita: Valores Financeiros & Ações Rápidas */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                            {/* Badges Financeiros de Extrato */}
+                            {temAditivo && temSupressivo ? (
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
+                                  +{formatarMoeda(entry.valorAditivo)}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
+                                  -{formatarMoeda(entry.valorSupressivo)}
+                                </div>
+                              </div>
+                            ) : temAditivo ? (
+                              <div
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  color: 'var(--primary-accent)',
+                                  background: 'var(--coral-glow-50)',
+                                  border: '1px solid var(--coral-glow-200)',
+                                  padding: '2px 8px',
                                   borderRadius: 4,
+                                }}
+                              >
+                                +{formatarMoeda(entry.valorAditivo)}
+                              </div>
+                            ) : temSupressivo ? (
+                              <div
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  color: '#15803d',
+                                  background: '#dcfce7',
+                                  border: '1px solid #bbf7d0',
+                                  padding: '2px 8px',
+                                  borderRadius: 4,
+                                }}
+                              >
+                                -{formatarMoeda(entry.valorSupressivo)}
+                              </div>
+                            ) : entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0 ? (
+                              <div
+                                style={{
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  color: entry.impactoFinanceiro > 0 ? 'var(--primary-accent)' : '#15803d',
+                                  background: entry.impactoFinanceiro > 0 ? 'var(--coral-glow-50)' : '#dcfce7',
+                                  border: `1px solid ${entry.impactoFinanceiro > 0 ? 'var(--coral-glow-200)' : '#bbf7d0'}`,
+                                  padding: '2px 8px',
+                                  borderRadius: 4,
+                                }}
+                              >
+                                {entry.impactoFinanceiro > 0 ? `+${formatarMoeda(entry.impactoFinanceiro)}` : `-${formatarMoeda(Math.abs(entry.impactoFinanceiro))}`}
+                              </div>
+                            ) : null}
+
+                            {/* Atalhos Rápidos */}
+                            {entry.etapaId && entry.tarefaId && onNavigateToTask && (
+                              <button
+                                type="button"
+                                onClick={() => onNavigateToTask(entry.etapaId!, entry.tarefaId!)}
+                                className="btn-secondary"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '0.72rem',
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: 6,
+                                  gap: 4,
                                 }}
+                                title="Ver serviço no cronograma"
                               >
-                                <NotePencil size={13} color="var(--primary-accent)" />
-                                <span>{nota}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Miniaturas de Fotos Anexadas */}
-                        {entry.fotos && entry.fotos.length > 0 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                            {entry.fotos.map((fotoUrl, fIdx) => (
-                              <button
-                                key={fIdx}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedImageModal({
-                                    url: fotoUrl,
-                                    titulo: entry.titulo,
-                                    subtitulo: entry.subtitulo,
-                                  })
-                                }
-                                style={{
-                                  padding: 0,
-                                  border: '1px solid var(--border-hairline)',
-                                  background: 'var(--dark-coffee-100)',
-                                  borderRadius: 6,
-                                  cursor: 'pointer',
-                                  overflow: 'hidden',
-                                  display: 'block',
-                                  position: 'relative',
-                                  width: 64,
-                                  height: 64,
-                                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                                }}
-                                title="Clique para ampliar imagem do canteiro"
-                              >
-                                <img
-                                  src={fotoUrl}
-                                  alt={`Evidência ${fIdx + 1}`}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
+                                <span>Cronograma</span>
+                                <ArrowRight size={12} weight="bold" />
                               </button>
-                            ))}
+                            )}
+
+                            {entry.decisaoId && onNavigateToDecisoes && (
+                              <button
+                                type="button"
+                                onClick={onNavigateToDecisoes}
+                                className="btn-secondary"
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '0.72rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                }}
+                                title="Ver na central de decisões"
+                              >
+                                <span>Decisões</span>
+                                <ArrowRight size={12} weight="bold" />
+                              </button>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
 
-                      {/* Coluna Direita: Valores Financeiros & Ações Rápidas */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                        {/* Badges Financeiros de Extrato */}
-                        {temAditivo && temSupressivo ? (
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
-                              +{formatarMoeda(entry.valorAditivo)}
-                            </div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                              -{formatarMoeda(entry.valorSupressivo)}
-                            </div>
-                          </div>
-                        ) : temAditivo ? (
+                      {/* Versão Mobile (Accordion / Collapse Exclusivo no Mobile) */}
+                      <div className="diario-card-mobile">
+                        {/* 1. Estado Minimizado: Apenas Título da tarefa e Chevron no canto direito */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className="diario-card-mobile-header"
+                          onClick={() => toggleMobileExpand(entry.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleMobileExpand(entry.id);
+                            }
+                          }}
+                          aria-expanded={isExpandedMobile}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            padding: '12px 14px',
+                          }}
+                        >
                           <div
                             style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              color: 'var(--primary-accent)',
-                              background: 'var(--coral-glow-50)',
-                              border: '1px solid var(--coral-glow-200)',
-                              padding: '2px 8px',
-                              borderRadius: 4,
+                              fontSize: '0.88rem',
+                              fontWeight: 700,
+                              color: 'var(--text-main)',
+                              lineHeight: 1.35,
+                              flex: 1,
                             }}
                           >
-                            +{formatarMoeda(entry.valorAditivo)}
+                            {entry.titulo}
                           </div>
-                        ) : temSupressivo ? (
-                          <div
-                            style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              color: '#15803d',
-                              background: '#dcfce7',
-                              border: '1px solid #bbf7d0',
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                            }}
-                          >
-                            -{formatarMoeda(entry.valorSupressivo)}
-                          </div>
-                        ) : entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0 ? (
-                          <div
-                            style={{
-                              fontSize: '0.82rem',
-                              fontWeight: 800,
-                              color: entry.impactoFinanceiro > 0 ? 'var(--primary-accent)' : '#15803d',
-                              background: entry.impactoFinanceiro > 0 ? 'var(--coral-glow-50)' : '#dcfce7',
-                              border: `1px solid ${entry.impactoFinanceiro > 0 ? 'var(--coral-glow-200)' : '#bbf7d0'}`,
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                            }}
-                          >
-                            {entry.impactoFinanceiro > 0 ? `+${formatarMoeda(entry.impactoFinanceiro)}` : `-${formatarMoeda(Math.abs(entry.impactoFinanceiro))}`}
-                          </div>
-                        ) : null}
 
-                        {/* Atalhos Rápidos */}
-                        {entry.etapaId && entry.tarefaId && onNavigateToTask && (
-                          <button
-                            type="button"
-                            onClick={() => onNavigateToTask(entry.etapaId!, entry.tarefaId!)}
-                            className="btn-secondary"
+                          {/* Chevron para indicar expansão */}
+                          <div
                             style={{
-                              padding: '4px 8px',
-                              fontSize: '0.72rem',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: 4,
+                              justifyContent: 'center',
+                              width: 26,
+                              height: 26,
+                              borderRadius: '50%',
+                              background: isExpandedMobile ? 'var(--dark-coffee-100)' : 'var(--dark-coffee-50)',
+                              color: 'var(--text-main)',
+                              flexShrink: 0,
+                              transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease',
+                              transform: isExpandedMobile ? 'rotate(180deg)' : 'rotate(0deg)',
                             }}
-                            title="Ver serviço no cronograma"
                           >
-                            <span>Cronograma</span>
-                            <ArrowRight size={12} weight="bold" />
-                          </button>
-                        )}
+                            <CaretDown size={15} weight="bold" />
+                          </div>
+                        </div>
 
-                        {entry.decisaoId && onNavigateToDecisoes && (
-                          <button
-                            type="button"
-                            onClick={onNavigateToDecisoes}
-                            className="btn-secondary"
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '0.72rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                            title="Ver na central de decisões"
-                          >
-                            <span>Decisões</span>
-                            <ArrowRight size={12} weight="bold" />
-                          </button>
+                        {/* 2. Estado Expandido (Ao clicar): Hora, tag de status, etapa, descrição detalhada, fotos e botão de ação */}
+                        {isExpandedMobile && (
+                          <div style={{ padding: '0 14px 14px 14px', borderTop: '1px solid var(--border-hairline)', marginTop: 2, paddingTop: 10 }}>
+                            {/* Metadados: Hora, Tag de Status, Etapa e Ícone */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                              <div
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 'var(--radius-xs)',
+                                  background: iconBg,
+                                  color: iconColor,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <IconComponent size={14} weight="bold" />
+                              </div>
+
+                              <span
+                                style={{
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  color: 'var(--text-muted)',
+                                  fontFamily: 'monospace',
+                                }}
+                              >
+                                {horaStr}
+                              </span>
+
+                              <span
+                                style={{
+                                  fontSize: '0.64rem',
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  padding: '1px 6px',
+                                  borderRadius: 3,
+                                  background: tagBg,
+                                  color: tagColor,
+                                }}
+                              >
+                                {tagLabel}
+                              </span>
+
+                              {entry.subtitulo && (
+                                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                  • {entry.subtitulo}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Caixa de Descrição Detalhada */}
+                            {entry.descricao && (
+                              <p
+                                style={{
+                                  fontSize: '0.80rem',
+                                  color: 'var(--text-body)',
+                                  margin: '0 0 10px 0',
+                                  lineHeight: 1.4,
+                                  background: 'var(--dark-coffee-50)',
+                                  padding: '8px 10px',
+                                  borderRadius: 'var(--radius-xs)',
+                                  borderLeft: '2px solid var(--border-hairline)',
+                                }}
+                              >
+                                {entry.descricao}
+                              </p>
+                            )}
+
+                            {/* Anotações Técnicas de Campo */}
+                            {entry.anotacoes && entry.anotacoes.length > 0 && (
+                              <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {entry.anotacoes.map((nota, nIdx) => (
+                                  <div
+                                    key={nIdx}
+                                    style={{
+                                      fontSize: '0.76rem',
+                                      color: 'var(--text-body)',
+                                      background: 'var(--dark-coffee-50)',
+                                      padding: '5px 8px',
+                                      borderRadius: 4,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                    }}
+                                  >
+                                    <NotePencil size={13} color="var(--primary-accent)" />
+                                    <span>{nota}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Fotos Anexadas */}
+                            {entry.fotos && entry.fotos.length > 0 && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                                {entry.fotos.map((fotoUrl, fIdx) => (
+                                  <button
+                                    key={fIdx}
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedImageModal({
+                                        url: fotoUrl,
+                                        titulo: entry.titulo,
+                                        subtitulo: entry.subtitulo,
+                                      })
+                                    }
+                                    style={{
+                                      padding: 0,
+                                      border: '1px solid var(--border-hairline)',
+                                      background: 'var(--dark-coffee-100)',
+                                      borderRadius: 6,
+                                      cursor: 'pointer',
+                                      overflow: 'hidden',
+                                      display: 'block',
+                                      position: 'relative',
+                                      width: 58,
+                                      height: 58,
+                                    }}
+                                    title="Clique para ampliar imagem do canteiro"
+                                  >
+                                    <img
+                                      src={fotoUrl}
+                                      alt={`Evidência ${fIdx + 1}`}
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Rodapé do Accordion: Impacto Financeiro e Botão de Ação */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                              <div>
+                                {temAditivo && temSupressivo ? (
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
+                                      +{formatarMoeda(entry.valorAditivo)}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
+                                      -{formatarMoeda(entry.valorSupressivo)}
+                                    </span>
+                                  </div>
+                                ) : temAditivo ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 800,
+                                      color: 'var(--primary-accent)',
+                                      background: 'var(--coral-glow-50)',
+                                      border: '1px solid var(--coral-glow-200)',
+                                      padding: '2px 8px',
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    +{formatarMoeda(entry.valorAditivo)}
+                                  </span>
+                                ) : temSupressivo ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 800,
+                                      color: '#15803d',
+                                      background: '#dcfce7',
+                                      border: '1px solid #bbf7d0',
+                                      padding: '2px 8px',
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    -{formatarMoeda(entry.valorSupressivo)}
+                                  </span>
+                                ) : entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0 ? (
+                                  <span
+                                    style={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 800,
+                                      color: entry.impactoFinanceiro > 0 ? 'var(--primary-accent)' : '#15803d',
+                                      background: entry.impactoFinanceiro > 0 ? 'var(--coral-glow-50)' : '#dcfce7',
+                                      border: `1px solid ${entry.impactoFinanceiro > 0 ? 'var(--coral-glow-200)' : '#bbf7d0'}`,
+                                      padding: '2px 8px',
+                                      borderRadius: 4,
+                                    }}
+                                  >
+                                    {entry.impactoFinanceiro > 0 ? `+${formatarMoeda(entry.impactoFinanceiro)}` : `-${formatarMoeda(Math.abs(entry.impactoFinanceiro))}`}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                                {entry.etapaId && entry.tarefaId && onNavigateToTask && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onNavigateToTask(entry.etapaId!, entry.tarefaId!)}
+                                    className="btn-secondary"
+                                    style={{
+                                      padding: '5px 10px',
+                                      fontSize: '0.75rem',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    title="Ver serviço no cronograma"
+                                  >
+                                    <span>Cronograma</span>
+                                    <ArrowRight size={12} weight="bold" />
+                                  </button>
+                                )}
+
+                                {entry.decisaoId && onNavigateToDecisoes && (
+                                  <button
+                                    type="button"
+                                    onClick={onNavigateToDecisoes}
+                                    className="btn-secondary"
+                                    style={{
+                                      padding: '5px 10px',
+                                      fontSize: '0.75rem',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    title="Ver na central de decisões"
+                                  >
+                                    <span>Decisões</span>
+                                    <ArrowRight size={12} weight="bold" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>

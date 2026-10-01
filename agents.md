@@ -278,7 +278,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Ao clicar, abre popup flutuante suspenso com campo de texto autofocado, ícone de limpeza (`✕`) e fechamento via clique fora ou tecla `Escape`.
 - **Permissões Rigorosas por Perfil**:
   - **Construtor**: Visualização completa + botão `[ + Novo Registro ]` abrindo modal para lançar anotação técnica ou foto direcionada a um serviço específico de qualquer etapa ou como anotação geral de canteiro.
-  - **Cliente**: Modo 100% Read-Only de acompanhamento transparente (sem botões de inserção ou exclusão, permitindo inspecionar evidências, fotos em tela cheia e extrato completo).
+- **Card de Registro Responsivo (Accordion Exclusivo no Mobile)**:
+  - **Versão Web / Desktop (> 768px)**: Mantém o layout horizontal cardless intacto e totalmente aberto, exibindo hora, ícone temático, tag de status, etapa, título, descrição, fotos, valores financeiros e atalhos rápidos de navegação.
+  - **Versão Mobile (<= 768px)**: Opera como componente expansível (Accordion/Collapse). No **Estado Minimizado (Padrão)**, oculta a hora, indicação de etapa, caixa de texto com detalhes e botões de atalho, exibindo exclusivamente o título da tarefa com um Chevron no canto direito indicando expansão. No **Estado Expandido (Ao clicar)**, expande para baixo revelando a hora, tag de status, etapa, caixa de descrição detalhada, anotações de campo, miniaturas de fotos e botões de ação ("Cronograma" / "Decisões").
 
 ---
 

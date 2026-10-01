@@ -2184,3 +2184,41 @@ input, textarea, select {
     border-radius: var(--radius-sm);
   }
 }
+
+/* ========================================================
+   DIÁRIO DE OBRA: ACCORDION EXCLUSIVO NO MOBILE
+   ======================================================== */
+.diario-card-desktop {
+  display: block;
+}
+
+.diario-card-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .diario-card-desktop {
+    display: none !important;
+  }
+
+  .diario-card-mobile {
+    display: block !important;
+  }
+
+  .diario-card-mobile-header {
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: background 0.15s ease;
+  }
+
+  .diario-card-mobile-header:hover {
+    background: var(--dark-coffee-50);
+  }
+
+  .diario-card-mobile-header:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: -2px;
+  }
+}
+
