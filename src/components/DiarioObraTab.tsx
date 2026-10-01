@@ -53,6 +53,7 @@ export interface DiarioEntry {
   fotos?: string[];
   anotacoes?: string[];
   etapaId?: string;
+  etapaNome?: string;
   tarefaId?: string;
   decisaoId?: string;
 }
@@ -226,6 +227,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             fotos: tarefa.fotos,
             anotacoes: tarefa.anotacoes,
             etapaId: etapa.id,
+            etapaNome: etapa.nome,
             tarefaId: tarefa.id,
           });
         } else if (temFotos || temNotas) {
@@ -242,6 +244,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             fotos: tarefa.fotos,
             anotacoes: tarefa.anotacoes,
             etapaId: etapa.id,
+            etapaNome: etapa.nome,
             tarefaId: tarefa.id,
           });
         }
@@ -258,6 +261,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           titulo: `Etapa Finalizada: ${etapa.nome}`,
           subtitulo: `${(etapa.tarefas || []).length} serviços concluídos`,
           etapaId: etapa.id,
+          etapaNome: etapa.nome,
         });
       }
     });
@@ -1105,6 +1109,44 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
 
                   const isExpandedMobile = Boolean(expandedMobileIds[entry.id]);
 
+                  const etapaNomeEncontrada =
+                    entry.etapaNome ||
+                    (entry.etapaId ? obra.etapas.find((e) => e.id === entry.etapaId)?.nome : undefined) ||
+                    (entry.subtitulo && entry.subtitulo.startsWith('Etapa:')
+                      ? entry.subtitulo.replace(/^Etapa:\s*/, '').replace(/\s*\(.*\)$/, '')
+                      : undefined);
+
+                  let mobileTituloPrincipal = entry.titulo;
+                  let mobileSubtitulo = entry.subtitulo || '';
+
+                  if (etapaNomeEncontrada) {
+                    mobileTituloPrincipal = etapaNomeEncontrada;
+                    if (entry.tipo === 'evidencia_tarefa') {
+                      mobileSubtitulo = entry.titulo.replace(/^Registro de Campo:\s*/, '');
+                    } else if (entry.tipo === 'etapa_concluida') {
+                      mobileSubtitulo = entry.subtitulo || 'Etapa finalizada com sucesso';
+                    } else {
+                      mobileSubtitulo = entry.titulo;
+                    }
+                  } else if (entry.tipo.startsWith('decisao_')) {
+                    mobileTituloPrincipal =
+                      entry.tipo === 'decisao_aprovada'
+                        ? 'Decisão Aprovada'
+                        : entry.tipo === 'decisao_recusada'
+                        ? 'Decisão Recusada'
+                        : 'Decisão e Aprovação';
+                    mobileSubtitulo = entry.titulo.replace(/^(Decisão Recusada:\s*|Proposta de Decisão:\s*)/, '');
+                  } else if (entry.tipo === 'vistoria_concluida') {
+                    mobileTituloPrincipal = 'Vistoria Final';
+                    mobileSubtitulo = entry.titulo.replace(/^Vistoria Final:\s*/, '');
+                  } else if (entry.tipo === 'material_registrado') {
+                    mobileTituloPrincipal = 'Registro de Material';
+                    mobileSubtitulo = entry.titulo;
+                  } else if (entry.tipo === 'anexo_geral') {
+                    mobileTituloPrincipal = 'Diário de Canteiro';
+                    mobileSubtitulo = entry.titulo;
+                  }
+
                   return (
                     <div key={entry.id} style={{ borderBottom: isUltimo ? 'none' : '1px solid var(--border-hairline)' }}>
                       {/* Versão Desktop (Inalterada, aberta integralmente) */}
@@ -1364,7 +1406,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
 
                       {/* Versão Mobile (Accordion / Collapse Exclusivo no Mobile) */}
                       <div className="diario-card-mobile">
-                        {/* 1. Estado Minimizado: Apenas Título da tarefa e Chevron no canto direito */}
+                        {/* 1. Estado Minimizado: Título Principal (Etapa) e Subtítulo (Tarefa) empilhados + Chevron no canto direito */}
                         <div
                           role="button"
                           tabIndex={0}
@@ -1385,19 +1427,36 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                             padding: '12px 14px',
                           }}
                         >
-                          <div
-                            style={{
-                              fontSize: '0.88rem',
-                              fontWeight: 700,
-                              color: 'var(--text-main)',
-                              lineHeight: 1.35,
-                              flex: 1,
-                            }}
-                          >
-                            {entry.titulo}
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                            {/* 1. Título Principal (Texto maior/destaque): Nome da Etapa */}
+                            <div
+                              style={{
+                                fontSize: '0.94rem',
+                                fontWeight: 700,
+                                color: 'var(--text-main)',
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {mobileTituloPrincipal}
+                            </div>
+
+                            {/* 2. Subtítulo (Texto menor, logo abaixo do título): Nome da Tarefa */}
+                            {mobileSubtitulo && (
+                              <div
+                                style={{
+                                  fontSize: '0.80rem',
+                                  fontWeight: 500,
+                                  color: 'var(--text-muted)',
+                                  lineHeight: 1.35,
+                                  marginTop: 2,
+                                }}
+                              >
+                                {mobileSubtitulo}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Chevron para indicar expansão */}
+                          {/* 3. Ícone: Seta (Chevron) à direita para indicar expansão */}
                           <div
                             style={{
                               display: 'inline-flex',
