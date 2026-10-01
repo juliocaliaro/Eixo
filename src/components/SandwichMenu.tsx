@@ -193,7 +193,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
         {/* Cabeçalho do Drawer */}
         <div
           style={{
-            padding: '16px 20px',
+            padding: '14px 18px',
             borderBottom: '1px solid var(--border-hairline)',
             display: 'flex',
             alignItems: 'center',
@@ -201,21 +201,61 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             background: 'var(--dark-coffee-50, #fcfaf8)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img
-              src="/eixo-icon.jpg"
-              alt="Eixo"
-              style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }}
-            />
-            <div>
-              <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.1, display: 'block' }}>
-                Eixo
-              </span>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Menu Drawer
-              </span>
-            </div>
-          </div>
+          {/* Botão Sair da Conta no Cabeçalho */}
+          {isLogged ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onLogout) onLogout();
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-sm, 6px)',
+                border: '1px solid var(--border-hairline)',
+                background: '#ffffff',
+                color: 'var(--text-main)',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--coral-glow-500, #e05a47)';
+                e.currentTarget.style.color = 'var(--coral-glow-500, #e05a47)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                e.currentTarget.style.color = 'var(--text-main)';
+              }}
+              title="Encerrar sessão ativa"
+            >
+              <SignOut size={16} weight="bold" />
+              <span>Sair da Conta</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onOpenLogin) onOpenLogin();
+              }}
+              className="btn-primary"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                fontSize: '0.84rem',
+              }}
+            >
+              <SignIn size={16} weight="bold" />
+              <span>Fazer Login</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -750,109 +790,60 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           )}
         </div>
 
-        {/* ================= RODAPÉ (LOGIN / SESSÃO) ================= */}
-        {/* O login fica no rodapé */}
+        {/* ================= RODAPÉ (SESSÃO ATIVA) ================= */}
         <div
           style={{
             marginTop: 'auto',
-            padding: '14px 20px',
+            padding: '12px 18px',
             borderTop: '1px solid var(--border-hairline)',
             background: 'var(--dark-coffee-50, #fcfaf8)',
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'var(--primary-accent)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.80rem',
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}
-              >
-                {perfilAtivo === 'construtor' ? <HardHat size={17} weight="fill" /> : <User size={17} weight="fill" />}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {userName || (perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente')}
-                </div>
-                <div style={{ fontSize: '0.70rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {userEmail || 'Sessão ativa'}
-                </div>
-              </div>
-            </div>
-
-            <span
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <div
               style={{
-                fontSize: '0.68rem',
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'var(--primary-accent)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.74rem',
                 fontWeight: 700,
-                padding: '2px 7px',
-                borderRadius: 'var(--radius-full)',
-                background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-100)' : 'rgba(224, 90, 71, 0.12)',
-                color: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'var(--primary-accent)',
                 flexShrink: 0,
               }}
             >
-              {perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente'}
-            </span>
+              {perfilAtivo === 'construtor' ? <HardHat size={15} weight="fill" /> : <User size={15} weight="fill" />}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {userName || (perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente')}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {userEmail || 'Sessão ativa'}
+              </div>
+            </div>
           </div>
 
-          {isLogged ? (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                if (onLogout) onLogout();
-              }}
-              className="btn-secondary"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                fontSize: '0.80rem',
-                color: 'var(--text-muted)',
-                background: '#ffffff',
-              }}
-              title="Sair da conta"
-            >
-              <SignOut size={16} weight="bold" />
-              <span>Sair da Conta (Logout)</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                if (onOpenLogin) onOpenLogin();
-              }}
-              className="btn-primary"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                fontSize: '0.80rem',
-              }}
-            >
-              <SignIn size={16} weight="bold" />
-              <span>Fazer Login</span>
-            </button>
-          )}
+          <span
+            style={{
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              padding: '2px 7px',
+              borderRadius: 'var(--radius-full)',
+              background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-100)' : 'rgba(224, 90, 71, 0.12)',
+              color: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'var(--primary-accent)',
+              flexShrink: 0,
+            }}
+          >
+            {perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente'}
+          </span>
         </div>
       </div>
     </div>
