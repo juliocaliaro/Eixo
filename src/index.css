@@ -2077,5 +2077,72 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   Card de Projetos & Documentos Responsivo (Breakpoint)
+   ======================================================== */
+.projeto-card {
+  background: #ffffff;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.projeto-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.projeto-card-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.projeto-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Versão Mobile (Breakpoint <= 768px): Coluna e botões abaixo das informações */
+@media (max-width: 768px) {
+  .projeto-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .projeto-card-info {
+    width: 100%;
+  }
+
+  .projeto-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-hairline);
+    flex-wrap: wrap;
+  }
+
+  .projeto-card-actions .btn-secondary {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+
 
 

@@ -583,20 +583,10 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
             return (
               <div
                 key={projeto.id}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px 18px',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  justifyContent: 'space-between',
-                  gap: 14,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                }}
+                className="projeto-card"
               >
                 {/* Lado Esquerdo: Ícone da Disciplina + Detalhes */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>
+                <div className="projeto-card-info">
                   <div
                     style={{
                       background: config.bg,
@@ -708,7 +698,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                 </div>
 
                 {/* Lado Direito: Ações */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <div className="projeto-card-actions">
                   <button
                     type="button"
                     onClick={() => setPreviewProjeto(projeto)}
