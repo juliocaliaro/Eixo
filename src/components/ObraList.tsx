@@ -10,7 +10,6 @@ import {
   Trash,
   CheckCircle,
   Clock,
-  SlidersHorizontal,
   Package
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
@@ -175,17 +174,6 @@ export const ObraList: React.FC<ObraListProps> = ({
               >
                 <Package size={17} weight="bold" />
                 <span>Registro de Materiais</span>
-              </button>
-            )}
-            {onOpenSettings && (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className="btn-secondary"
-                title="Personalizar modelos padrão de etapas e tarefas"
-              >
-                <SlidersHorizontal size={17} weight="bold" />
-                <span>Modelos de Obra</span>
               </button>
             )}
             <button onClick={onOpenCreateModal} className="btn-primary">
