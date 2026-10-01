@@ -147,7 +147,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>
-              Projetos & Pranchas em PDF
+              Projetos e Documentos
             </h2>
             <span
               style={{
