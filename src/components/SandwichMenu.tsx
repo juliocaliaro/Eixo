@@ -73,25 +73,6 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
 
   if (!isOpen) return null;
 
-  const totalNotificacoes = notificacoes.length;
-
-  // Tópicos da obra ativa (conforme sequência oficial do perfil)
-  const topicosObra = perfilAtivo === 'cliente'
-    ? [
-        { id: 'diario', label: 'Diário de Obra' },
-        { id: 'etapas', label: 'Etapas' },
-        { id: 'projetos', label: 'Arquivos' },
-        { id: 'decisoes', label: 'Decisões' },
-        { id: 'compartilhar', label: 'Compartilhar' },
-      ]
-    : [
-        { id: 'etapas', label: 'Etapas' },
-        { id: 'projetos', label: 'Arquivos' },
-        { id: 'decisoes', label: 'Decisões' },
-        { id: 'diario', label: 'Diário' },
-        { id: 'compartilhar', label: 'Compartilhar' },
-      ];
-
   return (
     <div
       style={{
@@ -191,153 +172,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             flexDirection: 'column',
           }}
         >
-          {/* Tópicos da Obra Ativa */}
-          {currentObra && onChangeTab && (
-            <div style={{ borderBottom: '1px solid var(--border-hairline)' }}>
-              <div
-                style={{
-                  padding: '14px 20px 6px',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.6px',
-                }}
-              >
-                Tópicos • {currentObra.nome}
-              </div>
-
-              {topicosObra.map((topico) => {
-                const isActive = activeTab === topico.id;
-                return (
-                  <button
-                    key={topico.id}
-                    type="button"
-                    onClick={() => {
-                      onChangeTab(topico.id as any);
-                      onClose();
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      border: 'none',
-                      borderBottom: '1px solid var(--border-hairline)',
-                      background: isActive ? 'var(--dark-coffee-50, #fcfaf8)' : 'transparent',
-                      color: isActive ? 'var(--primary-accent)' : 'var(--text-main)',
-                      fontSize: '0.90rem',
-                      fontWeight: isActive ? 700 : 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <span>{topico.label}</span>
-                    {topico.id === 'decisoes' && totalNotificacoes > 0 && (
-                      <span
-                        style={{
-                          background: 'var(--coral-glow-500, #e05a47)',
-                          color: '#ffffff',
-                          fontSize: '0.68rem',
-                          fontWeight: 800,
-                          padding: '2px 7px',
-                          borderRadius: 10,
-                        }}
-                      >
-                        {totalNotificacoes}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Registro de Materiais */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              if (onOpenRegistroMaterial) onOpenRegistroMaterial();
-            }}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              border: 'none',
-              borderBottom: '1px solid var(--border-hairline)',
-              background: 'transparent',
-              color: 'var(--text-main)',
-              fontSize: '0.92rem',
-              fontWeight: 600,
-              textAlign: 'left',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <span>Registro de Materiais</span>
-          </button>
-
-          {/* Notificações */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              if (notificacoes.length > 0 && onNavigateToDecisao) {
-                onNavigateToDecisao(notificacoes[0].obraId);
-              } else if (onChangeTab) {
-                onChangeTab('decisoes');
-              }
-            }}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              border: 'none',
-              borderBottom: '1px solid var(--border-hairline)',
-              background: 'transparent',
-              color: 'var(--text-main)',
-              fontSize: '0.92rem',
-              fontWeight: 600,
-              textAlign: 'left',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <span>Notificações</span>
-            {totalNotificacoes > 0 && (
-              <span
-                style={{
-                  background: 'var(--coral-glow-500, #e05a47)',
-                  color: '#ffffff',
-                  fontSize: '0.68rem',
-                  fontWeight: 800,
-                  padding: '2px 7px',
-                  borderRadius: 10,
-                }}
-              >
-                {totalNotificacoes}
-              </span>
-            )}
-          </button>
-
-          {/* Obras */}
+          {/* 1. Obras */}
           {onBackToObras && (
             <button
               type="button"
@@ -368,7 +203,38 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             </button>
           )}
 
-          {/* Modelos de Obra (se construtor) */}
+          {/* 2. Registro de Materiais */}
+          {perfilAtivo === 'construtor' && onOpenRegistroMaterial && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                if (onOpenRegistroMaterial) onOpenRegistroMaterial();
+              }}
+              style={{
+                width: '100%',
+                padding: '14px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: 'none',
+                borderBottom: '1px solid var(--border-hairline)',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '0.92rem',
+                fontWeight: 600,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span>Registro de materiais</span>
+            </button>
+          )}
+
+          {/* 3. Modelos de Obra (se construtor) */}
           {perfilAtivo === 'construtor' && onOpenSettings && (
             <button
               type="button"
