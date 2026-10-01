@@ -1,10 +1,10 @@
 import React from 'react';
-import { PencilSimple, MapPin, User, CalendarBlank, CheckCircle, FileText, CurrencyDollar } from '@phosphor-icons/react';
+import { MapPin, User, CalendarBlank, CheckCircle, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 
 interface ObraHeaderProps {
   obra: Obra;
-  onEdit: () => void;
+  onEdit?: () => void;
   onOpenRelatorio?: () => void;
   perfilAtivo?: PerfilUsuario;
 }
@@ -130,12 +130,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
             </button>
           )}
 
-          {perfilAtivo === 'construtor' ? (
-            <button onClick={onEdit} className="btn-secondary" title="Editar dados da obra">
-              <PencilSimple size={16} weight="bold" />
-              <span>Editar Obra</span>
-            </button>
-          ) : (
+          {perfilAtivo === 'cliente' && (
             <span
               style={{
                 fontSize: '0.8rem',

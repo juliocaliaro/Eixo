@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
+import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint, PencilSimple } from '@phosphor-icons/react';
 import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
@@ -501,9 +501,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
   return (
     <div>
-      {/* Botão Voltar no Corpo da Página */}
-      {onBackToObras && (
-        <div style={{ marginBottom: 14 }}>
+      {/* Barra Superior: Navegação e Ação de Edição */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 14,
+        }}
+      >
+        {onBackToObras ? (
           <button
             type="button"
             onClick={onBackToObras}
@@ -533,13 +540,48 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
             <ArrowLeft size={16} weight="bold" />
             <span>Todas as Obras</span>
           </button>
-        </div>
-      )}
+        ) : (
+          <div />
+        )}
 
-      {/* Header com Informações, Progresso e Botão de Editar */}
+        {/* Ação de Edição da Obra (alinhada à direita, apenas ícone de lápis) */}
+        {perfilAtivo === 'construtor' && (
+          <button
+            type="button"
+            onClick={() => setIsEditObraOpen(true)}
+            className="btn-icon"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 'var(--radius-sm, 6px)',
+              border: '1px solid var(--border-hairline)',
+              background: '#ffffff',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--primary-accent)';
+              e.currentTarget.style.borderColor = 'var(--primary-accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.borderColor = 'var(--border-hairline)';
+            }}
+            title="Editar Obra"
+            aria-label="Editar Obra"
+          >
+            <PencilSimple size={18} weight="bold" />
+          </button>
+        )}
+      </div>
+
+      {/* Header com Informações e Progresso */}
       <ObraHeader
         obra={obra}
-        onEdit={() => setIsEditObraOpen(true)}
         onOpenRelatorio={() => setIsRelatorioOpen(true)}
         perfilAtivo={perfilAtivo}
       />
