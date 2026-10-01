@@ -357,7 +357,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
         tipo: 'material_registrado',
         categoria: 'material',
         titulo: material.nome,
-        subtitulo: `Material • ${material.status}`,
+        subtitulo: material.status !== 'Materiais' ? material.status : undefined,
         descricao: material.observacoes,
         fotos: material.fotos,
       });
@@ -1081,11 +1081,11 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     tagColor = '#15803d';
                     IconComponent = CheckCircle;
                   } else if (entry.tipo === 'material_registrado') {
-                    iconBg = '#ffedd5';
-                    iconColor = '#c2410c';
-                    tagLabel = entry.subtitulo ? entry.subtitulo.toUpperCase() : 'MATERIAL';
-                    tagBg = '#ffedd5';
-                    tagColor = '#c2410c';
+                    iconBg = 'var(--dark-coffee-100)';
+                    iconColor = 'var(--dark-coffee-800)';
+                    tagLabel = 'MATERIAL';
+                    tagBg = 'var(--dark-coffee-100)';
+                    tagColor = 'var(--dark-coffee-800)';
                     IconComponent = Package;
                   }
 
