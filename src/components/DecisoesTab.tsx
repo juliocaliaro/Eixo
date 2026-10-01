@@ -18,7 +18,8 @@ import {
   Tag,
   WhatsappLogo,
   CurrencyDollar,
-  TrendUp
+  TrendUp,
+  CaretDown
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
@@ -46,6 +47,14 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const [confirmSignDecisao, setConfirmSignDecisao] = useState<Decisao | null>(null);
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
+  const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
+
+  const toggleMobileExpand = (id: string) => {
+    setExpandedMobileIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   const decisoes = obra.decisoes || [];
 
@@ -168,6 +177,318 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
     if (filter === 'aprovadas') return d.status === 'aprovada';
     return true;
   });
+
+  const renderStatusBadge = (decisao: Decisao) => {
+    const isAprovada = decisao.status === 'aprovada';
+    const isRecusada = decisao.status === 'recusada';
+
+    if (isAprovada) {
+      return (
+        <span
+          style={{
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            color: '#16a34a',
+            background: '#dcfce7',
+            padding: '3px 9px',
+            borderRadius: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <CheckCircle size={13} weight="bold" />
+          Assinada por Ambos
+        </span>
+      );
+    }
+
+    if (isRecusada) {
+      return (
+        <span
+          style={{
+            fontSize: '0.74rem',
+            fontWeight: 700,
+            color: '#dc2626',
+            background: '#fee2e2',
+            padding: '3px 9px',
+            borderRadius: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <XCircle size={13} weight="bold" />
+          Recusada
+        </span>
+      );
+    }
+
+    return (
+      <span
+        style={{
+          fontSize: '0.74rem',
+          fontWeight: 700,
+          color: 'var(--primary-accent)',
+          background: 'var(--coral-glow-100)',
+          padding: '3px 9px',
+          borderRadius: 12,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+        }}
+      >
+        <Clock size={13} weight="bold" />
+        Aguardando {decisao.criadaPor === 'construtor' ? 'Cliente' : 'Construtor'}
+      </span>
+    );
+  };
+
+  const renderValorBadge = (decisao: Decisao) => {
+    if (decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined) {
+      return (
+        <>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: 'var(--cinnamon-wood-700)',
+              background: 'var(--cinnamon-wood-50)',
+              border: '1px solid var(--cinnamon-wood-200)',
+              padding: '3px 8px',
+              borderRadius: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Money size={13} weight="bold" />
+            Aditivo: +R$ {decisao.valorAditivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </span>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: '#15803d',
+              background: '#dcfce7',
+              border: '1px solid #bbf7d0',
+              padding: '3px 8px',
+              borderRadius: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Money size={13} weight="bold" />
+            Supressivo: -R$ {decisao.valorSupressivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </span>
+        </>
+      );
+    }
+
+    if (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) {
+      const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
+      const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
+      const valor = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
+
+      if (valor === 0 && !isAditivo && !isSupressivo) return null;
+
+      return (
+        <span
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            color: isAditivo ? 'var(--cinnamon-wood-700)' : isSupressivo ? '#15803d' : 'var(--text-muted)',
+            background: isAditivo ? 'var(--cinnamon-wood-50)' : isSupressivo ? '#dcfce7' : 'var(--dark-coffee-50)',
+            border: `1px solid ${isAditivo ? 'var(--cinnamon-wood-200)' : isSupressivo ? '#bbf7d0' : 'var(--border-hairline)'}`,
+            padding: '3px 8px',
+            borderRadius: 6,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <Money size={13} weight="bold" />
+          {isAditivo
+            ? `Aditivo: +R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : isSupressivo
+            ? `Supressivo: -R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+            : 'Sem impacto'}
+        </span>
+      );
+    }
+
+    return null;
+  };
+
+  const renderBlocoAssinaturas = (decisao: Decisao, pendenteParaMim: boolean, isRecusada: boolean) => (
+    <div
+      style={{
+        background: 'var(--bg-app)',
+        border: '1px solid var(--border-hairline)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '14px 16px',
+        marginTop: 6,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+          paddingBottom: 8,
+          borderBottom: '1px solid var(--border-hairline)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+            color: 'var(--text-muted)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          <ShieldCheck size={16} color="var(--primary-accent)" />
+          Termo de Aceite & Assinatura Digital
+        </span>
+
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+          ID: {decisao.id}
+        </span>
+      </div>
+
+      {/* Grid com as duas assinaturas */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {/* Assinatura 1: Criador */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid var(--border-hairline)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Propositor ({decisao.assinaturaCriador.autor === 'construtor' ? 'Construtor' : 'Cliente'})
+            </span>
+            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <Check size={12} weight="bold" /> Assinado
+            </span>
+          </div>
+          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+            {decisao.assinaturaCriador.nomeSignatario}
+          </div>
+          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+            Carimbo: {formatarDataHora(decisao.assinaturaCriador.assinadoEm)}
+          </div>
+        </div>
+
+        {/* Assinatura 2: Contraparte */}
+        <div
+          style={{
+            background: '#ffffff',
+            border: '1px solid var(--border-hairline)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Contraparte ({decisao.criadaPor === 'construtor' ? 'Cliente' : 'Construtor'})
+            </span>
+
+            {decisao.assinaturaContraparte ? (
+              <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Check size={12} weight="bold" /> Assinado
+              </span>
+            ) : isRecusada ? (
+              <span style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <XCircle size={13} weight="bold" />
+                <span>Recusado</span>
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.72rem', color: 'var(--primary-accent)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Clock size={13} weight="bold" />
+                <span>Pendente</span>
+              </span>
+            )}
+          </div>
+
+          {decisao.assinaturaContraparte ? (
+            <>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                {decisao.assinaturaContraparte.nomeSignatario}
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                Carimbo: {formatarDataHora(decisao.assinaturaContraparte.assinadoEm)}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 4 }}>
+              Aguardando manifestação e assinatura digital.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CTA de Ação se estiver pendente para o perfil logado */}
+      {pendenteParaMim && (
+        <div
+          style={{
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: '1px solid var(--border-hairline)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.82rem', color: 'var(--coral-glow-700)', fontWeight: 600 }}>
+            Esta decisão aguarda sua validação formal.
+          </span>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setConfirmRecusarDecisao(decisao)}
+              className="btn-secondary"
+              style={{
+                padding: '7px 12px',
+                fontSize: '0.8rem',
+                color: 'var(--coral-glow-700)',
+              }}
+            >
+              Recusar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConfirmSignDecisao(decisao)}
+              className="btn-primary"
+              style={{ padding: '7px 16px', fontSize: '0.82rem' }}
+            >
+              <PenNib size={14} weight="bold" />
+              <span>Concordar e Assinar Decisão</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="decisoes-tab-container">
@@ -479,16 +800,18 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
 
                   {/* Conteúdo do Cartão da Decisão */}
                   <div className="timeline-entry-content">
-                    <div
-                      style={{
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '20px 22px',
-                        boxShadow: 'var(--shadow-subtle)',
-                        transition: 'all 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
-                      }}
-                    >
+                    {/* Versão Desktop (Inalterada, sempre expandida) */}
+                    <div className="decisao-card-desktop">
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid var(--border-hairline)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '20px 22px',
+                          boxShadow: 'var(--shadow-subtle)',
+                          transition: 'all 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                      >
                       {/* Top Bar do Card */}
                       <div
                         style={{
@@ -1016,6 +1339,231 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* Versão Mobile (Accordion / Collapse Exclusivo no Mobile) */}
+                  <div className="decisao-card-mobile">
+                    <div className="decisao-card-mobile-container">
+                      {/* 1. Estado Minimizado (Mobile): Título, Tag de Status, Valor e Chevron à direita */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="decisao-card-mobile-header"
+                        onClick={() => toggleMobileExpand(decisao.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleMobileExpand(decisao.id);
+                          }
+                        }}
+                        aria-expanded={Boolean(expandedMobileIds[decisao.id])}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                          {/* Título */}
+                          <h3
+                            style={{
+                              fontSize: '0.98rem',
+                              fontWeight: 700,
+                              color: 'var(--text-main)',
+                              margin: 0,
+                              lineHeight: 1.35,
+                              flex: 1,
+                            }}
+                          >
+                            {decisao.titulo}
+                          </h3>
+
+                          {/* Ícone de Seta (Chevron) indicando expansão no canto direito */}
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 28,
+                              height: 28,
+                              borderRadius: '50%',
+                              background: expandedMobileIds[decisao.id] ? 'var(--dark-coffee-100)' : 'var(--dark-coffee-50)',
+                              color: 'var(--text-main)',
+                              flexShrink: 0,
+                              transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease',
+                              transform: expandedMobileIds[decisao.id] ? 'rotate(180deg)' : 'rotate(0deg)',
+                            }}
+                          >
+                            <CaretDown size={16} weight="bold" />
+                          </div>
+                        </div>
+
+                        {/* Badges de Status e Valor */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                          {renderStatusBadge(decisao)}
+                          {renderValorBadge(decisao)}
+                        </div>
+                      </div>
+
+                      {/* 2. Estado Expandido (Mobile): Oculto no minimizado, visível apenas ao clicar */}
+                      {expandedMobileIds[decisao.id] && (
+                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-hairline)' }}>
+                          {/* Autor e Data */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 8,
+                              marginBottom: 12,
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                fontSize: '0.78rem',
+                                color: 'var(--text-muted)',
+                              }}
+                            >
+                              <User size={13} weight="bold" color="var(--dark-coffee-600)" />
+                              <span>
+                                Proposto por <strong style={{ color: 'var(--text-main)' }}>{decisao.criadorNome}</strong>
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 600,
+                                  padding: '1px 5px',
+                                  borderRadius: 4,
+                                  background: 'var(--dark-coffee-50)',
+                                  border: '1px solid var(--border-hairline)',
+                                  color: 'var(--dark-coffee-700)',
+                                }}
+                              >
+                                {decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'}
+                              </span>
+                            </span>
+
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontSize: '0.76rem',
+                                color: 'var(--text-muted)',
+                              }}
+                            >
+                              <CalendarBlank size={13} weight="bold" color="var(--dark-coffee-600)" />
+                              <span>{formatarDataHora(decisao.criadaEm)}</span>
+                            </span>
+                          </div>
+
+                          {/* Descrição */}
+                          <p
+                            style={{
+                              fontSize: '0.88rem',
+                              color: 'var(--text-main)',
+                              margin: '0 0 12px 0',
+                              lineHeight: 1.5,
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            {decisao.descricao}
+                          </p>
+
+                          {/* Impacto no Prazo (se houver) */}
+                          {decisao.impactoPrazoDias !== undefined && (
+                            <div style={{ marginBottom: 12 }}>
+                              <span
+                                style={{
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  color: 'var(--primary-accent)',
+                                  background: 'var(--coral-glow-50)',
+                                  padding: '3px 8px',
+                                  borderRadius: 6,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                }}
+                              >
+                                <CalendarBlank size={14} weight="bold" />
+                                {decisao.impactoPrazoDias > 0
+                                  ? `Prazo: +${decisao.impactoPrazoDias} dias úteis`
+                                  : 'Sem alteração no prazo previsto'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Amostras / Fotos (se houver) */}
+                          {decisao.fotos && decisao.fotos.length > 0 && (
+                            <div style={{ marginBottom: 14 }}>
+                              <span
+                                style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  color: 'var(--text-muted)',
+                                  display: 'block',
+                                  marginBottom: 6,
+                                }}
+                              >
+                                Amostras de Referência:
+                              </span>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                {decisao.fotos.map((foto, fIdx) => (
+                                  <div
+                                    key={fIdx}
+                                    onClick={() => setLightboxFoto(foto)}
+                                    style={{
+                                      width: 70,
+                                      height: 70,
+                                      borderRadius: 'var(--radius-sm)',
+                                      overflow: 'hidden',
+                                      border: '1px solid var(--border-hairline)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Botão WhatsApp */}
+                          {isPendente && (
+                            <div style={{ marginBottom: 14 }}>
+                              <a
+                                href={gerarLinkWhatsAppDecisao(decisao)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-secondary"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  fontSize: '0.8rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: 6,
+                                  color: '#15803d',
+                                  borderColor: '#bbf7d0',
+                                  background: '#f0fdf4',
+                                  textDecoration: 'none',
+                                  fontWeight: 600,
+                                }}
+                                title="Avisar ou cobrar manifestação da contraparte no WhatsApp"
+                              >
+                                <WhatsappLogo size={16} weight="bold" color="#16a34a" />
+                                <span>Avisar no WhatsApp</span>
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Bloco de Assinatura Digital e Ações Finais */}
+                          {renderBlocoAssinaturas(decisao, pendenteParaMim, isRecusada)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 </div>
               );
             })}

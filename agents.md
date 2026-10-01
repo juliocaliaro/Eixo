@@ -71,6 +71,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) — com suporte a preenchimento conjunto na mesma decisão para compensação direta (ex: troca de material com crédito e acréscimo simultâneos) — e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
 - **Remoção de Categorias**: O seletor de categorias foi removido da criação para desburocratizar o registro de decisões pelo usuário.
 - **Central de Notificações**: Sininho com contador em tempo real no topo informando decisões pendentes da assinatura do perfil logado, com dropdown para navegação direta.
+- **Card de Decisões Responsivo (Accordion Exclusivo no Mobile)**:
+  - **Versão Web / Desktop (> 768px)**: Permanece 100% inalterada, sempre exibindo o card completo com cabeçalho, autor, data, tags, valor, descrição, amostras e bloco de assinatura digital aberto.
+  - **Versão Mobile (<= 768px)**: Opera como componente expansível (Accordion/Collapse). No **Estado Minimizado**, exibe exclusivamente o título da decisão, a tag de status, o valor (aditivo/supressivo) e o ícone de seta (Chevron) no canto direito indicando expansão. No **Estado Expandido** (revelado ao clicar), exibe autor, data, descrição completa, fotos de referência, botão de notificação via WhatsApp e todo o bloco de Assinatura Digital com as ações finais (`Recusar` e `Concordar e Assinar Decisão`).
 
 ---
 
@@ -79,8 +82,8 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 1. **Header Geral Limpo**:
    - O header contém estritamente o logotipo, o seletor de perfil pill (`[ Construtor ]` / `[ Cliente ]`) e o sininho de notificações.
    - O botão "Nova Obra" foi removido do header e vive apenas na listagem de obras do construtor.
-2. **Seta de Voltar no Corpo**:
-   - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, totalmente desacoplado da barra superior.
+2. **Barra Superior Interna da Obra**:
+   - O botão `[ ← Todas as Obras ]` fica dentro do corpo de `ObraDetail`, na mesma linha da ação de **Editar Obra**, que foi movida do rodapé para o topo, alinhada à direita e representada exclusivamente por um ícone de lápis padrão (`<PencilSimple size={18} />`).
 3. **Sequência Oficial de Abas por Perfil**:
    - **Visão do Construtor**: `Etapas`, `Arquivos`, `Decisões`, `Diário`, `Compartilhar`.
    - **Visão do Cliente**: `Diário`, `Etapas`, `Arquivos`, `Decisões`, `Compartilhar`. Na visão do cliente, o Diário de Obra assume a primeira posição do menu, permitindo que o cliente acompanhe imediatamente o feed/extrato diário do canteiro ao abrir a obra.
@@ -128,9 +131,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 9. Central de Projetos Técnicos em PDF (`ProjetosTab` & `ModalUploadProjeto`)
+## 9. Central de Projetos e Documentos (`ProjetosTab` & `ModalUploadProjeto`)
 
-- **Aba "Projetos (PDF)" na Obra**:
+- **Aba "Arquivos" (Projetos e Documentos) na Obra**:
   - Aba integrada na visualização da obra (`ObraDetail`), posicionada como 2ª aba, logo após Etapas & Cronograma e antes de Decisões & Aprovações.
   - Exibe contador dinâmico de pranchas/projetos anexados.
 - **Upload com Classificação Técnica Obrigatória**:
@@ -140,6 +143,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Visualização e Download Integrados**:
   - Ações rápidas de **Visualizar** (modal com visualizador embutido ou abertura em nova guia) e **Baixar** direto no dispositivo.
   - Filtros rápidos por chips de categoria e busca textual em tempo real.
+- **Responsividade do Card de Projetos (`.projeto-card`)**:
+  - Versão Web / Desktop: Layout horizontal em linha (`Row`) intacto com informações à esquerda e ações alinhadas à direita.
+  - Versão Mobile (`max-width: 768px`): Direção em coluna (`Column`), com o grupo de botões (*Visualizar*, *Baixar* e *Lixeira*) caindo para uma nova linha abaixo das informações do arquivo, garantindo espaço total para textos e metadados no celular.
 
 ---
 
@@ -378,10 +384,12 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 - **Barra Superior (Header / App Bar) (`Navbar.tsx`)**:
   - **Canto Superior Esquerdo**: Ícone de Menu Hambúrguer (`<List size={22} weight="bold" />`), atuando como gatilho oficial para abrir a gaveta de navegação lateral.
-  - **Canto Superior Direito**: Ícone de Perfil de Usuário de contorno simples (`<User size={21} weight="regular" />`), servindo como atalho direto para a tela/modal de **"Configurações do Cliente"** (`ModalConfiguracoesCliente.tsx`).
+  - **Canto Superior Direito**: Notificações de Decisões (`<Bell size={20} />` / `<BellRinging size={20} weight="fill" />`) com contador de pendências e dropdown de decisões, posicionado imediatamente ao lado do Ícone de Perfil de Usuário de contorno simples (`<User size={21} weight="regular" />`), atalho para **"Configurações do Cliente"** (`ModalConfiguracoesCliente.tsx`).
 - **Menu Lateral Esquerdo (Side Drawer / Sidebar) (`SandwichMenu.tsx`)**:
   - **Comportamento**: Gaveta lateral com deslizamento fluido a partir da tela esquerda (`drawerSlideRight`).
-  - **Corpo do Menu (Navegação em Camadas)**: Design limpo em lista vertical, empilhando as opções (*Tópicos*, *Registro de Materiais*, *Notificações*, *Obras*, *Modelos de Obra*) com textos alinhados à esquerda e divisórias sutis (*hairline*) entre eles.
+  - **Corpo do Menu (Navegação em Camadas)**: Design limpo em lista vertical com textos alinhados à esquerda e divisórias sutis (*hairline*), contendo estritamente duas opções de navegação:
+    1. **Obras**: Navegação e retorno para a lista de obras cadastradas.
+    2. **Registro de materiais**: Atalho direto para abertura do modal de materiais (exibido para perfil Construtor).
   - **Rodapé do Menu (Footer)**: Botão de **Sair da Conta (Logout)** posicionado e fixado exclusivamente no rodapé do menu lateral esquerdo.
 
 
