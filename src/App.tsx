@@ -759,6 +759,7 @@ export const App: React.FC = () => {
         }}
         isConfigOpen={isConfigOpen}
         onLogout={handleLogout}
+        onOpenCreateObra={() => setIsCreateObraOpen(true)}
         onOpenRegistroMaterial={() => handleOpenRegistroMaterial(currentObraId || undefined)}
         userName={userName}
         userEmail={userEmail}

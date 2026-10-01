@@ -20,6 +20,7 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   isConfigOpen?: boolean;
   onLogout?: () => void;
+  onOpenCreateObra?: () => void;
   onOpenRegistroMaterial?: () => void;
   userName?: string;
   userEmail?: string;
@@ -40,6 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateToDecisao,
   onOpenSettings,
   onLogout,
+  onOpenCreateObra,
   onOpenRegistroMaterial,
   userName = '',
   userEmail = '',
@@ -326,6 +328,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         onChangeTab={onChangeTab}
         notificacoes={notificacoesPendentes}
         onNavigateToDecisao={onNavigateToDecisao}
+        onOpenCreateObra={onOpenCreateObra}
         onOpenRegistroMaterial={onOpenRegistroMaterial}
         onOpenSettings={onOpenSettings}
         onBackToObras={onBackToObras}

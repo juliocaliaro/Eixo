@@ -24,6 +24,8 @@ export interface SandwichMenuProps {
   // Notificações
   notificacoes: NotificacaoPendente[];
   onNavigateToDecisao?: (obraId: string) => void;
+  // Registro de Obra (Nova Obra)
+  onOpenCreateObra?: () => void;
   // Registro de Materiais
   onOpenRegistroMaterial?: () => void;
   // Configurações de Modelos
@@ -46,6 +48,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
   onChangeTab,
   notificacoes,
   onNavigateToDecisao,
+  onOpenCreateObra,
   onOpenRegistroMaterial,
   onOpenSettings,
   onBackToObras,
@@ -203,7 +206,38 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             </button>
           )}
 
-          {/* 2. Registro de Materiais */}
+          {/* 2. Registro de obra */}
+          {perfilAtivo === 'construtor' && onOpenCreateObra && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenCreateObra();
+              }}
+              style={{
+                width: '100%',
+                padding: '14px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: 'none',
+                borderBottom: '1px solid var(--border-hairline)',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '0.92rem',
+                fontWeight: 600,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span>Registro de obra</span>
+            </button>
+          )}
+
+          {/* 3. Registro de materiais */}
           {perfilAtivo === 'construtor' && onOpenRegistroMaterial && (
             <button
               type="button"
@@ -234,7 +268,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             </button>
           )}
 
-          {/* 3. Modelos de Obra (se construtor) */}
+          {/* 4. Modelos de Obra (se construtor) */}
           {perfilAtivo === 'construtor' && onOpenSettings && (
             <button
               type="button"
