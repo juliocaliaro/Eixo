@@ -317,4 +317,73 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - O material registrado é consolidado no feed e no histórico diário da obra (`DiarioObraTab`), visível tanto para o Construtor quanto para o Cliente.
   - Exibição com badge temático `MATERIAL`, linha temporal detalhada, notas e galeria de fotos com suporte a Lightbox em tela cheia.
 
+---
+
+## 19. Autenticação Frontend Mockada & Gerenciamento de Estado de Role
+
+- **Tela de Login Dedicada (`LoginPage.tsx`)**:
+  - Interface moderna e minimalista alinhada ao design system do Eixo (paleta terrosa, ícones Phosphor, zero emojis e zero alerts nativos).
+  - Inputs de **E-mail** e **Senha** com toggle de visibilidade de senha (ícones `<Eye />` e `<EyeSlash />`).
+  - Botão de submissão **Entrar** (`Submit`) e link **Esqueceu a senha?** com modal acessível de recuperação simulada.
+  - Seletor de Perfil de Acesso (`[ Construtor ]` / `[ Cliente ]`) e atalhos de acesso rápido para testes de desenvolvimento.
+- **Gerenciamento de Estado no Aplicativo (App State)**:
+  - Variáveis de estado locais:
+    - `isLogged` (Boolean): controla a exibição da tela de login vs. o aplicativo principal, persistido em `localStorage` (`eixo_auth_isLogged`).
+    - `Role` ('Construtor' | 'Cliente'): define a credencial ativa do usuário logado, persistido em `localStorage` (`eixo_auth_role`).
+  - Mapeamento transparente com o perfil ativo do sistema: `perfilAtivo = Role.toLowerCase() as PerfilUsuario`.
+  - Links compartilhados com cliente (`?perfil=cliente`) e upload público de pranchas (`?upload=projeto`) contornam a autenticação inicial mantendo o acesso seguro e direto do cliente.
+- **Simulação de Autenticação (Fake Login)**:
+  - Validação de preenchimento dos campos no submit (rejeita e-mail ou senha em branco com aviso no padrão visual do sistema).
+  - Ao aprovar, altera `isLogged` para `true`, define a `Role` selecionada, emite toast de boas-vindas e redireciona para a `Home`.
+  - Botão de logout (`<SignOut />`) integrado ao cabeçalho (`Navbar`) para fácil alternância e testes de perfis.
+- **Permissões Visuais e Renderização Condicional por Role**:
+  - **`Role === 'Construtor'`**:
+    - Acesso integral a menus de edição, criação de novas obras e gerenciamento de modelos de etapas (`ConfigTemplatesPage`).
+    - Botão **Registro de Materiais** exibido na Página Inicial (`ObraList`) e no Diário de Obra (`DiarioObraTab`).
+    - Modos de inserção e exclusão de etapas, serviços e arquivos habilitados.
+  - **`Role === 'Cliente'`**:
+    - O botão **Registro de Materiais** e menus de edição ficam estritamente ocultos.
+    - Modo de leitura e acompanhamento no Cronograma, Arquivos e Diário de Obra.
+    - Acesso exclusivo e interativo apenas na Central de Decisões e Aprovações.
+
+---
+
+## 20. Menu Sandwich Centralizador, Notificações, Registro de Materiais & Configuração de Perfil
+
+- **Botão Sandwich no Header (`Navbar.tsx`)**:
+  - Posicionado na barra de navegação com ícone Phosphor `<List size={22} weight="bold" />` e alvo de toque confortável (38x38px).
+  - Dot indicador de notificações pendentes em `coral-glow` no canto superior direito do botão quando há decisões pendentes de assinatura.
+- **Gaveta Deslizante (Slide-out Drawer) (`SandwichMenu.tsx`)**:
+  - Painel lateral suspenso deslizando suavemente da direita com backdrop escurecido e desfocado (`backdrop-filter: blur(3px)`).
+  - Fechamento imediato com clique no backdrop, botão `✕` ou tecla `Escape` (`aria-modal="true"`, `role="dialog"`).
+  - Estrutura com abas superiores internas:
+    - **Aba "Ações & Avisos"**:
+      - **Notificações de Decisões**: Lista de decisões que requerem a assinatura do perfil ativo com badge de contagem, detalhes da proposta e clique para navegação direta à decisão na obra. Estado vazio limpo com `<CheckCircle />`.
+      - **Registro de Materiais**: Card dedicado de acesso rápido para cadastro de compras, notas fiscais e fotos de canteiro vinculadas a uma obra.
+      - **Atalhos Rápidos**: Botão "Todas as Obras (Home)" e acesso a "Modelos de Obra & Etapas Padrão" (para construtor).
+    - **Aba "Configurar Perfil"**:
+      - Seletor de perfil de acesso (`[ Construtor ]` / `[ Cliente ]`) com descrição contextual dos recursos de cada perfil.
+      - Campos de dados cadastrais editáveis: Nome Completo / Exibição, E-mail de Contato e Empresa / Construtora.
+      - Botão "Salvar Perfil" com feedback de sucesso em tempo real e persistência em `localStorage`.
+- **Área de Sessão / Login no Rodapé do Sandwich Menu**:
+  - Fixado no rodapé da gaveta com divisor sutil (`border-top: 1px solid var(--border-hairline)`).
+  - Exibe avatar dinâmico com ícone temático (`<HardHat />` ou `<User />`), nome do usuário conectado, e-mail da sessão e badge de perfil ativo.
+  - Ação de autenticação contextual:
+    - Se logado: Botão executivo **"Sair da Conta (Logout)"** com `<SignOut />`.
+    - Se não logado: Botão primário **"Fazer Login"** com `<SignIn />`.
+
+---
+
+## 21. Reformulação da Navegação Principal (Header & Menu Lateral Esquerdo)
+
+- **Barra Superior (Header / App Bar) (`Navbar.tsx`)**:
+  - **Canto Superior Esquerdo**: Ícone de Menu Hambúrguer (`<List size={22} weight="bold" />`), atuando como gatilho oficial para abrir a gaveta de navegação lateral.
+  - **Canto Superior Direito**: Ícone de Perfil de Usuário de contorno simples (`<User size={21} weight="regular" />`), servindo como atalho direto para a tela/modal de **"Configurações do Cliente"** (`ModalConfiguracoesCliente.tsx`).
+- **Menu Lateral Esquerdo (Side Drawer / Sidebar) (`SandwichMenu.tsx`)**:
+  - **Comportamento**: Gaveta lateral com deslizamento fluido a partir da tela esquerda (`drawerSlideRight`).
+  - **Corpo do Menu (Navegação em Camadas)**: Design limpo em lista vertical, empilhando as opções (*Tópicos*, *Registro de Materiais*, *Notificações*, *Obras*, *Modelos de Obra*) com textos alinhados à esquerda e divisórias sutis (*hairline*) entre eles.
+  - **Rodapé do Menu (Footer)**: Botão de **Sair da Conta (Logout)** posicionado e fixado exclusivamente no rodapé do menu lateral esquerdo.
+
+
+
 

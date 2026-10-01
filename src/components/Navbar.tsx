@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
-  HardHat,
-  User,
   List,
+  User,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { SandwichMenu, NotificacaoPendente } from './SandwichMenu';
+import { ModalConfiguracoesCliente } from './ModalConfiguracoesCliente';
 
 interface NavbarProps {
   currentObra: Obra | null;
@@ -47,7 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onChangeTab,
 }) => {
-  const [isSandwichOpen, setIsSandwichOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isConfigClienteOpen, setIsConfigClienteOpen] = useState(false);
 
   // Coleta todas as decisões pendentes da assinatura do perfil logado
   const notificacoesPendentes: NotificacaoPendente[] = [];
@@ -71,99 +72,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        {/* Esquerda: Apenas Logotipo Limpo */}
-        <div
-          onClick={onBackToObras}
-          className="brand-logo"
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-        >
-          <img
-            src="/eixo-icon.jpg"
-            alt="Eixo"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              objectFit: 'cover',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
-            }}
-          />
-          <div>
-            <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
-              Eixo
-            </span>
-            <span style={{ display: 'block', fontSize: '0.70rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Canteiro & Decisões
-            </span>
-          </div>
-        </div>
-
-        {/* Direita: Seletor Rápido de Perfil + Botão Menu Sandwich */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Seletor de Perfil (Construtor vs Cliente) */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: 'var(--dark-coffee-50)',
-              padding: '3px',
-              borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border-hairline)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => onTogglePerfil('construtor')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'transparent',
-                color: perfilAtivo === 'construtor' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: perfilAtivo === 'construtor' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-              title="Acesso pleno à gestão técnica da obra"
-            >
-              <HardHat size={14} weight={perfilAtivo === 'construtor' ? 'fill' : 'bold'} />
-              <span>Construtor</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onTogglePerfil('cliente')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                background: perfilAtivo === 'cliente' ? 'var(--primary-accent)' : 'transparent',
-                color: perfilAtivo === 'cliente' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: perfilAtivo === 'cliente' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-              title="Visão do cliente para acompanhamento e aprovações"
-            >
-              <User size={14} weight={perfilAtivo === 'cliente' ? 'fill' : 'bold'} />
-              <span>Cliente</span>
-            </button>
-          </div>
-
-          {/* Botão Menu Sandwich com Indicador de Notificação */}
+        {/* Canto Superior Esquerdo: Menu Hambúrguer (gatilho do drawer) + Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             type="button"
-            onClick={() => setIsSandwichOpen(true)}
+            onClick={() => setIsDrawerOpen(true)}
             className="btn-icon"
             style={{
               position: 'relative',
@@ -171,20 +84,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               height: 38,
               borderRadius: 'var(--radius-sm, 6px)',
               border: '1px solid var(--border-hairline)',
-              background: isSandwichOpen ? 'var(--dark-coffee-100)' : '#ffffff',
-              color: temNotificacoes ? 'var(--primary-accent)' : 'var(--text-main)',
+              background: '#ffffff',
+              color: 'var(--text-main)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
-            title="Abrir menu do sistema (Notificações, Registro de Materiais, Perfil, Login)"
-            aria-label="Menu principal"
+            title="Abrir menu de navegação"
+            aria-label="Abrir menu de navegação"
           >
             <List size={22} weight="bold" />
 
-            {/* Dot indicador de pendências */}
+            {/* Dot indicador de notificações pendentes */}
             {temNotificacoes && (
               <span
                 style={{
@@ -200,13 +113,65 @@ export const Navbar: React.FC<NavbarProps> = ({
               />
             )}
           </button>
+
+          <div
+            onClick={onBackToObras}
+            className="brand-logo"
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+          >
+            <img
+              src="/eixo-icon.jpg"
+              alt="Eixo"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                objectFit: 'cover',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+              }}
+            />
+            <div>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
+                Eixo
+              </span>
+              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Canteiro & Decisões
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Canto Superior Direito: Ícone de Perfil de Usuário (atalho para Configurações do Cliente) */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setIsConfigClienteOpen(true)}
+            className="btn-icon"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              border: '1px solid var(--border-hairline)',
+              background: '#ffffff',
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Configurações do Cliente"
+            aria-label="Configurações do Cliente"
+          >
+            <User size={21} weight="regular" />
+          </button>
         </div>
       </div>
 
-      {/* Gaveta do Menu Drawer */}
+      {/* Menu Lateral Esquerdo (Side Drawer) */}
       <SandwichMenu
-        isOpen={isSandwichOpen}
-        onClose={() => setIsSandwichOpen(false)}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
         currentObra={currentObra}
         activeTab={activeTab}
         onChangeTab={onChangeTab}
@@ -216,18 +181,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         onOpenSettings={onOpenSettings}
         onBackToObras={onBackToObras}
         perfilAtivo={perfilAtivo}
+        isLogged={isLogged}
+        onLogout={onLogout}
+        onOpenLogin={onOpenLogin}
+      />
+
+      {/* Modal de Configurações do Cliente */}
+      <ModalConfiguracoesCliente
+        isOpen={isConfigClienteOpen}
+        onClose={() => setIsConfigClienteOpen(false)}
+        perfilAtivo={perfilAtivo}
         onTogglePerfil={onTogglePerfil}
         userName={userName}
         userEmail={userEmail}
         userEmpresa={userEmpresa}
         onSaveProfile={(dados) => {
-          if (onSaveProfile) {
-            onSaveProfile(dados);
-          }
+          if (onSaveProfile) onSaveProfile(dados);
         }}
-        isLogged={isLogged}
-        onLogout={onLogout}
-        onOpenLogin={onOpenLogin}
       />
     </header>
   );
