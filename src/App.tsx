@@ -6,6 +6,7 @@ import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
 import { ModalRegistroMaterial, NovoMaterialData } from './components/ModalRegistroMaterial';
+import { LoginPage, UserRole } from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
 
 const ConfigTemplatesPage = React.lazy(() =>
@@ -30,16 +31,41 @@ export const App: React.FC = () => {
   const [isRegistroMaterialOpen, setIsRegistroMaterialOpen] = useState(false);
   const [materialPreselectedObraId, setMaterialPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>(() => {
+
+  // Gerenciamento de Estado de Autenticação (Fake Login & Local State)
+  const [isLogged, setIsLogged] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('perfil') === 'cliente' || params.get('upload') === 'projeto') {
+        return true;
+      }
+      const stored = localStorage.getItem('eixo_auth_isLogged');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return false;
+  });
+
+  const [Role, setRole] = useState<UserRole>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const perfilParam = params.get('perfil');
-      if (perfilParam === 'cliente' || perfilParam === 'construtor') {
-        return perfilParam;
-      }
+      if (perfilParam === 'cliente') return 'Cliente';
+      if (perfilParam === 'construtor') return 'Construtor';
+      const stored = localStorage.getItem('eixo_auth_role') as UserRole;
+      if (stored === 'Cliente' || stored === 'Construtor') return stored;
     } catch {}
-    return 'construtor';
+    return 'Construtor';
   });
+
+  const perfilAtivo: PerfilUsuario = Role.toLowerCase() as PerfilUsuario;
+
+  const setPerfilAtivo = (novo: PerfilUsuario) => {
+    const newRole: UserRole = novo === 'cliente' ? 'Cliente' : 'Construtor';
+    setRole(newRole);
+    try {
+      localStorage.setItem('eixo_auth_role', newRole);
+    } catch {}
+  };
   const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -359,6 +385,33 @@ export const App: React.FC = () => {
     }
   };
 
+  // Simulação de Autenticação (Fake Login)
+  const handleLogin = (selectedRole: UserRole) => {
+    setIsLogged(true);
+    setRole(selectedRole);
+    setCurrentObraId(null); // Redireciona para a Home
+    setIsConfigOpen(false);
+    try {
+      localStorage.setItem('eixo_auth_isLogged', 'true');
+      localStorage.setItem('eixo_auth_role', selectedRole);
+    } catch {}
+    showToast(
+      'Login realizado com sucesso!',
+      `Bem-vindo ao Eixo como ${selectedRole}.`,
+      'success'
+    );
+  };
+
+  const handleLogout = () => {
+    setIsLogged(false);
+    setCurrentObraId(null);
+    setIsConfigOpen(false);
+    try {
+      localStorage.setItem('eixo_auth_isLogged', 'false');
+    } catch {}
+    showToast('Sessão encerrada', 'Você saiu do sistema.', 'info');
+  };
+
   // Carregar Obra de Demonstração (atende o exemplo exato: 2 etapas com 2 tarefas cada = 25% por tarefa)
   const handleLoadDemo = () => {
     const demoObra: Obra = {
@@ -605,6 +658,19 @@ export const App: React.FC = () => {
     }
   }
 
+  // Se o usuário não estiver logado, exibe a tela de login
+  if (!isLogged) {
+    return (
+      <div className="app-container">
+        <LoginPage
+          onLogin={handleLogin}
+          initialRole={Role}
+        />
+        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+      </div>
+    );
+  }
+
   // Obra atualmente aberta
   const currentObra = obras.find((o) => o.id === currentObraId) || null;
 
@@ -641,6 +707,7 @@ export const App: React.FC = () => {
           setIsConfigOpen((prev) => !prev);
         }}
         isConfigOpen={isConfigOpen}
+        onLogout={handleLogout}
       />
 
       {/* Conteúdo Principal */}
@@ -663,8 +730,8 @@ export const App: React.FC = () => {
             onDeleteObra={handleDeleteObra}
             onLoadDemo={handleLoadDemo}
             perfilAtivo={perfilAtivo}
-            onOpenSettings={() => setIsConfigOpen(true)}
-            onOpenRegistroMaterial={() => handleOpenRegistroMaterial()}
+            onOpenSettings={Role === 'Construtor' ? () => setIsConfigOpen(true) : undefined}
+            onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial() : undefined}
           />
         ) : (
           /* Visão Interna: Detalhes da Obra com Abas e Timeline */
@@ -684,7 +751,7 @@ export const App: React.FC = () => {
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
             templates={templates}
-            onOpenRegistroMaterial={() => handleOpenRegistroMaterial(currentObra.id)}
+            onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial(currentObra.id) : undefined}
           />
         )}
       </main>

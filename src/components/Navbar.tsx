@@ -5,7 +5,8 @@ import {
   Bell,
   BellRinging,
   PenNib,
-  Gear
+  Gear,
+  SignOut,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 
@@ -18,6 +19,7 @@ interface NavbarProps {
   onNavigateToDecisao?: (obraId: string) => void;
   onOpenSettings?: () => void;
   isConfigOpen?: boolean;
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -29,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateToDecisao,
   onOpenSettings,
   isConfigOpen = false,
+  onLogout,
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -303,6 +306,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Configurações gerais e modelos de etapas/tarefas"
             >
               <Gear size={19} weight={isConfigOpen ? 'fill' : 'bold'} />
+            </button>
+          )}
+
+          {/* Botão de Logout */}
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="btn-icon"
+              style={{
+                width: 36,
+                height: 36,
+                color: 'var(--text-muted)',
+              }}
+              title="Sair do sistema (Logout)"
+            >
+              <SignOut size={19} />
             </button>
           )}
         </div>
