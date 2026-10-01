@@ -759,7 +759,7 @@ export const App: React.FC = () => {
         }}
         isConfigOpen={isConfigOpen}
         onLogout={handleLogout}
-        onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial() : undefined}
+        onOpenRegistroMaterial={() => handleOpenRegistroMaterial(currentObraId || undefined)}
         userName={userName}
         userEmail={userEmail}
         userEmpresa={userEmpresa}

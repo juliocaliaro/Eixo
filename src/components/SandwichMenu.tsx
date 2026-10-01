@@ -363,6 +363,61 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           {/* ================= ABA 1: TÓPICOS DO MENU ================= */}
           {activeDrawerTab === 'topicos' && (
             <>
+              {/* Botão de Registro de Materiais no Menu */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (onOpenRegistroMaterial) {
+                      onOpenRegistroMaterial();
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    border: '1px solid var(--border-hairline)',
+                    background: 'var(--dark-coffee-50, #fcfaf8)',
+                    color: 'var(--text-main)',
+                    fontWeight: 700,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--primary-accent)';
+                    e.currentTarget.style.background = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                    e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
+                  }}
+                  title="Cadastrar compras, notas fiscais e fotos de insumos"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Package size={20} weight="bold" color="var(--primary-accent)" />
+                    <span>Registro de Materiais</span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.70rem',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 'var(--radius-full)',
+                      background: 'rgba(224, 90, 71, 0.12)',
+                      color: 'var(--primary-accent)',
+                    }}
+                  >
+                    Canteiro
+                  </span>
+                </button>
+              </div>
+
               {/* Tópicos da Obra Atual (se houver obra aberta) */}
               {currentObra && onChangeTab && (
                 <div>
@@ -455,49 +510,6 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                 </span>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {/* Tópico: Registro de Materiais */}
-                  {onOpenRegistroMaterial && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onClose();
-                        onOpenRegistroMaterial();
-                      }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--border-hairline)',
-                        background: '#ffffff',
-                        color: 'var(--text-main)',
-                        fontWeight: 600,
-                        fontSize: '0.86rem',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--primary-accent)';
-                        e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                        e.currentTarget.style.background = '#ffffff';
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Package size={18} weight="bold" color="var(--primary-accent)" />
-                        <span>Registro de Materiais</span>
-                      </div>
-                      <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                        Canteiro
-                      </span>
-                    </button>
-                  )}
-
                   {/* Tópico: Notificações */}
                   <button
                     type="button"
