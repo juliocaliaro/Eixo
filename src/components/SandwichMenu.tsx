@@ -118,8 +118,8 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
   const handleSalvarPerfil = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveProfile({
-      nome: nomeInput.trim() || userName,
-      email: emailInput.trim() || userEmail,
+      nome: nomeInput.trim(),
+      email: emailInput.trim(),
       empresa: empresaInput.trim(),
     });
     setProfileSavedFeedback(true);
@@ -661,6 +661,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                   type="text"
                   value={nomeInput}
                   onChange={(e) => setNomeInput(e.target.value)}
+                  placeholder="Nome do usuário"
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
@@ -683,6 +684,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="exemplo@email.com"
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
@@ -705,6 +707,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                   type="text"
                   value={empresaInput}
                   onChange={(e) => setEmpresaInput(e.target.value)}
+                  placeholder="Nome da empresa ou construtora"
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',

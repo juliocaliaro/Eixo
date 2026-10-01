@@ -67,13 +67,13 @@ export const App: React.FC = () => {
     } catch {}
   };
 
-  // Dados Cadastrais do Perfil de Usuário
+  // Dados Cadastrais do Perfil de Usuário (campos em branco por padrão)
   const [userName, setUserName] = useState<string>(() => {
     try {
       const stored = localStorage.getItem('eixo_auth_userName');
       if (stored) return stored;
     } catch {}
-    return Role === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes';
+    return '';
   });
 
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -81,7 +81,7 @@ export const App: React.FC = () => {
       const stored = localStorage.getItem('eixo_auth_userEmail');
       if (stored) return stored;
     } catch {}
-    return Role === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com';
+    return '';
   });
 
   const [userEmpresa, setUserEmpresa] = useState<string>(() => {
@@ -89,7 +89,7 @@ export const App: React.FC = () => {
       const stored = localStorage.getItem('eixo_empresa_cadastrada');
       if (stored) return stored;
     } catch {}
-    return 'Albuquerque Engenharia & Reformas';
+    return '';
   });
 
   const handleSaveProfile = (dados: { nome: string; email: string; empresa?: string }) => {
