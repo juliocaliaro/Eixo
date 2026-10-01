@@ -766,6 +766,8 @@ export const App: React.FC = () => {
         onSaveProfile={handleSaveProfile}
         isLogged={isLogged}
         onOpenLogin={() => setIsLogged(false)}
+        activeTab={activeTab}
+        onChangeTab={(t) => setActiveTab(t)}
       />
 
       {/* Conteúdo Principal */}

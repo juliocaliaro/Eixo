@@ -24,9 +24,12 @@ interface NavbarProps {
   onSaveProfile?: (dados: { nome: string; email: string; empresa?: string }) => void;
   isLogged?: boolean;
   onOpenLogin?: () => void;
+  activeTab?: string;
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'compartilhar') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  currentObra,
   onBackToObras,
   perfilAtivo,
   onTogglePerfil,
@@ -41,6 +44,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSaveProfile,
   isLogged = true,
   onOpenLogin,
+  activeTab,
+  onChangeTab,
 }) => {
   const [isSandwichOpen, setIsSandwichOpen] = useState(false);
 
@@ -198,10 +203,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Gaveta do Menu Sandwich */}
+      {/* Gaveta do Menu Drawer */}
       <SandwichMenu
         isOpen={isSandwichOpen}
         onClose={() => setIsSandwichOpen(false)}
+        currentObra={currentObra}
+        activeTab={activeTab}
+        onChangeTab={onChangeTab}
         notificacoes={notificacoesPendentes}
         onNavigateToDecisao={onNavigateToDecisao}
         onOpenRegistroMaterial={onOpenRegistroMaterial}
