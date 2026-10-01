@@ -66,6 +66,51 @@ export const App: React.FC = () => {
       localStorage.setItem('eixo_auth_role', newRole);
     } catch {}
   };
+
+  // Dados Cadastrais do Perfil de Usuário
+  const [userName, setUserName] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_auth_userName');
+      if (stored) return stored;
+    } catch {}
+    return Role === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes';
+  });
+
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_auth_userEmail');
+      if (stored) return stored;
+    } catch {}
+    return Role === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com';
+  });
+
+  const [userEmpresa, setUserEmpresa] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_empresa_cadastrada');
+      if (stored) return stored;
+    } catch {}
+    return 'Albuquerque Engenharia & Reformas';
+  });
+
+  const handleSaveProfile = (dados: { nome: string; email: string; empresa?: string }) => {
+    setUserName(dados.nome);
+    setUserEmail(dados.email);
+    if (dados.empresa !== undefined) {
+      setUserEmpresa(dados.empresa);
+    }
+    try {
+      localStorage.setItem('eixo_auth_userName', dados.nome);
+      localStorage.setItem('eixo_auth_userEmail', dados.email);
+      if (dados.empresa !== undefined) {
+        localStorage.setItem('eixo_empresa_cadastrada', dados.empresa);
+      }
+    } catch {}
+    showToast(
+      'Perfil Atualizado',
+      'As configurações de perfil foram salvas com sucesso.',
+      'success'
+    );
+  };
   const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -386,14 +431,20 @@ export const App: React.FC = () => {
   };
 
   // Simulação de Autenticação (Fake Login)
-  const handleLogin = (selectedRole: UserRole) => {
+  const handleLogin = (selectedRole: UserRole, emailDigitado?: string) => {
     setIsLogged(true);
     setRole(selectedRole);
     setCurrentObraId(null); // Redireciona para a Home
     setIsConfigOpen(false);
+    const emailToSet = emailDigitado || (selectedRole === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
+    const nomeToSet = selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes';
+    setUserEmail(emailToSet);
+    setUserName(nomeToSet);
     try {
       localStorage.setItem('eixo_auth_isLogged', 'true');
       localStorage.setItem('eixo_auth_role', selectedRole);
+      localStorage.setItem('eixo_auth_userEmail', emailToSet);
+      localStorage.setItem('eixo_auth_userName', nomeToSet);
     } catch {}
     showToast(
       'Login realizado com sucesso!',
@@ -708,6 +759,13 @@ export const App: React.FC = () => {
         }}
         isConfigOpen={isConfigOpen}
         onLogout={handleLogout}
+        onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial() : undefined}
+        userName={userName}
+        userEmail={userEmail}
+        userEmpresa={userEmpresa}
+        onSaveProfile={handleSaveProfile}
+        isLogged={isLogged}
+        onOpenLogin={() => setIsLogged(false)}
       />
 
       {/* Conteúdo Principal */}

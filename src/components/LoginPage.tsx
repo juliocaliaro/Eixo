@@ -15,7 +15,7 @@ import {
 export type UserRole = 'Construtor' | 'Cliente';
 
 interface LoginPageProps {
-  onLogin: (role: UserRole) => void;
+  onLogin: (role: UserRole, email?: string) => void;
   initialRole?: UserRole;
 }
 
@@ -48,14 +48,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     // Login aprovado com a Role selecionada
-    onLogin(selectedRole);
+    onLogin(selectedRole, email.trim());
   };
 
   const handleQuickLogin = (role: UserRole) => {
+    const demoEmail = role === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com';
     setSelectedRole(role);
-    setEmail(role === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
+    setEmail(demoEmail);
     setPassword('senha123');
-    onLogin(role);
+    onLogin(role, demoEmail);
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {

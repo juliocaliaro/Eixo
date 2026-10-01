@@ -1,14 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   HardHat,
   User,
-  Bell,
-  BellRinging,
-  PenNib,
-  Gear,
-  SignOut,
+  List,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
+import { SandwichMenu, NotificacaoPendente } from './SandwichMenu';
 
 interface NavbarProps {
   currentObra: Obra | null;
@@ -20,35 +17,35 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   isConfigOpen?: boolean;
   onLogout?: () => void;
+  onOpenRegistroMaterial?: () => void;
+  userName?: string;
+  userEmail?: string;
+  userEmpresa?: string;
+  onSaveProfile?: (dados: { nome: string; email: string; empresa?: string }) => void;
+  isLogged?: boolean;
+  onOpenLogin?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentObra,
   onBackToObras,
   perfilAtivo,
   onTogglePerfil,
   obras,
   onNavigateToDecisao,
   onOpenSettings,
-  isConfigOpen = false,
   onLogout,
+  onOpenRegistroMaterial,
+  userName = '',
+  userEmail = '',
+  userEmpresa = '',
+  onSaveProfile,
+  isLogged = true,
+  onOpenLogin,
 }) => {
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-
-  // Fechar dropdown ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setIsNotifOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const [isSandwichOpen, setIsSandwichOpen] = useState(false);
 
   // Coleta todas as decisões pendentes da assinatura do perfil logado
-  const notificacoesPendentes: { obraId: string; obraNome: string; decisaoId: string; titulo: string; criadaPorNome: string }[] = [];
+  const notificacoesPendentes: NotificacaoPendente[] = [];
 
   obras.forEach((o) => {
     (o.decisoes || []).forEach((d) => {
@@ -96,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Direita: Controle de Perfil + Notificações */}
+        {/* Direita: Seletor Rápido de Perfil + Botão Menu Sandwich */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Seletor de Perfil (Construtor vs Cliente) */}
           <div
@@ -158,175 +155,72 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Sininho de Notificações de Decisões */}
-          <div style={{ position: 'relative' }} ref={notifRef}>
-            <button
-              type="button"
-              onClick={() => setIsNotifOpen((prev) => !prev)}
-              className="btn-icon"
-              style={{
-                position: 'relative',
-                width: 36,
-                height: 36,
-                color: temNotificacoes ? 'var(--primary-accent)' : 'var(--text-muted)',
-                background: isNotifOpen ? 'var(--dark-coffee-100)' : 'transparent',
-              }}
-              title={
-                temNotificacoes
-                  ? `${notificacoesPendentes.length} decisão(ões) aguardando sua assinatura`
-                  : 'Nenhuma notificação no momento'
-              }
-            >
-              {temNotificacoes ? (
-                <BellRinging size={19} weight="fill" />
-              ) : (
-                <Bell size={19} />
-              )}
+          {/* Botão Menu Sandwich com Indicador de Notificação */}
+          <button
+            type="button"
+            onClick={() => setIsSandwichOpen(true)}
+            className="btn-icon"
+            style={{
+              position: 'relative',
+              width: 38,
+              height: 38,
+              borderRadius: 'var(--radius-sm, 6px)',
+              border: '1px solid var(--border-hairline)',
+              background: isSandwichOpen ? 'var(--dark-coffee-100)' : '#ffffff',
+              color: temNotificacoes ? 'var(--primary-accent)' : 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Abrir menu do sistema (Notificações, Registro de Materiais, Perfil, Login)"
+            aria-label="Menu principal"
+          >
+            <List size={22} weight="bold" />
 
-              {/* Badge Contador */}
-              {temNotificacoes && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    background: 'var(--coral-glow-500)',
-                    color: '#ffffff',
-                    fontSize: '0.65rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 0 0 2px #ffffff',
-                  }}
-                >
-                  {notificacoesPendentes.length}
-                </span>
-              )}
-            </button>
-
-            {/* Dropdown de Notificações */}
-            {isNotifOpen && (
-              <div
+            {/* Dot indicador de pendências */}
+            {temNotificacoes && (
+              <span
                 style={{
                   position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: 8,
-                  width: 320,
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-floating)',
-                  zIndex: 80,
-                  overflow: 'hidden',
-                  animation: 'modalIn 0.15s ease',
+                  top: 5,
+                  right: 5,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: 'var(--coral-glow-500, #e05a47)',
+                  boxShadow: '0 0 0 2px #ffffff',
                 }}
-              >
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: 'var(--dark-coffee-50)',
-                  }}
-                >
-                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                    Notificações de Decisões
-                  </strong>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente'}
-                  </span>
-                </div>
-
-                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                  {temNotificacoes ? (
-                    notificacoesPendentes.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          setIsNotifOpen(false);
-                          if (onNavigateToDecisao) {
-                            onNavigateToDecisao(item.obraId);
-                          }
-                        }}
-                        style={{
-                          padding: '12px 16px',
-                          borderBottom: '1px solid var(--border-hairline)',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s ease',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 10,
-                        }}
-                        className="notif-dropdown-item"
-                      >
-                        <PenNib size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.3 }}>
-                            {item.titulo}
-                          </div>
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                            {item.obraNome} • Proposta por {item.criadaPorNome}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--primary-accent)', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <PenNib size={12} weight="bold" />
-                            <span>Clique para assinar ou revisar</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                      Nenhuma decisão pendente da sua assinatura no momento.
-                    </div>
-                  )}
-                </div>
-              </div>
+              />
             )}
-          </div>
-
-          {/* Botão de Configurações / Templates (exclusivo para Construtor) */}
-          {perfilAtivo === 'construtor' && onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="btn-icon"
-              style={{
-                width: 36,
-                height: 36,
-                color: isConfigOpen ? 'var(--primary-accent)' : 'var(--text-muted)',
-                background: isConfigOpen ? 'var(--dark-coffee-100)' : 'transparent',
-              }}
-              title="Configurações gerais e modelos de etapas/tarefas"
-            >
-              <Gear size={19} weight={isConfigOpen ? 'fill' : 'bold'} />
-            </button>
-          )}
-
-          {/* Botão de Logout */}
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="btn-icon"
-              style={{
-                width: 36,
-                height: 36,
-                color: 'var(--text-muted)',
-              }}
-              title="Sair do sistema (Logout)"
-            >
-              <SignOut size={19} />
-            </button>
-          )}
+          </button>
         </div>
       </div>
+
+      {/* Gaveta do Menu Sandwich */}
+      <SandwichMenu
+        isOpen={isSandwichOpen}
+        onClose={() => setIsSandwichOpen(false)}
+        notificacoes={notificacoesPendentes}
+        onNavigateToDecisao={onNavigateToDecisao}
+        onOpenRegistroMaterial={onOpenRegistroMaterial}
+        onOpenSettings={onOpenSettings}
+        onBackToObras={onBackToObras}
+        perfilAtivo={perfilAtivo}
+        onTogglePerfil={onTogglePerfil}
+        userName={userName}
+        userEmail={userEmail}
+        userEmpresa={userEmpresa}
+        onSaveProfile={(dados) => {
+          if (onSaveProfile) {
+            onSaveProfile(dados);
+          }
+        }}
+        isLogged={isLogged}
+        onLogout={onLogout}
+        onOpenLogin={onOpenLogin}
+      />
     </header>
   );
 };
