@@ -147,7 +147,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
         {/* Cabeçalho Limpo */}
         <div className="modal-header" style={{ padding: '16px 20px' }}>
           <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>
-            Nova Decisão
+            Nova Proposta
           </h2>
           <button onClick={onClose} className="btn-icon" title="Fechar">
             <X size={18} weight="bold" />
@@ -158,7 +158,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ padding: '20px' }}>
             <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Título da Decisão</label>
+              <label className="form-label">Título da Proposta</label>
               <input
                 type="text"
                 autoFocus

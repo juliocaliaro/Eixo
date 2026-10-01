@@ -519,7 +519,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
           style={{ padding: '9px 16px', fontSize: '0.88rem' }}
         >
           <Plus size={16} weight="bold" />
-          <span>Propor Nova Decisão</span>
+          <span>Nova Proposta</span>
         </button>
       </div>
 
@@ -757,7 +757,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
             style={{ padding: '8px 16px', fontSize: '0.85rem' }}
           >
             <Plus size={15} weight="bold" />
-            <span>Propor Decisão</span>
+            <span>Nova Proposta</span>
           </button>
         </div>
       ) : (
