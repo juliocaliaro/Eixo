@@ -197,6 +197,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               onChange={(val) => setDataPrevista(val)}
               label="Data Prevista de Término"
               helperText="Você pode digitar a data (DD/MM/AAAA) ou escolher pelo calendário."
+              autoScrollOnMobile
             />
           </div>
 

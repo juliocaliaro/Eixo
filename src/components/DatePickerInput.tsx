@@ -8,6 +8,7 @@ interface DatePickerInputProps {
   label?: string;
   helperText?: string;
   required?: boolean;
+  autoScrollOnMobile?: boolean;
 }
 
 /**
@@ -71,10 +72,23 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   label = 'Data Prevista de Conclusão',
   helperText = 'Informe a previsão de conclusão da obra (DD/MM/AAAA).',
   required = false,
+  autoScrollOnMobile = false,
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [textoBr, setTextoBr] = useState<string>(() => isoToBr(value));
   const [avisoErro, setAvisoErro] = useState<string>('');
+
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Mês e ano em visualização no calendário customizado
   const [viewDate, setViewDate] = useState<Date>(() => {
@@ -91,6 +105,23 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const calendarPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll exclusivo para mobile ao abrir o calendário
+  useEffect(() => {
+    if (isCalendarOpen && autoScrollOnMobile && isMobile) {
+      const timer = setTimeout(() => {
+        if (calendarPopoverRef.current) {
+          calendarPopoverRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end',
+            inline: 'nearest',
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isCalendarOpen, autoScrollOnMobile, isMobile]);
 
   // Sincronizar texto quando o valor externo mudar
   useEffect(() => {
@@ -270,7 +301,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       className="date-picker-custom"
       style={{
         position: 'relative',
-        marginBottom: isCalendarOpen ? 24 : 16,
+        marginBottom: isCalendarOpen ? (autoScrollOnMobile && isMobile ? 330 : 24) : 16,
         transition: 'margin-bottom 0.2s ease',
       }}
     >
@@ -359,6 +390,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       {/* Popover do Calendário Customizado em React */}
       {isCalendarOpen && (
         <div
+          ref={calendarPopoverRef}
           role="dialog"
           aria-label="Calendário"
           style={{
@@ -367,6 +399,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
             left: 0,
             zIndex: 1050,
             width: '290px',
+            maxWidth: '100%',
             background: '#ffffff',
             border: '1px solid var(--border-hairline)',
             borderRadius: 'var(--radius-md)',
