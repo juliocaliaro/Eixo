@@ -19,8 +19,7 @@ import {
   WhatsappLogo,
   CurrencyDollar,
   TrendUp,
-  CaretDown,
-  Funnel,
+  CaretDown
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
@@ -44,7 +43,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   onRecusarDecisao,
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [filter, setFilter] = useState<'todas' | 'pendentes' | 'aprovadas' | 'recusadas'>('todas');
+  const [filter, setFilter] = useState<'todas' | 'pendentes' | 'aprovadas'>('todas');
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const [confirmSignDecisao, setConfirmSignDecisao] = useState<Decisao | null>(null);
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
@@ -177,7 +176,6 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const decisoesFiltradas = decisoes.filter((d) => {
     if (filter === 'pendentes') return d.status === 'pendente';
     if (filter === 'aprovadas') return d.status === 'aprovada';
-    if (filter === 'recusadas') return d.status === 'recusada';
     return true;
   });
 
@@ -496,10 +494,31 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   return (
     <div className="decisoes-tab-container">
       {/* Cabeçalho da Aba */}
-      <div style={{ marginBottom: 14 }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-          Decisões e Aprovações
-        </h2>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 18,
+          flexWrap: 'wrap',
+          gap: 16,
+        }}
+      >
+        <div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+            Decisões e Aprovações
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="btn-primary"
+          style={{ padding: '9px 16px', fontSize: '0.88rem' }}
+        >
+          <Plus size={16} weight="bold" />
+          <span>Nova Proposta</span>
+        </button>
       </div>
 
       {/* Painel Financeiro de Aditivos Contratuais - Versão Desktop */}
@@ -776,101 +795,72 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         </div>
       )}
 
-      {/* Barra de Filtro e Nova Proposta */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-          {/* Campo de Filtro */}
-          {decisoes.length > 0 && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                background: '#ffffff',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '0 12px',
-                height: '38px',
-                boxShadow: 'var(--shadow-subtle)',
-                minWidth: '220px',
-                maxWidth: '340px',
-                flex: '1 1 240px',
-              }}
-            >
-              <Funnel size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value as 'todas' | 'pendentes' | 'aprovadas' | 'recusadas')}
-                className="form-input"
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  fontWeight: 600,
-                  fontSize: '0.86rem',
-                  color: 'var(--text-main)',
-                  cursor: 'pointer',
-                  padding: 0,
-                  height: '100%',
-                  appearance: 'auto',
-                }}
-                title="Filtrar decisões por status"
-              >
-                <option value="todas">Todas as Decisões ({decisoes.length})</option>
-                <option value="pendentes">
-                  Pendentes ({decisoes.filter((d) => d.status === 'pendente').length})
-                </option>
-                <option value="aprovadas">
-                  Aprovadas por Ambos ({decisoes.filter((d) => d.status === 'aprovada').length})
-                </option>
-                {decisoes.some((d) => d.status === 'recusada') && (
-                  <option value="recusadas">
-                    Recusadas ({decisoes.filter((d) => d.status === 'recusada').length})
-                  </option>
-                )}
-              </select>
-            </div>
-          )}
-
-          {/* Botão Nova Proposta (ao lado do filtro e alinhado) */}
+      {/* Filtros em Pílula */}
+      {decisoes.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
           <button
             type="button"
-            onClick={() => setIsCreateModalOpen(true)}
-            className="btn-primary"
+            onClick={() => setFilter('todas')}
             style={{
-              height: '38px',
-              padding: '0 16px',
-              fontSize: '0.86rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              borderRadius: 'var(--radius-sm)',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              border: '1px solid',
+              borderColor: filter === 'todas' ? 'var(--primary-accent)' : 'var(--border-hairline)',
+              background: filter === 'todas' ? 'var(--coral-glow-50)' : '#ffffff',
+              color: filter === 'todas' ? 'var(--primary-accent)' : 'var(--text-muted)',
+              cursor: 'pointer',
             }}
           >
-            <Plus size={16} weight="bold" />
-            <span>Nova Proposta</span>
+            Todas ({decisoes.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('pendentes')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              border: '1px solid',
+              borderColor: filter === 'pendentes' ? 'var(--primary-accent)' : 'var(--border-hairline)',
+              background: filter === 'pendentes' ? 'var(--coral-glow-50)' : '#ffffff',
+              color: filter === 'pendentes' ? 'var(--primary-accent)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Clock size={13} weight="bold" />
+            <span>Pendentes ({decisoes.filter((d) => d.status === 'pendente').length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('aprovadas')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 20,
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              border: '1px solid',
+              borderColor: filter === 'aprovadas' ? '#16a34a' : 'var(--border-hairline)',
+              background: filter === 'aprovadas' ? '#dcfce7' : '#ffffff',
+              color: filter === 'aprovadas' ? '#16a34a' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <CheckCircle size={13} weight="bold" />
+            <span>Aprovadas por Ambos ({decisoes.filter((d) => d.status === 'aprovada').length})</span>
           </button>
         </div>
-
-        {/* Indicador de itens filtrados */}
-        {filter !== 'todas' && decisoes.length > 0 && (
-          <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-            Exibindo <strong>{decisoesFiltradas.length}</strong> de {decisoes.length} {decisoes.length === 1 ? 'decisão' : 'decisões'}
-          </span>
-        )}
-      </div>
+      )}
 
       {/* Conteúdo: Lista em Timeline Vertical ou Empty State */}
       {decisoes.length === 0 ? (
