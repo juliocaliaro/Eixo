@@ -464,11 +464,15 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - No mobile (`window.innerWidth <= 768`), todas as etapas iniciam **minimizadas/colapsadas por padrão**, reduzindo a rolagem vertical e permitindo ao usuário abrir pontualmente a etapa de interesse.
   - A versão desktop permanece com todas as etapas expandidas por padrão.
 
-### 22.11 Registro de Notas (Substituição de Registro de Materiais)
-- **Descontinuação de Materiais**: O módulo "Registro de Materiais" foi integralmente substituído por **"Registro de Notas"** (`ModalRegistroNota.tsx`).
-- **Campos Obrigatórios Principais**:
-  - **Selecionar a Obra**: Dropdown com seleção obrigatória da obra de destino (com pré-seleção automática caso haja apenas uma obra ou se o modal for disparado a partir do contexto da obra atual).
-  - **Upload de Imagem da Nota**: Campo para captura de foto ou upload de comprovantes/notas fiscais (`image/*`), compressão leve via canvas no front-end, preview com remoção individual e botão para anexar múltiplas fotos da mesma nota.
-- **Campos Opcionais Auxiliares**: Título/identificação da nota (ex: número da NF ou fornecedor) e observações técnicas adicionais.
-- **Menu Lateral (`SandwichMenu.tsx`)**: O item de menu foi renomeado para "Registro de notas", mantendo acesso direto via gaveta lateral esquerda.
-- **Integração com o Diário de Obra (`DiarioObraTab.tsx`)**: As notas registradas geram lançamentos na timeline do Diário com badge executivo `NOTA`, ícone temático `<Receipt />` e link direto para visualização das fotos.
+### 22.11 Registro de Notas (Painel Exclusivo por Obra & Dossiê no Relatório Final)
+- **Substituição de Materiais**: O módulo antigo de materiais foi transformado em **"Registro de Notas"** (`ModalRegistroNota.tsx` e `RegistroNotasPage.tsx`).
+- **Navegação via Menu Lateral (`SandwichMenu.tsx`)**: O item "Registro de notas" navega diretamente para a **página dedicada `RegistroNotasPage`** (`?view=notas`), com sincronização de histórico e botão superior `[ ← Voltar para Obras ]`.
+- **Visão por Cards de Obra (`RegistroNotasPage.tsx`)**:
+  - Exibe um card individual para cada obra cadastrada, contendo identificação da obra, cliente, localização, badge de quantidade de notas e botão de ação rápida `+ Anexar Nota`.
+  - Galeria de notas anexadas por obra: visualização em grid das imagens de notas fiscais e recibos, títulos, datas de emissão e observações.
+  - Lightbox integrado para visualização de fotos em tela cheia com zoom, e exclusão de notas via `ModalConfirm`.
+- **Desacoplamento do Diário de Obra**: As notas cadastradas **não emitem nenhum lançamento no Diário de Canteiro**, mantendo o extrato diário 100% focado no avanço físico e técnico dos serviços.
+- **Vínculo Oficial ao Relatório Final (`ModalPreviewRelatorio.tsx`)**:
+  - O relatório executivo incorpora o **Capítulo 05: Registro de Notas e Comprovantes Fiscais**, consolidando o histórico fotográfico e descritivo de todas as notas fiscais e cupons vinculados à obra para fins de prestação de contas.
+  - Indicador numérico correspondente incorporado na régua de KPIs do cabeçalho oficial do relatório.
+

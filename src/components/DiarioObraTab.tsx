@@ -362,38 +362,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       }
     });
 
-    // E) Registros de Notas
-    (obra.notas || []).forEach((nota) => {
-      const timestamp = nota.criadoEm || obraCriadaEm;
-      entries.push({
-        id: `entry_nota_${nota.id}`,
-        dataHora: timestamp,
-        dataKey: extrairDataKey(timestamp),
-        tipo: 'nota_registrada',
-        categoria: 'nota',
-        titulo: nota.titulo || 'Nota Fiscal / Recibo',
-        subtitulo: 'Nota Anexada',
-        descricao: nota.observacoes,
-        fotos: nota.fotos,
-      });
-    });
-
-    // Compatibilidade com materiais legados existentes
-    (obra.materiais || []).forEach((material) => {
-      const timestamp = material.criadoEm || obraCriadaEm;
-      entries.push({
-        id: `entry_material_${material.id}`,
-        dataHora: timestamp,
-        dataKey: extrairDataKey(timestamp),
-        tipo: 'nota_registrada',
-        categoria: 'nota',
-        titulo: material.nome,
-        subtitulo: material.status !== 'Materiais' ? material.status : 'Nota Anexada',
-        descricao: material.observacoes,
-        fotos: material.fotos,
-      });
-    });
-
     return entries;
   }, [obra]);
 
@@ -1093,13 +1061,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     tagBg = '#dcfce7';
                     tagColor = '#15803d';
                     IconComponent = CheckCircle;
-                  } else if (entry.tipo === 'nota_registrada' || entry.tipo === 'material_registrado') {
-                    iconBg = 'var(--dark-coffee-100)';
-                    iconColor = 'var(--dark-coffee-800)';
-                    tagLabel = 'NOTA';
-                    tagBg = 'var(--dark-coffee-100)';
-                    tagColor = 'var(--dark-coffee-800)';
-                    IconComponent = Receipt;
                   }
 
                   const temAditivo = entry.valorAditivo !== undefined && entry.valorAditivo > 0;
@@ -1137,9 +1098,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   } else if (entry.tipo === 'vistoria_concluida') {
                     mobileTituloPrincipal = 'Vistoria Final';
                     mobileSubtitulo = entry.titulo.replace(/^Vistoria Final:\s*/, '');
-                  } else if (entry.tipo === 'nota_registrada' || entry.tipo === 'material_registrado') {
-                    mobileTituloPrincipal = 'Registro de Nota';
-                    mobileSubtitulo = entry.titulo;
                   } else if (entry.tipo === 'anexo_geral') {
                     mobileTituloPrincipal = 'Diário de Canteiro';
                     mobileSubtitulo = entry.titulo;

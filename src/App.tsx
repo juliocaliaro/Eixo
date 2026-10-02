@@ -15,6 +15,9 @@ const ConfigTemplatesPage = React.lazy(() =>
 const PublicUploadProjetoPage = React.lazy(() =>
   import('./components/PublicUploadProjetoPage').then((m) => ({ default: m.PublicUploadProjetoPage }))
 );
+const RegistroNotasPage = React.lazy(() =>
+  import('./components/RegistroNotasPage').then((m) => ({ default: m.RegistroNotasPage }))
+);
 
 export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
@@ -31,6 +34,14 @@ export const App: React.FC = () => {
   const [isRegistroNotaOpen, setIsRegistroNotaOpen] = useState(false);
   const [notaPreselectedObraId, setNotaPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isRegistroNotasPageOpen, setIsRegistroNotasPageOpen] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') === 'notas';
+    } catch {
+      return false;
+    }
+  });
 
   // Gerenciamento de Estado de Autenticação (Fake Login & Local State)
   const [isLogged, setIsLogged] = useState<boolean>(() => {
@@ -192,11 +203,17 @@ export const App: React.FC = () => {
         }
       }
 
+      if (isRegistroNotasPageOpen) {
+        url.searchParams.set('view', 'notas');
+      } else {
+        url.searchParams.delete('view');
+      }
+
       if (url.search !== prevSearch) {
         window.history.replaceState({}, '', url.toString());
       }
     } catch {}
-  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId]);
+  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId, isRegistroNotasPageOpen]);
 
   // -------------------------------------------------------
   // visualViewport: mantém --vvh sempre igual à altura real
@@ -240,7 +257,9 @@ export const App: React.FC = () => {
         const obraParam = params.get('obra');
         const perfilParam = params.get('perfil');
         const tabParam = params.get('tab');
+        const viewParam = params.get('view');
 
+        setIsRegistroNotasPageOpen(viewParam === 'notas');
         setCurrentObraId(obraParam);
         if (perfilParam === 'cliente' || perfilParam === 'construtor') {
           setPerfilAtivo(perfilParam);
@@ -362,10 +381,12 @@ export const App: React.FC = () => {
   const handleBackToObras = () => {
     setCurrentObraId(null);
     setIsConfigOpen(false);
+    setIsRegistroNotasPageOpen(false);
     try {
       const url = new URL(window.location.href);
       url.searchParams.delete('obra');
       url.searchParams.delete('tab');
+      url.searchParams.delete('view');
       window.history.pushState({}, '', url.toString());
     } catch {}
   };
@@ -792,7 +813,10 @@ export const App: React.FC = () => {
         isConfigOpen={isConfigOpen}
         onLogout={handleLogout}
         onOpenCreateObra={() => setIsCreateObraOpen(true)}
-        onOpenRegistroNota={() => handleOpenRegistroNota(currentObraId || undefined)}
+        onOpenRegistroNota={() => {
+          setIsConfigOpen(false);
+          setIsRegistroNotasPageOpen(true);
+        }}
         userName={userName}
         userEmail={userEmail}
         userEmpresa={userEmpresa}
@@ -812,6 +836,16 @@ export const App: React.FC = () => {
               onUpdateTemplates={handleUpdateTemplates}
               onBack={() => setIsConfigOpen(false)}
               showToast={showToast}
+            />
+          </React.Suspense>
+        ) : isRegistroNotasPageOpen ? (
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de notas...</div>}>
+            <RegistroNotasPage
+              obras={obras}
+              onUpdateObra={handleUpdateObra}
+              onBack={() => setIsRegistroNotasPageOpen(false)}
+              showToast={showToast}
+              perfilAtivo={perfilAtivo}
             />
           </React.Suspense>
         ) : !currentObra ? (

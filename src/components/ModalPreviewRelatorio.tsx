@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   SealCheck,
   Check,
-  NotePencil
+  NotePencil,
+  Receipt
 } from '@phosphor-icons/react';
 import { Obra, Decisao } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
@@ -388,6 +389,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 <span className="relatorio-kpi-num">{totalFotos}</span>
                 <span className="relatorio-kpi-desc">Fotos de Canteiro</span>
               </div>
+              {(obra?.notas?.length || 0) > 0 && (
+                <div className="relatorio-kpi-item">
+                  <span className="relatorio-kpi-num" style={{ color: '#8c6b3e' }}>{obra.notas?.length || 0}</span>
+                  <span className="relatorio-kpi-desc">Notas Fiscais</span>
+                </div>
+              )}
               {orcamentoInicial > 0 && (
                 <div className="relatorio-kpi-item">
                   <span className="relatorio-kpi-num" style={{ fontSize: '1.02rem' }}>{formatarMoeda(investimentoTotal)}</span>
@@ -867,11 +874,96 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
           </section>
 
           {/* ========================================================
-              CAPÍTULO 5: TERMO TÉCNICO & DECLARAÇÃO DE RESPONSABILIDADE
+              CAPÍTULO 5: REGISTRO DE NOTAS & COMPROVANTES FISCAIS
+             ======================================================== */}
+          <section className="relatorio-section">
+            <div className="relatorio-section-header">
+              <span className="relatorio-section-tag">Capítulo 05</span>
+              <h2 className="relatorio-section-title">Registro de Notas e Comprovantes Fiscais</h2>
+              <p className="relatorio-section-desc">
+                Registro fotográfico de notas fiscais, cupons e recibos comprobatórios vinculados a esta obra
+              </p>
+            </div>
+
+            {(!obra.notas || obra.notas.length === 0) ? (
+              <div className="relatorio-empty-box print-avoid-break">
+                Nenhuma nota fiscal ou comprovante anexado ao registro desta obra.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {obra.notas.map((nota, nIdx) => (
+                  <div
+                    key={nota.id || nIdx}
+                    className="print-avoid-break"
+                    style={{
+                      border: '1px solid #e0d8cf',
+                      borderRadius: 8,
+                      padding: 16,
+                      background: '#ffffff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <strong style={{ fontSize: '0.90rem', color: '#1a130a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Receipt size={16} weight="bold" color="var(--primary-accent, #c95135)" />
+                          <span>{nota.titulo || `Nota Fiscal / Recibo #${nIdx + 1}`}</span>
+                        </strong>
+                        {nota.observacoes && (
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#6e512b' }}>
+                            {nota.observacoes}
+                          </p>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: '#8c6b3e', fontWeight: 600 }}>
+                        {formatarData(nota.criadoEm)}
+                      </span>
+                    </div>
+
+                    {nota.fotos && nota.fotos.length > 0 && (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                          gap: 10,
+                          marginTop: 10,
+                        }}
+                      >
+                        {nota.fotos.map((foto, fIdx) => (
+                          <div
+                            key={fIdx}
+                            style={{
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              border: '1px solid #e0d8cf',
+                              background: '#f8f5f0',
+                            }}
+                          >
+                            <img
+                              src={foto}
+                              alt={`Nota ${nIdx + 1} - Foto ${fIdx + 1}`}
+                              style={{
+                                width: '100%',
+                                height: 160,
+                                objectFit: 'cover',
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* ========================================================
+              CAPÍTULO 6: TERMO TÉCNICO & DECLARAÇÃO DE RESPONSABILIDADE
              ======================================================== */}
           <section className="relatorio-section print-avoid-break">
             <div className="relatorio-section-header">
-              <span className="relatorio-section-tag">Capítulo 05</span>
+              <span className="relatorio-section-tag">Capítulo 06</span>
               <h2 className="relatorio-section-title">
                 {!temAtividadesNaoConcluidas
                   ? 'Termo de Aceite Definitivo & Entrega de Chaves'
