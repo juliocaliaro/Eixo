@@ -496,31 +496,10 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   return (
     <div className="decisoes-tab-container">
       {/* Cabeçalho da Aba */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 18,
-          flexWrap: 'wrap',
-          gap: 16,
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-            Decisões e Aprovações
-          </h2>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          className="btn-primary"
-          style={{ padding: '9px 16px', fontSize: '0.88rem' }}
-        >
-          <Plus size={16} weight="bold" />
-          <span>Nova Proposta</span>
-        </button>
+      <div style={{ marginBottom: 14 }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+          Decisões e Aprovações
+        </h2>
       </div>
 
       {/* Painel Financeiro de Aditivos Contratuais - Versão Desktop */}
@@ -797,74 +776,101 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         </div>
       )}
 
-      {/* Filtro Unificado de Status de Decisões */}
-      {decisoes.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 20,
-            flexWrap: 'wrap',
-            gap: 12,
-          }}
-        >
-          <div
+      {/* Barra de Filtro e Nova Proposta */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          marginBottom: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+          {/* Campo de Filtro */}
+          {decisoes.length > 0 && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: '#ffffff',
+                border: '1px solid var(--border-hairline)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 12px',
+                height: '38px',
+                boxShadow: 'var(--shadow-subtle)',
+                minWidth: '220px',
+                maxWidth: '340px',
+                flex: '1 1 240px',
+              }}
+            >
+              <Funnel size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as 'todas' | 'pendentes' | 'aprovadas' | 'recusadas')}
+                className="form-input"
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontWeight: 600,
+                  fontSize: '0.86rem',
+                  color: 'var(--text-main)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  height: '100%',
+                  appearance: 'auto',
+                }}
+                title="Filtrar decisões por status"
+              >
+                <option value="todas">Todas as Decisões ({decisoes.length})</option>
+                <option value="pendentes">
+                  Pendentes ({decisoes.filter((d) => d.status === 'pendente').length})
+                </option>
+                <option value="aprovadas">
+                  Aprovadas por Ambos ({decisoes.filter((d) => d.status === 'aprovada').length})
+                </option>
+                {decisoes.some((d) => d.status === 'recusada') && (
+                  <option value="recusadas">
+                    Recusadas ({decisoes.filter((d) => d.status === 'recusada').length})
+                  </option>
+                )}
+              </select>
+            </div>
+          )}
+
+          {/* Botão Nova Proposta (ao lado do filtro e alinhado) */}
+          <button
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary"
             style={{
+              height: '38px',
+              padding: '0 16px',
+              fontSize: '0.86rem',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              background: '#ffffff',
-              border: '1px solid var(--border-hairline)',
+              gap: 6,
               borderRadius: 'var(--radius-sm)',
-              padding: '7px 12px',
-              boxShadow: 'var(--shadow-subtle)',
-              minWidth: '220px',
-              maxWidth: '100%',
-              flex: '0 1 360px',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
-            <Funnel size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as 'todas' | 'pendentes' | 'aprovadas' | 'recusadas')}
-              className="form-input"
-              style={{
-                width: '100%',
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontWeight: 600,
-                fontSize: '0.86rem',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                padding: 0,
-                appearance: 'auto',
-              }}
-              title="Filtrar decisões por status"
-            >
-              <option value="todas">Todas as Decisões ({decisoes.length})</option>
-              <option value="pendentes">
-                Pendentes ({decisoes.filter((d) => d.status === 'pendente').length})
-              </option>
-              <option value="aprovadas">
-                Aprovadas por Ambos ({decisoes.filter((d) => d.status === 'aprovada').length})
-              </option>
-              {decisoes.some((d) => d.status === 'recusada') && (
-                <option value="recusadas">
-                  Recusadas ({decisoes.filter((d) => d.status === 'recusada').length})
-                </option>
-              )}
-            </select>
-          </div>
-
-          {filter !== 'todas' && (
-            <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
-              Exibindo <strong>{decisoesFiltradas.length}</strong> de {decisoes.length} {decisoes.length === 1 ? 'decisão' : 'decisões'}
-            </span>
-          )}
+            <Plus size={16} weight="bold" />
+            <span>Nova Proposta</span>
+          </button>
         </div>
-      )}
+
+        {/* Indicador de itens filtrados */}
+        {filter !== 'todas' && decisoes.length > 0 && (
+          <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)', flexShrink: 0 }}>
+            Exibindo <strong>{decisoesFiltradas.length}</strong> de {decisoes.length} {decisoes.length === 1 ? 'decisão' : 'decisões'}
+          </span>
+        )}
+      </div>
 
       {/* Conteúdo: Lista em Timeline Vertical ou Empty State */}
       {decisoes.length === 0 ? (
