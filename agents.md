@@ -329,21 +329,29 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ## 19. Autenticação Frontend Mockada & Gerenciamento de Estado de Role
 
-- **Tela de Login Dedicada (`LoginPage.tsx`)**:
-  - Interface moderna e minimalista alinhada ao design system do Eixo (paleta terrosa, ícones Phosphor, zero emojis e zero alerts nativos).
-  - Inputs de **E-mail** e **Senha** com toggle de visibilidade de senha (ícones `<Eye />` e `<EyeSlash />`).
-  - Botão de submissão **Entrar** (`Submit`) e link **Esqueceu a senha?** com modal acessível de recuperação simulada.
-  - Seletor de Perfil de Acesso (`[ Construtor ]` / `[ Cliente ]`) e atalhos de acesso rápido para testes de desenvolvimento.
-- **Gerenciamento de Estado no Aplicativo (App State)**:
-  - Variáveis de estado locais:
-    - `isLogged` (Boolean): controla a exibição da tela de login vs. o aplicativo principal, persistido em `localStorage` (`eixo_auth_isLogged`).
-    - `Role` ('Construtor' | 'Cliente'): define a credencial ativa do usuário logado, persistido em `localStorage` (`eixo_auth_role`).
-  - Mapeamento transparente com o perfil ativo do sistema: `perfilAtivo = Role.toLowerCase() as PerfilUsuario`.
-  - Links compartilhados com cliente (`?perfil=cliente`) e upload público de pranchas (`?upload=projeto`) contornam a autenticação inicial mantendo o acesso seguro e direto do cliente.
-- **Simulação de Autenticação (Fake Login)**:
-  - Validação de preenchimento dos campos no submit (rejeita e-mail ou senha em branco com aviso no padrão visual do sistema).
-  - Ao aprovar, altera `isLogged` para `true`, define a `Role` selecionada, emite toast de boas-vindas e redireciona para a `Home`.
-  - Botão de logout (`<SignOut />`) integrado ao cabeçalho (`Navbar`) para fácil alternância e testes de perfis.
+- **Tela de Autenticação Completa com Login e Cadastro (`LoginPage.tsx`)**:
+  - Interface moderna, segura e minimalista alinhada ao design system do Eixo (paleta terrosa, ícones Phosphor, zero emojis e zero alerts nativos).
+  - **Alternador de Abas Superiores (Segmented Control)**:
+    - **Aba "Entrar"**:
+      - Seletor de Perfil (`[ Construtor ]` / `[ Cliente ]`).
+      - Campo **E-mail** com validação de formato e ícone `<EnvelopeSimple />`.
+      - Campo **Senha** com toggle de visibilidade de senha (ícones `<Eye />` e `<EyeSlash />`).
+      - Checkbox padrão **Lembrar de mim neste dispositivo**.
+      - Link **Esqueceu a senha?** com modal acessível de envio simulado de link de recuperação e listener de tecla `Escape`.
+      - Botão primário `Entrar como [Perfil]` e atalhos rápidos de demonstração com 1 clique (`Demo Construtor`, `Demo Cliente`).
+      - Link de rodapé para alternância direta: *"Ainda não possui uma conta? Cadastre-se gratuitamente"*.
+    - **Aba "Criar Conta" (Cadastro / Registro)**:
+      - Seletor de Tipo de Conta (`[ Construtor ]` / `[ Cliente ]`).
+      - Campo **Nome Completo** com ícone `<User />`.
+      - Campo **E-mail Profissional / Pessoal** com ícone `<EnvelopeSimple />`.
+      - Campo **Empresa / Construtora** (exibido condicionalmente para o perfil Construtor, com ícone `<Buildings />`).
+      - Campo **Criar Senha** (mínimo de 6 caracteres) com toggle de visibilidade.
+      - Campo **Confirmar Senha** com validação de correspondência e toggle de visibilidade.
+      - Checkbox de consentimento: *"Concordo com os Termos de Uso e Política de Privacidade do Eixo"*.
+      - Botão primário `Criar Conta e Acessar` e badge de segurança criptográfica com `<ShieldCheck />`.
+      - Link de rodapé para retorno ao login: *"Já possui uma conta cadastrada? Fazer Login"*.
+  - **Persistência de Dados Cadastrais**:
+    - Ao cadastrar-se, o sistema autentica diretamente e armazena os dados locais (`eixo_auth_isLogged = true`, `eixo_auth_role`, `eixo_auth_userName`, `eixo_auth_userEmail`, `eixo_empresa_cadastrada`), integrando-os de imediato ao cabeçalho, perfil do usuário e relatórios emitidos.
 - **Permissões Visuais e Renderização Condicional por Role**:
   - **`Role === 'Construtor'`**:
     - Acesso integral a menus de edição, criação de novas obras e gerenciamento de modelos de etapas (`ConfigTemplatesPage`).

@@ -484,25 +484,36 @@ export const App: React.FC = () => {
     }
   };
 
-  // Simulação de Autenticação (Fake Login)
-  const handleLogin = (selectedRole: UserRole, emailDigitado?: string) => {
+  // Simulação de Autenticação (Fake Login & Cadastro)
+  const handleLogin = (
+    selectedRole: UserRole,
+    emailDigitado?: string,
+    nomeDigitado?: string,
+    empresaDigitada?: string
+  ) => {
     setIsLogged(true);
     setRole(selectedRole);
     setCurrentObraId(null); // Redireciona para a Home
     setIsConfigOpen(false);
     const emailToSet = emailDigitado || (selectedRole === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
-    const nomeToSet = selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes';
+    const nomeToSet = nomeDigitado || (selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes');
     setUserEmail(emailToSet);
     setUserName(nomeToSet);
+    if (empresaDigitada) {
+      setUserEmpresa(empresaDigitada);
+    }
     try {
       localStorage.setItem('eixo_auth_isLogged', 'true');
       localStorage.setItem('eixo_auth_role', selectedRole);
       localStorage.setItem('eixo_auth_userEmail', emailToSet);
       localStorage.setItem('eixo_auth_userName', nomeToSet);
+      if (empresaDigitada) {
+        localStorage.setItem('eixo_empresa_cadastrada', empresaDigitada);
+      }
     } catch {}
     showToast(
-      'Login realizado com sucesso!',
-      `Bem-vindo ao Eixo como ${selectedRole}.`,
+      nomeDigitado ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!',
+      `Bem-vindo ao Eixo, ${nomeToSet} (${selectedRole}).`,
       'success'
     );
   };
