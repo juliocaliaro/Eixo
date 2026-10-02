@@ -258,7 +258,9 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
               minDate={minDate}
               label="Data Prevista de Conclusão"
               helperText="Informe a previsão de conclusão estimada da obra."
+              autoScrollOnMobile
             />
+
           </div>
 
           <div className="modal-footer">

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { CalendarBlank, CaretLeft, CaretRight, X } from '@phosphor-icons/react';
+import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 interface DatePickerInputProps {
   value: string; // Formato YYYY-MM-DD
@@ -73,7 +72,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   label = 'Data Prevista de Conclusão',
   helperText = 'Informe a previsão de conclusão da obra (DD/MM/AAAA).',
   required = false,
-  autoScrollOnMobile = false,
+  autoScrollOnMobile = true,
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [textoBr, setTextoBr] = useState<string>(() => isoToBr(value));
@@ -108,6 +107,22 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   const textInputRef = useRef<HTMLInputElement>(null);
   const calendarPopoverRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll exclusivo para mobile ao abrir o pop-up
+  useEffect(() => {
+    if (isCalendarOpen && autoScrollOnMobile && isMobile) {
+      const timer = setTimeout(() => {
+        if (calendarPopoverRef.current) {
+          calendarPopoverRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'end',
+            inline: 'nearest',
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isCalendarOpen, autoScrollOnMobile, isMobile]);
+
   // Sincronizar texto quando o valor externo mudar
   useEffect(() => {
     setTextoBr(isoToBr(value));
@@ -121,27 +136,34 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   }, [value]);
 
-  // Trava scroll da tela e fecha com tecla ESC enquanto o modal do calendário estiver aberto
+  // Click outside & Escape key listeners para fechar o pop-up
   useEffect(() => {
     if (!isCalendarOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        event.stopImmediatePropagation();
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsCalendarOpen(false);
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setIsCalendarOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isCalendarOpen]);
+
 
   // Manipular digitação manual no input (SEM disparar clique nem abrir picker)
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,26 +269,6 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   };
 
-  // Formatação amigável por extenso para o cabeçalho do modal
-  const getDataExtensa = () => {
-    if (!value) return '';
-    try {
-      const parts = value.split('-');
-      if (parts.length === 3) {
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        const dataObj = new Date(y, m, d);
-        return dataObj.toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: 'long',
-          year: 'numeric',
-        });
-      }
-    } catch {}
-    return isoToBr(value);
-  };
-
   // Cálculo dos dias para o mês visível
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -299,9 +301,11 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       className="date-picker-custom"
       style={{
         position: 'relative',
-        marginBottom: 16,
+        marginBottom: isCalendarOpen ? (autoScrollOnMobile && isMobile ? 330 : 20) : 16,
+        transition: 'margin-bottom 0.2s ease',
       }}
     >
+
       {/* Rótulo com Data Amigável */}
       <div
         style={{
@@ -384,121 +388,27 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         </button>
       </div>
 
-      {/* Modal Dedicado de Calendário (Web e Mobile) */}
-      {isCalendarOpen && typeof document !== 'undefined' && createPortal(
+      {/* Pop-up do Calendário Customizado (Popover) */}
+      {isCalendarOpen && (
         <div
-          className="calendar-modal-backdrop"
-          onClick={() => setIsCalendarOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(26, 19, 10, 0.55)',
-            backdropFilter: 'blur(5px)',
-            WebkitBackdropFilter: 'blur(5px)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '16px',
-            animation: 'fadeIn 0.15s ease',
-          }}
+          ref={calendarPopoverRef}
           role="dialog"
-          aria-modal="true"
-          aria-label="Selecionar Data"
+          aria-label="Calendário"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            zIndex: 1050,
+            width: '296px',
+            maxWidth: '100%',
+            background: '#ffffff',
+            border: '1px solid var(--border-hairline)',
+            borderRadius: 'var(--radius-md, 10px)',
+            boxShadow: '0 12px 28px -4px rgba(26, 19, 10, 0.16), 0 4px 12px -2px rgba(26, 19, 10, 0.08)',
+            padding: '14px',
+            animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
         >
-          <div
-            className="calendar-modal-card"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: '350px',
-              background: '#ffffff',
-              borderRadius: 'var(--radius-lg, 12px)',
-              border: '1px solid var(--border-hairline)',
-              boxShadow: '0 24px 48px -12px rgba(0,0,0,0.28), 0 8px 16px -4px rgba(0,0,0,0.12)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              animation: 'modalIn 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
-            {/* Header do Modal */}
-            <div
-              style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid var(--border-hairline)',
-                background: 'var(--dark-coffee-50, #fcfaf8)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 'var(--radius-xs, 6px)',
-                    background: 'var(--coral-glow-50)',
-                    color: 'var(--primary-accent)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <CalendarBlank size={18} weight="bold" />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                    Selecionar Data
-                  </h3>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {label}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsCalendarOpen(false)}
-                className="btn-icon"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 'var(--radius-xs, 6px)',
-                  border: '1px solid var(--border-hairline)',
-                  background: '#ffffff',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-                title="Fechar (Esc)"
-                aria-label="Fechar calendário"
-              >
-                <X size={16} weight="bold" />
-              </button>
-            </div>
-
-            {/* Banner com Data Ativa Formatada */}
-            <div
-              style={{
-                padding: '10px 18px',
-                background: '#ffffff',
-                borderBottom: '1px solid var(--border-hairline)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Data Selecionada:
-              </span>
-              <span style={{ fontSize: '0.84rem', color: 'var(--primary-accent)', fontWeight: 800 }}>
-                {value ? getDataExtensa() : 'Nenhuma data selecionada'}
-              </span>
-            </div>
           {/* Header do Calendário: Navegação de Mês */}
           <div
             style={{
@@ -703,50 +613,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
               +90 dias
             </button>
           </div>
-
-          {/* Footer do Modal */}
-          <div
-            style={{
-              padding: '10px 18px',
-              borderTop: '1px solid var(--border-hairline)',
-              background: 'var(--dark-coffee-50, #fcfaf8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 8,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setIsCalendarOpen(false)}
-              className="btn-secondary"
-              style={{
-                padding: '6px 14px',
-                fontSize: '0.82rem',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              Fechar
-            </button>
-            {value && (
-              <button
-                type="button"
-                onClick={() => setIsCalendarOpen(false)}
-                className="btn-primary"
-                style={{
-                  padding: '6px 16px',
-                  fontSize: '0.82rem',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                Confirmar Data
-              </button>
-            )}
-          </div>
         </div>
-      </div>,
-      document.body
-    )}
+      )}
 
       {/* Mensagem de Erro de Validação de Data */}
       {avisoErro && (
