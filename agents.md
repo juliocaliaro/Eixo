@@ -476,3 +476,21 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - O relatório executivo incorpora o **Capítulo 05: Registro de Notas e Comprovantes Fiscais**, consolidando o histórico fotográfico e descritivo de todas as notas fiscais e cupons vinculados à obra para fins de prestação de contas.
   - Indicador numérico correspondente incorporado na régua de KPIs do cabeçalho oficial do relatório.
 
+### 22.12 Registro de Notas - Cards de Obra Minimizados no Mobile (Accordion) & Cabeçalho Otimizado
+- **Accordion Exclusivo no Mobile (`.registro-notas-card-mobile`)**:
+  - Na versão mobile (`window.innerWidth <= 768px`), os cards de cada obra no Registro de Notas operam como accordion **minimizados por padrão**.
+  - **Estado Minimizado**: Exibe exclusivamente o nome da obra, cliente, localização, badge de quantidade de notas anexadas, botão de ação rápida `+ Nota` e chevron interativo (`<CaretDown />`).
+  - **Estado Expandido**: Ao clicar no cabeçalho, o chevron rotaciona 180° e revela a galeria completa de notas fiscais, fotos, títulos, datas e botões de visualização e exclusão.
+- **Cabeçalho Otimizado e Minimalista**:
+  - Removido contador poluído de notas anexadas no cabeçalho.
+  - Barra de busca textual substituída por um seletor dropdown direto de obras (`[ Todas as obras ]` ou seleção de obra específica), simplificando a navegação tanto em desktop quanto em mobile.
+- **Preservação Web**: Na versão desktop, todos os cards continuam abertos e com visualização direta e completa das notas.
+
+### 22.13 Decisões & Aprovações - Barra de Ações Mobile (Nova Proposta à Esquerda e Ícone de Funil à Direita)
+- **Preservação Rigorosa da Versão Web**:
+  - A versão desktop (> 768px) permanece 100% inalterada com a estrutura original: pills de status superiores (Todas, Pendentes, Aprovadas), botão "Nova Proposta" no canto superior direito e painel financeiro completo.
+- **Barra de Ações Exclusiva no Mobile (`.decisoes-actions-mobile`)**:
+  - Na versão mobile (<= 768px), o botão "+ Nova Proposta" fica posicionado à esquerda e o ícone de filtro padronizado do projeto (`<Funnel size={18} />`) à direita na mesma linha horizontal.
+  - O ícone do funil exibe indicador sutil de estado ativo quando um filtro específico está selecionado.
+  - Ao tocar no funil, abre-se um menu pop-up flutuante suspenso com as opções de filtragem (*Todas as decisões*, *Pendentes de validação*, *Aprovadas por ambos*), com fechamento automático ao selecionar ou clicar fora (`mousedown`/`touchstart`).
+
