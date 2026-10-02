@@ -70,9 +70,12 @@ export const ObraList: React.FC<ObraListProps> = ({
       <div>
         <div className="hero-visual-anchor">
           <img
-            src="https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=1600&auto=format&fit=crop&q=80"
-            alt="Canteiro de obras moderno"
+            src="/hero-bg.jpg"
+            alt="Canteiro de obras"
             className="hero-visual-bg"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
           />
           <div className="hero-visual-overlay" />
           <div className="hero-visual-content">
