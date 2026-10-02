@@ -48,6 +48,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const [confirmSignDecisao, setConfirmSignDecisao] = useState<Decisao | null>(null);
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
   const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
+  const [isPainelFinanceiroOpenMobile, setIsPainelFinanceiroOpenMobile] = useState(false);
 
   const toggleMobileExpand = (id: string) => {
     setExpandedMobileIds((prev) => ({
@@ -523,8 +524,9 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         </button>
       </div>
 
-      {/* Painel Financeiro de Aditivos Contratuais */}
+      {/* Painel Financeiro de Aditivos Contratuais - Versão Desktop */}
       <div
+        className="painel-financeiro-desktop"
         style={{
           background: '#ffffff',
           border: '1px solid var(--border-hairline)',
@@ -610,6 +612,155 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* Painel Financeiro de Aditivos Contratuais - Versão Mobile (Accordion Fechado por Padrão) */}
+      <div
+        className="painel-financeiro-mobile"
+        style={{
+          background: '#ffffff',
+          border: '1px solid var(--border-hairline)',
+          borderRadius: 'var(--radius-md)',
+          padding: '14px 16px',
+          marginBottom: 20,
+          boxShadow: 'var(--shadow-subtle)',
+        }}
+      >
+        {/* Cabeçalho Clicável do Accordion */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={isPainelFinanceiroOpenMobile}
+          onClick={() => setIsPainelFinanceiroOpenMobile((prev) => !prev)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsPainelFinanceiroOpenMobile((prev) => !prev);
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            userSelect: 'none',
+            outline: 'none',
+            minHeight: '44px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0, paddingRight: 8 }}>
+            <CurrencyDollar
+              size={20}
+              weight="bold"
+              color="var(--primary-accent)"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.3px', lineHeight: 1.25 }}>
+                Painel Financeiro & Aditivos Contratuais
+              </strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                Consolidação de orçamento base e alterações aprovadas
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 'var(--radius-sm)',
+              background: isPainelFinanceiroOpenMobile ? 'var(--dark-coffee-50)' : 'transparent',
+              flexShrink: 0,
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <CaretDown
+              size={16}
+              weight="bold"
+              style={{
+                color: 'var(--text-muted)',
+                transform: isPainelFinanceiroOpenMobile ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Conteúdo Expandido com os 4 Cartões Financeiros */}
+        {isPainelFinanceiroOpenMobile && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 10,
+              marginTop: 14,
+              paddingTop: 14,
+              borderTop: '1px solid var(--border-hairline)',
+              animation: 'fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {/* Orçamento Base */}
+            <div style={{ padding: '12px 14px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-hairline)' }}>
+              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, display: 'block' }}>
+                Orçamento Base
+              </span>
+              <div style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 4 }}>
+                {orcamentoBase > 0 ? formatarMoeda(orcamentoBase) : 'Não informado'}
+              </div>
+            </div>
+
+            {/* Aditivos Aprovados */}
+            <div style={{ padding: '12px 14px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-hairline)' }}>
+              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--cinnamon-wood-700)', fontWeight: 700, display: 'block' }}>
+                Aditivos Aprovados
+              </span>
+              <div style={{ fontSize: '1.10rem', fontWeight: 800, color: aditivosAprovados > 0 ? 'var(--cinnamon-wood-700)' : 'var(--text-main)', marginTop: 4 }}>
+                {aditivosAprovados > 0 ? `+${formatarMoeda(aditivosAprovados)}` : 'R$ 0,00'}
+              </div>
+            </div>
+
+            {/* Supressivos Aprovados */}
+            {supressivosAprovados < 0 && (
+              <div style={{ padding: '12px 14px', background: '#f0fdf4', borderRadius: 'var(--radius-sm)', border: '1px solid #bbf7d0' }}>
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#15803d', fontWeight: 700, display: 'block' }}>
+                  Supressivos Aprovados
+                </span>
+                <div style={{ fontSize: '1.10rem', fontWeight: 800, color: '#15803d', marginTop: 4 }}>
+                  -{formatarMoeda(Math.abs(supressivosAprovados))}
+                </div>
+              </div>
+            )}
+
+            {/* Total Investimento */}
+            <div style={{ padding: '12px 14px', background: 'var(--coral-glow-50)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--coral-glow-200)' }}>
+              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--primary-accent)', fontWeight: 700, display: 'block' }}>
+                Investimento Atualizado
+              </span>
+              <div style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--primary-accent)', marginTop: 4 }}>
+                {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados < 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
+              </div>
+            </div>
+
+            {/* Propostas em Análise */}
+            {(aditivosPendentes > 0 || supressivosPendentes < 0) && (
+              <div style={{ padding: '12px 14px', background: '#fef3c7', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
+                <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#b45309', fontWeight: 700, display: 'block' }}>
+                  Propostas em Análise
+                </span>
+                <div style={{ fontSize: '1.10rem', fontWeight: 800, color: '#b45309', marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {aditivosPendentes > 0 && <span>+{formatarMoeda(aditivosPendentes)}</span>}
+                  {aditivosPendentes > 0 && supressivosPendentes < 0 && <span style={{ color: '#d97706' }}>|</span>}
+                  {supressivosPendentes < 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
 
       {/* Alerta de Decisões Pendentes da Minha Assinatura */}
       {pendenciasUsuario.length > 0 && (

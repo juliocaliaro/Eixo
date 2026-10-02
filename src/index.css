@@ -2275,3 +2275,24 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   PAINEL FINANCEIRO DE ADITIVOS: ACCORDION EXCLUSIVO NO MOBILE
+   ======================================================== */
+.painel-financeiro-desktop {
+  display: block !important;
+}
+
+.painel-financeiro-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .painel-financeiro-desktop {
+    display: none !important;
+  }
+
+  .painel-financeiro-mobile {
+    display: block !important;
+  }
+}
+

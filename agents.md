@@ -441,7 +441,14 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Abertura em Modal Centralizado**: Abertura do calendário customizado (`DatePickerInput.tsx`) migrada integralmente de popover/dropdown ancorado para **Modal dedicado** renderizado via `createPortal` diretamente em `document.body` com `z-index: 99999`.
 - **Consistência Web & Mobile**: Experiência 100% idêntica e centralizada tanto no desktop quanto no smartphone, com backdrop fosco escurecido (`backdrop-filter: blur(5px)`), fechamento por clique fora ou tecla `Escape` e bloqueio de rolagem do fundo.
 - **Eliminação de Cortes e Hacks de Scroll**: Extingue a necessidade de expansão de margens inferiores (`marginBottom: 330px`) ou auto-scrolls complexos dentro de modais pais (`ModalCreateObra`, `ModalEditObra`), garantindo exibição perfeita e desimpedida de qualquer limite de contêiner.
-- **Componentes do Modal**: Cabeçalho com ícone, título "Selecionar Data", botão "X", faixa de data por extenso selecionada, controle de navegação de meses, grade de dias, atalhos rápidos (`Hoje`, `+30 dias`, `+60 dias`, `+90 dias`) e botões de ação no rodapé.
+### 22.9 Painel Financeiro & Aditivos Contratuais (Accordion Exclusivo no Mobile)
+- **Comportamento Mobile (`.painel-financeiro-mobile`)**:
+  - Transformado em componente Accordion colapsável, **fechado por padrão** (`isPainelFinanceiroOpenMobile: false`).
+  - **Estado Minimizado**: Exibe exclusivamente o ícone de cifrão (`<CurrencyDollar />`), o título em caixa alta ("PAINEL FINANCEIRO & ADITIVOS CONTRATUAIS"), o subtítulo descritivo ("Consolidação de orçamento base e alterações aprovadas") e o ícone de chevron à direita (`<CaretDown />`).
+  - **Estado Expandido**: Ao clicar no cabeçalho interativo (`role="button"`, `tabIndex={0}`, `aria-expanded`), o chevron rotaciona 180° e o bloco revela com animação suave os cartões financeiros de valores (*Orçamento Base*, *Aditivos Aprovados*, *Supressivos Aprovados*, *Investimento Atualizado* e *Propostas em Análise*).
+  - **Ergonomia Mobile**: Alvo de toque mínimo com altura de 44px e área de clique cobrindo toda a extensão do cabeçalho.
+- **Preservação Desktop (`.painel-financeiro-desktop`)**:
+  - A visualização na versão web (> 768px) permanece 100% inalterada, mantendo o painel financeiro aberto e com todos os cartões visíveis em grid contínuo.
 
 
 
