@@ -288,7 +288,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
             <div className="relatorio-title-banner">
               <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#1a130a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {!temAtividadesNaoConcluidas ? 'Relatório de Conclusão da Obra' : 'Relatório de Evolução Física e Medição'}
+                {!temAtividadesNaoConcluidas ? 'Relatório Final de Conclusão da Obra' : 'Relatório Final de Obra'}
               </h1>
               <div style={{ fontSize: '0.85rem', color: '#6e512b', marginTop: 4 }}>
                 {!temAtividadesNaoConcluidas

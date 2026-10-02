@@ -147,7 +147,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   lineHeight: 1.25,
                 }}
               >
-                {!temAtividadesNaoConcluidas ? 'Relatório de Conclusão' : 'Relatório de Evolução Física'}
+                Relatório Final
               </h2>
               <p
                 style={{
@@ -304,7 +304,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               }}
             >
               <DownloadSimple size={15} weight="bold" />
-              <span>{!temAtividadesNaoConcluidas ? 'Baixar Relatório de Conclusão' : 'Baixar Relatório de Evolução'}</span>
+              <span>Baixar Relatório Final</span>
             </button>
           </div>
         </form>
