@@ -2341,8 +2341,7 @@ input, textarea, select {
   .modal-backdrop {
     padding: 0 !important;
     align-items: flex-end !important;
-    /* Usa --vvh para que o backdrop nunca ultrapasse o viewport visível
-       (resolve iOS Safari que não reposiciona position:fixed com teclado) */
+    /* Usa --vvh para reancoragem exata ao viewport visual (iOS Safari) */
     height: var(--vvh, 100dvh) !important;
     top: auto !important;
     bottom: 0 !important;
@@ -2352,31 +2351,20 @@ input, textarea, select {
   .modal-card {
     width: 100% !important;
     max-width: 100% !important;
-    /* 92% da altura visível real — quando teclado abre, shrink automático */
+    /* 92% da altura visível real — shrink automático quando teclado abre */
     max-height: calc(var(--vvh, 100dvh) * 0.92) !important;
-    height: auto !important;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
     /* safe-area para notch/barra de navegação inferior */
     padding-bottom: env(safe-area-inset-bottom, 0px);
     animation: slideUpModal 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
-  /* Body do modal: scroll nativo com momentum iOS + foco em inputs não some atrás do teclado */
+  /* Body: scroll nativo + foco nunca some atrás do teclado */
   .modal-body {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    /* scroll-padding-bottom: garante que o input focado fica visível acima do teclado */
     scroll-padding-bottom: 16px;
-  }
-
-  /* Cadeia flex correta no form interno */
-  .modal-card > form {
-    overflow: hidden !important;
-    min-height: 0 !important;
-    flex: 1 1 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
   }
 
   /* Rodapé e cabeçalho sempre visíveis — nunca cortados */
