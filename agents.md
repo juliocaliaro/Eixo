@@ -502,3 +502,11 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - O ícone do funil exibe indicador sutil de estado ativo quando um filtro específico está selecionado.
   - Ao tocar no funil, abre-se um menu pop-up flutuante suspenso com as opções de filtragem (*Todas as decisões*, *Pendentes de validação*, *Aprovadas por ambos*), com fechamento automático ao selecionar ou clicar fora (`mousedown`/`touchstart`).
 
+### 22.14 Tela de Login & Cadastro Adaptada ao Mobile (Sem Scroll de Página)
+- **Eliminação do Scroll de Fundo no Mobile (`.login-screen-wrapper` & `.login-page-container`)**:
+  - Na versão mobile (`max-width: 768px`), o container principal utiliza altura dinâmica fixa `100dvh` (`max-height: var(--vvh, 100dvh)`) com `overflow: hidden`, impedindo o surgimento da barra de rolagem externa da página.
+  - O card de login e cadastro (`.login-card`) ajusta proporcionalmente suas dimensões internas para caber perfeitamente na área visível da tela de qualquer smartphone (logo otimizado para 36px, cabeçalho e abas compactos, e espaçamentos internos harmonizados).
+  - O corpo do card (`.login-card-body`) conta com rolagem interna suave invisível (`overflow-y: auto`, `scrollbar-width: none`) exclusivamente como proteção em telas de altura extremamente reduzida ou ao abrir o teclado virtual, mantendo o fundo e os eixos estruturais do app 100% estáticos.
+- **Preservação Rigorosa da Versão Web**: A versão desktop (> 768px) permanece com seus espaçamentos e dimensões originais generosos intactos.
+
+

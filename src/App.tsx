@@ -776,7 +776,7 @@ export const App: React.FC = () => {
   // Se o usuário não estiver logado, exibe a tela de login
   if (!isLogged) {
     return (
-      <div className="app-container">
+      <div className="login-screen-wrapper">
         <LoginPage
           onLogin={handleLogin}
           initialRole={Role}

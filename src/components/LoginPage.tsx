@@ -179,77 +179,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
-        background: 'var(--bg-main, #fdfbf7)',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          background: '#ffffff',
-          border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-lg, 12px)',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.06)',
-          overflow: 'hidden',
-          transition: 'all 0.2s ease',
-        }}
-      >
+    <div className="login-page-container">
+      <div className="login-card">
         {/* Cabeçalho da Marca */}
-        <div
-          style={{
-            padding: '28px 28px 20px',
-            textAlign: 'center',
-            borderBottom: '1px solid var(--border-hairline)',
-            background: 'var(--dark-coffee-50, #fcfaf8)',
-          }}
-        >
+        <div className="login-card-header">
           <img
             src="/eixo-icon.jpg"
             alt="Eixo"
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 14,
-              objectFit: 'cover',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.14)',
-              margin: '0 auto 12px',
-              display: 'block',
-            }}
+            className="login-logo"
           />
-          <h1
-            style={{
-              fontSize: '1.45rem',
-              fontWeight: 800,
-              color: 'var(--text-main)',
-              margin: 0,
-              letterSpacing: '-0.02em',
-            }}
-          >
+          <h1 className="login-title">
             Eixo
           </h1>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+          <p className="login-subtitle">
             Acompanhamento de Canteiro & Decisões Bilaterais
           </p>
         </div>
 
         {/* Abas Superiores: Entrar vs Criar Conta */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            borderBottom: '1px solid var(--border-hairline)',
-            background: 'var(--dark-coffee-50)',
-            padding: '6px',
-            gap: 6,
-          }}
-        >
+        <div className="login-tabs">
           <button
             type="button"
             onClick={() => handleAlternarModo('login')}
@@ -300,7 +248,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         {/* Corpo do Formulário */}
-        <div style={{ padding: '24px 28px' }}>
+        <div className="login-card-body">
           {/* Mensagem de Erro Inline */}
           {erro && (
             <div
@@ -323,7 +271,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           )}
 
           {/* Seletor de Perfil / Role de Acesso */}
-          <div style={{ marginBottom: 18 }}>
+          <div className="login-role-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <label
                 style={{
@@ -407,7 +355,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* MODO 1: ENTRAR (LOGIN)                                                    */}
           {/* ========================================================================= */}
           {modo === 'login' ? (
-            <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleLoginSubmit} className="login-form">
               {/* Campo E-mail */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ marginBottom: 4 }}>
@@ -522,32 +470,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {/* Botão Submit (Entrar) */}
               <button
                 type="submit"
-                className="btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  fontSize: '0.92rem',
-                  marginTop: 4,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  minHeight: 44,
-                }}
+                className="btn-primary login-submit-btn"
               >
                 <span>Entrar como {selectedRole}</span>
                 <ArrowRight size={16} weight="bold" />
               </button>
 
               {/* Atalhos Rápidos para Demonstração */}
-              <div
-                style={{
-                  marginTop: 14,
-                  paddingTop: 14,
-                  borderTop: '1px solid var(--border-hairline)',
-                  textAlign: 'center',
-                }}
-              >
+              <div className="login-demo-section">
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
                   Acesso rápido para demonstração com dados de teste:
                 </span>
@@ -575,7 +505,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             /* ========================================================================= */
             /* MODO 2: CRIAR CONTA (CADASTRO)                                            */
             /* ========================================================================= */
-            <form onSubmit={handleCadastroSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+            <form onSubmit={handleCadastroSubmit} className="login-form">
               {/* Campo Nome Completo */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ marginBottom: 4 }}>
@@ -770,18 +700,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {/* Botão Submit (Criar Conta) */}
               <button
                 type="submit"
-                className="btn-primary"
-                style={{
-                  width: '100%',
-                  padding: '11px',
-                  fontSize: '0.92rem',
-                  marginTop: 6,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  minHeight: 44,
-                }}
+                className="btn-primary login-submit-btn"
               >
                 <UserPlus size={16} weight="bold" />
                 <span>Criar Conta e Acessar</span>
