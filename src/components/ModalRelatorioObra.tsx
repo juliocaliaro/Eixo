@@ -40,12 +40,30 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
 
   const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState(getEmpresaCadastrada);
 
+  // Análise de progresso físico defensiva
+  const todasTarefas = (obra.etapas || []).flatMap((e) => e.tarefas || []);
+  const totalTarefas = todasTarefas.length;
+  const concluidas = todasTarefas.filter((t) => t.concluida).length;
+  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+  // Obra só é concluída se tiver ao menos 1 tarefa e todas estiverem concluídas
+  const temAtividadesNaoConcluidas = totalTarefas === 0 || concluidas < totalTarefas;
+
   // Sincronizar ao abrir o modal com a empresa cadastrada na obra
   React.useEffect(() => {
     if (isOpen) {
       setEmpresaEmpreiteiro(getEmpresaCadastrada());
     }
   }, [isOpen, obra]);
+
+  // Fechar com tecla Escape
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -71,7 +89,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
     } else {
       showToast(
         'Solicitação registrada!',
-        'Os parâmetros do relatório final foram configurados para download.',
+        'Os parâmetros do relatório foram configurados para visualização.',
         'success'
       );
     }
@@ -108,8 +126,8 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                 width: 36,
                 height: 36,
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--coral-glow-50)',
-                color: 'var(--primary-accent)',
+                background: !temAtividadesNaoConcluidas ? '#dcfce7' : 'var(--coral-glow-50)',
+                color: !temAtividadesNaoConcluidas ? '#15803d' : 'var(--primary-accent)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -129,7 +147,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   lineHeight: 1.25,
                 }}
               >
-                Relatório de Conclusão
+                Relatório Final
               </h2>
               <p
                 style={{
@@ -138,7 +156,9 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
                   margin: '3px 0 0 0',
                 }}
               >
-                {obra.nome} • Cliente: {obra.cliente}
+                {!temAtividadesNaoConcluidas
+                  ? `${obra.nome} • 100% Concluída`
+                  : `${obra.nome} • ${percentual}% de Avanço (${concluidas}/${totalTarefas})`}
               </p>
             </div>
           </div>
@@ -234,9 +254,16 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               marginBottom: 18,
             }}
           >
-            <CheckCircle size={16} weight="fill" color="#16a34a" style={{ flexShrink: 0 }} />
+            <CheckCircle
+              size={16}
+              weight="fill"
+              color={!temAtividadesNaoConcluidas ? '#16a34a' : 'var(--primary-accent)'}
+              style={{ flexShrink: 0 }}
+            />
             <span style={{ fontSize: '0.75rem', color: 'var(--text-body)', lineHeight: 1.35 }}>
-              O relatório consolida integralmente o cronograma, diário com fotos, decisões assinadas e projetos técnicos.
+              {!temAtividadesNaoConcluidas
+                ? 'O relatório consolida integralmente o cronograma (100%), diário com fotos, decisões assinadas e termo de entrega de chaves.'
+                : 'O relatório apresenta o avanço físico atualizado, atividades em andamento e pendentes com termo de responsabilidade.'}
             </span>
           </div>
 
@@ -277,7 +304,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
               }}
             >
               <DownloadSimple size={15} weight="bold" />
-              <span>Baixar Relatório</span>
+              <span>Baixar Relatório Final</span>
             </button>
           </div>
         </form>

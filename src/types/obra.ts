@@ -1,8 +1,11 @@
+export type StatusCronograma = 'concluido' | 'em_andamento' | 'pendente';
+
 export interface Tarefa {
   id: string;
   nome: string;
   concluida: boolean;
   concluidaEm?: string;
+  status?: StatusCronograma;
   anotacoes?: string[];
   fotos?: string[]; // base64 or URL
 }
@@ -14,6 +17,7 @@ export interface Etapa {
   tipoOrigem?: string; // ex: 'Construcao', 'Reforma', 'Personalizada'
   concluida?: boolean;
   concluidaEm?: string; // Registro de data e horário de conclusão da etapa
+  status?: StatusCronograma;
 }
 
 export type PerfilUsuario = 'construtor' | 'cliente';
@@ -32,8 +36,10 @@ export interface Decisao {
   titulo: string;
   descricao: string;
   categoria?: 'acabamento' | 'prazo' | 'custo' | 'projeto' | 'outro';
-  impactoFinanceiro?: number; // em Reais (positivo para Aditivo / acréscimo; negativo para Supressivo / redução do contrato)
-  tipoImpactoFinanceiro?: 'aditivo' | 'supressivo';
+  impactoFinanceiro?: number; // Saldo líquido em Reais (positivo para acréscimo geral, negativo para redução geral)
+  tipoImpactoFinanceiro?: 'aditivo' | 'supressivo' | 'ambos';
+  valorAditivo?: number; // Valor de Aditivo / Acréscimo (+)
+  valorSupressivo?: number; // Valor de Supressivo / Redução (-)
   impactoPrazoDias?: number; // em dias (opcional)
   criadaPor: PerfilUsuario;
   criadorNome: string;
@@ -79,6 +85,26 @@ export interface PunchListItem {
   ambiente?: string; // ex: 'Geral', 'Sala', 'Cozinha', 'Banheiros', 'Fachada'
 }
 
+export interface RegistroMaterial {
+  id: string;
+  obraId: string;
+  nome: string;
+  status: string;
+  fotos?: string[];
+  observacoes?: string;
+  criadoEm: string;
+}
+
+export interface RegistroNota {
+  id: string;
+  obraId: string;
+  titulo?: string;
+  fotos: string[]; // URLs ou base64 das imagens da nota
+  observacoes?: string;
+  valor?: number;
+  criadoEm: string;
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -93,6 +119,8 @@ export interface Obra {
   anexosGerais?: AnexoItem[];
   decisoes?: Decisao[];
   projetos?: ProjetoPDF[];
+  materiais?: RegistroMaterial[];
+  notas?: RegistroNota[];
 }
 
 export interface AnexoItem {

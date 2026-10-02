@@ -832,9 +832,25 @@ input, textarea, select {
   min-height: 0;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
+}
+
+
+@keyframes drawerSlideLeft {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes drawerSlideRight {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .modal-header {
@@ -1570,21 +1586,35 @@ input, textarea, select {
 }
 
 .relatorio-status-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.68rem;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .badge-ok {
   background: #dcfce7;
+  background-color: #dcfce7;
   color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-em-andamento {
+  background: #fef3c7;
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
 }
 
 .badge-pendente {
-  background: #fef3c7;
-  color: #b45309;
+  background: #f3f4f6;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
 }
 
 .badge-danger {
@@ -1742,6 +1772,82 @@ input, textarea, select {
   border-top: 1.5px solid #251b0e;
   margin-bottom: 8px;
   width: 100%;
+}
+
+/* ========================================================
+   PADRONIZAÇÃO ERGONÔMICA MOBILE & TOUCH TARGETS (WCAG / HIG)
+   ======================================================== */
+@media (max-width: 768px), (pointer: coarse) {
+  /* Alvos mínimos de toque de 40-44px para ergonomia em dispositivos móveis */
+  .btn-icon {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-outline-teal {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Previne zoom automático e indesejado no iOS Safari ao focar inputs */
+  .form-input,
+  .form-textarea,
+  select.form-input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .pill-tab {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  .task-checkbox {
+    width: 22px;
+    height: 22px;
+    position: relative;
+  }
+
+  .task-checkbox::before {
+    content: '';
+    position: absolute;
+    top: -11px;
+    bottom: -11px;
+    left: -11px;
+    right: -11px;
+  }
+
+  .drag-handle-grip {
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ========================================================
+   ACESSIBILIDADE DE TECLADO: FOCO VISÍVEL (:focus-visible)
+   ======================================================== */
+.cardless-row:focus-visible,
+.timeline-item-header:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-outline-teal:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
 }
 
 /* ========================================================
@@ -1937,6 +2043,27 @@ input, textarea, select {
     background-color: #f8f3ed !important;
   }
 
+  .badge-ok {
+    background: #dcfce7 !important;
+    background-color: #dcfce7 !important;
+    color: #15803d !important;
+    border: 1px solid #bbf7d0 !important;
+  }
+
+  .badge-em-andamento {
+    background: #fef3c7 !important;
+    background-color: #fef3c7 !important;
+    color: #b45309 !important;
+    border: 1px solid #fde68a !important;
+  }
+
+  .badge-pendente {
+    background: #f3f4f6 !important;
+    background-color: #f3f4f6 !important;
+    color: #4b5563 !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
   /* Evitar quebras de página desajeitadas */
   .print-avoid-break,
   .relatorio-doc-header,
@@ -1953,6 +2080,650 @@ input, textarea, select {
 
   .relatorio-section {
     page-break-inside: auto;
+  }
+}
+
+/* ========================================================
+   Card de Projetos & Documentos Responsivo (Breakpoint)
+   ======================================================== */
+.projeto-card {
+  background: #ffffff;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.projeto-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.projeto-card-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.projeto-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Versão Mobile (Breakpoint <= 768px): Coluna e botões abaixo das informações */
+@media (max-width: 768px) {
+  .projeto-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .projeto-card-info {
+    width: 100%;
+  }
+
+  .projeto-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-hairline);
+    flex-wrap: wrap;
+  }
+
+  .projeto-card-actions .btn-secondary {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* ========================================================
+   CARD DE DECISÕES: ACCORDION EXCLUSIVO NO MOBILE
+   ======================================================== */
+.decisao-card-desktop {
+  display: block;
+}
+
+.decisao-card-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .decisao-card-desktop {
+    display: none !important;
+  }
+
+  .decisao-card-mobile {
+    display: block !important;
+  }
+
+  .decisao-card-mobile-container {
+    background: #ffffff;
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-subtle);
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .decisao-card-mobile-header {
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+  }
+
+  .decisao-card-mobile-header:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* ========================================================
+   DIÁRIO DE OBRA: ACCORDION EXCLUSIVO NO MOBILE
+   ======================================================== */
+.diario-card-desktop {
+  display: block;
+}
+
+.diario-card-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .diario-card-desktop {
+    display: none !important;
+  }
+
+  .diario-card-mobile {
+    display: block !important;
+  }
+
+  .diario-card-mobile-header {
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: background 0.15s ease;
+  }
+
+  .diario-card-mobile-header:hover {
+    background: var(--dark-coffee-50);
+  }
+
+  .diario-card-mobile-header:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: -2px;
+  }
+}
+
+/* ========================================================
+   CABEÇALHO DA OBRA: METADADOS RESPONSIVOS (DESKTOP VS MOBILE)
+   ======================================================== */
+.obra-meta-desktop {
+  display: flex;
+}
+
+.obra-meta-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .obra-meta-desktop {
+    display: none !important;
+  }
+
+  .obra-meta-mobile {
+    display: flex !important;
+    flex-direction: column;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+}
+
+/* ========================================================
+   CARTÃO DE OBRA NA LISTA: RESPONSIVIDADE DESKTOP VS MOBILE
+   ======================================================== */
+.obra-card-desktop {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+}
+
+.obra-card-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .obra-card-desktop {
+    display: none !important;
+  }
+
+  .obra-card-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+}
+
+/* ========================================================
+   PAINEL FINANCEIRO DE ADITIVOS: ACCORDION EXCLUSIVO NO MOBILE
+   ======================================================== */
+.painel-financeiro-desktop {
+  display: block !important;
+}
+
+.painel-financeiro-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .painel-financeiro-desktop {
+    display: none !important;
+  }
+
+  .painel-financeiro-mobile {
+    display: block !important;
+  }
+}
+
+/* ========================================================
+   SUPRESSÃO MOBILE: CONTADORES E AÇÃO TESTAR CLIENTE
+   ======================================================== */
+.diario-contador-desktop,
+.projetos-contador-desktop,
+.projetos-tab-badge-desktop {
+  display: inline-block;
+}
+
+.share-testar-cliente-btn {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .diario-contador-desktop,
+  .projetos-contador-desktop,
+  .projetos-tab-badge-desktop,
+  .share-testar-cliente-btn {
+    display: none !important;
+  }
+}
+
+
+/* ========================================================
+   CORREÇÃO DE SCROLL EM MODAIS NO MOBILE
+   ======================================================== */
+
+/* Garante min-height: 0 para o flex scroll funcionar em todos os browsers */
+.modal-body {
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  /* Backdrop: remove o padding lateral para o modal usar a tela toda.
+     NÃO alteramos top/bottom/height — o inset:0 existente está correto. */
+  .modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;  /* modal ancora na base da tela */
+  }
+
+  /* Modal vira bottom-sheet, crescendo a partir da base */
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    /* --vvh é atualizado pelo visualViewport listener (App.tsx)
+       → shrink automático quando o teclado virtual abre */
+    max-height: calc(var(--vvh, 93dvh) * 0.96) !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    /* safe-area: espaço para o notch/barra de navegação inferior */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: slideUpModal 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  /* Scroll nativo com momentum iOS.
+     scroll-padding-bottom: input focado não some atrás do teclado. */
+  .modal-body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-padding-bottom: 20px;
+  }
+
+  /* Cabeçalho e rodapé sempre visíveis, nunca cortados */
+  .modal-footer,
+  .modal-header {
+    flex-shrink: 0 !important;
+  }
+}
+
+@keyframes slideUpModal {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================================
+   REGISTRO DE NOTAS: RESPONSIVIDADE DESKTOP VS MOBILE
+   (Header Organizado e Cards Minimizados no Mobile)
+   ======================================================== */
+.registro-notas-header-desktop {
+  display: flex !important;
+}
+
+.registro-notas-header-mobile {
+  display: none !important;
+}
+
+.registro-notas-card-desktop {
+  display: block !important;
+}
+
+.registro-notas-card-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .registro-notas-header-desktop {
+    display: none !important;
+  }
+
+  .registro-notas-header-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .registro-notas-card-desktop {
+    display: none !important;
+  }
+
+  .registro-notas-card-mobile {
+    display: block !important;
+    background: #ffffff;
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .registro-notas-card-mobile-header {
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--dark-coffee-50);
+    transition: background 0.15s ease;
+  }
+
+  .registro-notas-card-mobile-header:hover {
+    background: var(--dark-coffee-100);
+  }
+
+  .registro-notas-card-mobile-header:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: -2px;
+  }
+}
+
+/* ========================================================
+   DECISÕES & APROVAÇÕES: AÇÕES E FILTRO MOBILE VS DESKTOP
+   ======================================================== */
+.decisoes-btn-novaproposta-desktop {
+  display: inline-flex !important;
+}
+
+.decisoes-pills-desktop {
+  display: flex !important;
+}
+
+.decisoes-actions-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .decisoes-btn-novaproposta-desktop {
+    display: none !important;
+  }
+
+  .decisoes-pills-desktop {
+    display: none !important;
+  }
+
+  .decisoes-actions-mobile {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}
+
+/* ========================================================
+   AUTENTICAÇÃO / LOGIN: ADAPTAÇÃO EXCLUSIVA PARA MOBILE
+   ======================================================== */
+.login-screen-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-main, #fdfbf7);
+}
+
+.login-page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg-main, #fdfbf7);
+  box-sizing: border-box;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.login-card-header {
+  padding: 28px 28px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--dark-coffee-50, #fcfaf8);
+}
+
+.login-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  margin: 0 auto 12px;
+  display: block;
+}
+
+.login-title {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.login-subtitle {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  margin: 4px 0 0 0;
+}
+
+.login-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--dark-coffee-50);
+  padding: 6px;
+  gap: 6px;
+}
+
+.login-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 0.86rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.login-card-body {
+  padding: 24px 28px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-role-section {
+  margin-bottom: 18px;
+}
+
+.login-submit-btn {
+  width: 100%;
+  padding: 11px;
+  font-size: 0.92rem;
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.login-demo-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-hairline);
+  text-align: center;
+}
+
+/* Ajustes Estritos de Mobile: sem scroll de página e perfeitamente contido na viewport */
+@media (max-width: 768px) {
+  .login-screen-wrapper {
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .login-page-container {
+    min-height: 100dvh;
+    height: 100dvh;
+    max-height: var(--vvh, 100dvh);
+    padding: 8px 12px;
+    overflow: hidden;
+  }
+
+  .login-card {
+    max-width: 100%;
+    max-height: calc(var(--vvh, 100dvh) - 16px);
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  }
+
+  .login-card-header {
+    padding: 12px 14px 8px;
+    flex-shrink: 0;
+  }
+
+  .login-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    margin: 0 auto 4px;
+  }
+
+  .login-title {
+    font-size: 1.18rem;
+    line-height: 1.2;
+  }
+
+  .login-subtitle {
+    font-size: 0.74rem;
+    margin: 2px 0 0 0;
+    line-height: 1.2;
+  }
+
+  .login-tabs {
+    padding: 4px;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .login-tab-btn {
+    padding: 6px 8px;
+    font-size: 0.78rem;
+    gap: 5px;
+  }
+
+  .login-card-body {
+    padding: 10px 14px 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .login-card-body::-webkit-scrollbar {
+    display: none;
+  }
+
+  .login-role-section {
+    margin-bottom: 8px;
+  }
+
+  .login-role-section label {
+    font-size: 0.70rem !important;
+    margin-bottom: 3px !important;
+  }
+
+  .login-role-section button {
+    padding: 6px 8px !important;
+    font-size: 0.76rem !important;
+  }
+
+  .login-form {
+    gap: 8px;
+  }
+
+  .login-form .form-group {
+    margin: 0 !important;
+  }
+
+  .login-form .form-label {
+    font-size: 0.72rem !important;
+    margin-bottom: 2px !important;
+  }
+
+  .login-form .form-input {
+    padding: 7px 10px 7px 34px !important;
+    font-size: 0.82rem !important;
+    height: 36px !important;
+  }
+
+  .login-submit-btn {
+    padding: 8px 12px !important;
+    min-height: 38px !important;
+    font-size: 0.84rem !important;
+    margin-top: 2px !important;
+  }
+
+  .login-demo-section {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .login-demo-section span {
+    font-size: 0.68rem !important;
+    margin-bottom: 4px !important;
+  }
+
+  .login-demo-section button {
+    padding: 4px 8px !important;
+    font-size: 0.70rem !important;
   }
 }
 

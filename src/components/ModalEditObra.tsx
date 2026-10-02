@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, CalendarBlank, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
+import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
+import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalEditObraProps {
   isOpen: boolean;
@@ -36,10 +37,19 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       setCliente(obra.cliente);
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
-      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? String(obra.orcamentoInicial) : '');
+      setOrcamentoInicial(obra.orcamentoInicial !== undefined ? mascararMoedaInput(obra.orcamentoInicial) : '');
       setErro('');
     }
   }, [obra, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !obra) return null;
 
@@ -54,7 +64,15 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       return;
     }
 
-    const valorNumerico = orcamentoInicial.trim() ? parseFloat(orcamentoInicial.replace(',', '.')) : undefined;
+    const valorNumerico = parseMoedaBR(orcamentoInicial);
+    if (orcamentoInicial.trim() && valorNumerico === undefined) {
+      setErro('Valor do orçamento inválido. Use formato numérico (ex: 185.000,00).');
+      return;
+    }
+    if (valorNumerico !== undefined && valorNumerico < 0) {
+      setErro('O valor do orçamento não pode ser negativo.');
+      return;
+    }
 
     onSave({
       nome: nome.trim(),
@@ -62,7 +80,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       cliente: cliente.trim(),
       endereco: endereco.trim() || 'Endereço não informado',
       dataPrevista: dataPrevista || obra.dataPrevista,
-      orcamentoInicial: valorNumerico !== undefined && !isNaN(valorNumerico) ? valorNumerico : undefined,
+      orcamentoInicial: valorNumerico,
     });
   };
 
@@ -161,13 +179,13 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
                 </span>
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="numeric"
                 className="form-input"
-                placeholder="Ex: 185000"
+                placeholder="0,00"
                 value={orcamentoInicial}
-                onChange={(e) => setOrcamentoInicial(e.target.value)}
+                onChange={(e) => setOrcamentoInicial(mascararMoedaInput(e.target.value))}
+                onKeyDown={proibirNaoNumericosMoeda}
               />
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
                 Base financeira para cálculo automático dos aditivos contratuais aprovados.
@@ -179,6 +197,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               onChange={(val) => setDataPrevista(val)}
               label="Data Prevista de Término"
               helperText="Você pode digitar a data (DD/MM/AAAA) ou escolher pelo calendário."
+              autoScrollOnMobile
             />
           </div>
 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Printer,
   DownloadSimple,
@@ -16,11 +16,13 @@ import {
   ShieldCheck,
   SealCheck,
   Check,
-  NotePencil
+  NotePencil,
+  Receipt
 } from '@phosphor-icons/react';
-import { Obra } from '../types/obra';
+import { Obra, Decisao } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
+import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
 
 interface ModalPreviewRelatorioProps {
   isOpen: boolean;
@@ -45,42 +47,114 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
     }
   }, [isOpen, autoPrint]);
 
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Cálculos de Indicadores da Obra (Memorizados para evitar recálculos em re-renders)
+  const metricas = useMemo(() => {
+    const etapas = obra?.etapas || [];
+    const todasTarefas = etapas.flatMap((e) => e.tarefas || []);
+    const totalTarefas = todasTarefas.length;
+    const tarefasConcluidas = todasTarefas.filter((t) => t.concluida).length;
+    const tarefasEmAndamento = todasTarefas.filter(
+      (t) => !t.concluida && getTarefaStatus(t) === 'em_andamento'
+    ).length;
+    const tarefasPendentes = Math.max(0, totalTarefas - tarefasConcluidas - tarefasEmAndamento);
+    const percentual = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+    // Uma obra é considerada com pendências se não tiver tarefas ou se o avanço for < 100%
+    const temAtividadesNaoConcluidas = totalTarefas === 0 || percentual < 100 || tarefasEmAndamento > 0 || tarefasPendentes > 0;
+
+    let totalFotos = 0;
+    let totalNotas = 0;
+    etapas.forEach((etapa) => {
+      (etapa.tarefas || []).forEach((tarefa) => {
+        if (Array.isArray(tarefa.fotos)) totalFotos += tarefa.fotos.length;
+        if (Array.isArray(tarefa.anotacoes)) totalNotas += tarefa.anotacoes.length;
+      });
+    });
+    (obra?.anexosGerais || []).forEach((item) => {
+      if (item.tipo === 'foto') totalFotos += 1;
+      if (item.tipo === 'anotacao') totalNotas += 1;
+    });
+
+    const decisoes: Decisao[] = obra?.decisoes || [];
+    const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
+    const projetos = obra?.projetos || [];
+
+    const orcamentoInicial = obra?.orcamentoInicial || 0;
+    const totalAditivosAprovados = decisoesAprovadas.reduce((acc, d) => {
+      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
+    const totalSupressivosAprovados = decisoesAprovadas.reduce((acc, d) => {
+      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
+      return acc + val;
+    }, 0);
+    const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
+    const investimentoTotal = orcamentoInicial + saldoAlteracoes;
+
+    const agora = new Date();
+    const dataEmissaoHoje = agora.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+    const horaEmissao = agora.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return {
+      totalTarefas,
+      tarefasConcluidas,
+      tarefasEmAndamento,
+      tarefasPendentes,
+      percentual,
+      temAtividadesNaoConcluidas,
+      totalFotos,
+      totalNotas,
+      decisoes,
+      decisoesAprovadas,
+      totalAditivosAprovados,
+      totalSupressivosAprovados,
+      projetos,
+      orcamentoInicial,
+      saldoAlteracoes,
+      investimentoTotal,
+      dataEmissaoHoje,
+      horaEmissao,
+    };
+  }, [obra]);
+
   if (!isOpen) return null;
 
-  // Cálculos de Indicadores da Obra
-  const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
-  const totalTarefas = todasTarefas.length;
-  const concluidas = todasTarefas.filter((t) => t.concluida).length;
-  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
-
-  // Contagem de Fotos e Anotações
-  let totalFotos = 0;
-  let totalNotas = 0;
-  obra.etapas.forEach((etapa) => {
-    etapa.tarefas.forEach((tarefa) => {
-      if (tarefa.fotos) totalFotos += tarefa.fotos.length;
-      if (tarefa.anotacoes) totalNotas += tarefa.anotacoes.length;
-    });
-  });
-  (obra.anexosGerais || []).forEach((item) => {
-    if (item.tipo === 'foto') totalFotos += 1;
-    if (item.tipo === 'anotacao') totalNotas += 1;
-  });
-
-  const decisoes = obra.decisoes || [];
-  const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
-  const projetos = obra.projetos || [];
-
-  // Cálculos Financeiros
-  const orcamentoInicial = obra.orcamentoInicial || 0;
-  const totalAditivosAprovados = decisoesAprovadas
-    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
-  const totalSupressivosAprovados = decisoesAprovadas
-    .filter((d) => typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0)
-    .reduce((acc, d) => acc + (d.impactoFinanceiro || 0), 0);
-  const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
-  const investimentoTotal = orcamentoInicial + saldoAlteracoes;
+  const {
+    totalTarefas,
+    tarefasConcluidas,
+    tarefasEmAndamento,
+    tarefasPendentes,
+    percentual,
+    temAtividadesNaoConcluidas,
+    totalFotos,
+    totalNotas,
+    decisoes,
+    decisoesAprovadas,
+    totalAditivosAprovados,
+    totalSupressivosAprovados,
+    projetos,
+    orcamentoInicial,
+    saldoAlteracoes,
+    investimentoTotal,
+    dataEmissaoHoje,
+    horaEmissao,
+  } = metricas;
 
   // Nome da Empresa Cadastrada
   const nomeEmpresa =
@@ -124,17 +198,6 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
       currency: 'BRL',
     });
   };
-
-  const dataEmissaoHoje = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const horaEmissao = new Date().toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 
   const handlePrint = () => {
     window.print();
@@ -226,10 +289,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
             <div className="relatorio-title-banner">
               <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#1a130a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {percentual === 100 ? 'Relatório de Conclusão da Obra' : 'Relatório Técnico de Andamento'}
+                {!temAtividadesNaoConcluidas ? 'Relatório Final de Conclusão da Obra' : 'Relatório Final de Obra'}
               </h1>
               <div style={{ fontSize: '0.85rem', color: '#6e512b', marginTop: 4 }}>
-                Consolidação oficial de cronograma executado, diário de canteiro, decisões assinadas e projetos técnicos
+                {!temAtividadesNaoConcluidas
+                  ? 'Dossiê executivo definitivo com termo de aceite final e entrega de chaves'
+                  : `Medição periódica do avanço físico (${percentual}%), atividades em andamento e termo de responsabilidade de pendências`}
               </div>
             </div>
 
@@ -263,12 +328,12 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     alignItems: 'center',
                     gap: 6,
                     fontWeight: 700,
-                    color: percentual === 100 ? '#16a34a' : '#d5aa2a',
+                    color: !temAtividadesNaoConcluidas ? '#16a34a' : '#b45309',
                     fontSize: '0.88rem',
                   }}
                 >
                   <CheckCircle size={15} weight="fill" />
-                  <span>{percentual === 100 ? '100% Concluída' : `${percentual}% em Execução`}</span>
+                  <span>{!temAtividadesNaoConcluidas ? '100% Concluída' : `${percentual}% em Execução • Relatório Parcial`}</span>
                 </span>
               </div>
 
@@ -291,12 +356,27 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
             <div className="relatorio-kpi-row">
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{percentual}%</span>
-                <span className="relatorio-kpi-desc">Avanço Físico ({concluidas}/{totalTarefas} serviços)</span>
+                <span className="relatorio-kpi-desc">Avanço Físico Total</span>
               </div>
               <div className="relatorio-kpi-item">
-                <span className="relatorio-kpi-num">{obra.etapas.length}</span>
-                <span className="relatorio-kpi-desc">Etapas Técnicas</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 4 }}>
+                  <span className="relatorio-kpi-num" style={{ color: '#15803d' }}>{tarefasConcluidas}</span>
+                  <span style={{ fontSize: '0.72rem', color: '#6e512b', fontWeight: 600 }}>/ {totalTarefas}</span>
+                </div>
+                <span className="relatorio-kpi-desc">Concluídos (100%)</span>
               </div>
+              {temAtividadesNaoConcluidas && (
+                <>
+                  <div className="relatorio-kpi-item">
+                    <span className="relatorio-kpi-num" style={{ color: '#b45309' }}>{tarefasEmAndamento}</span>
+                    <span className="relatorio-kpi-desc">Em Andamento</span>
+                  </div>
+                  <div className="relatorio-kpi-item">
+                    <span className="relatorio-kpi-num" style={{ color: '#4b5563' }}>{tarefasPendentes}</span>
+                    <span className="relatorio-kpi-desc">Pendentes</span>
+                  </div>
+                </>
+              )}
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{decisoesAprovadas.length}</span>
                 <span className="relatorio-kpi-desc">Decisões Assinadas</span>
@@ -307,8 +387,14 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
               </div>
               <div className="relatorio-kpi-item">
                 <span className="relatorio-kpi-num">{totalFotos}</span>
-                <span className="relatorio-kpi-desc">Registros Fotográficos</span>
+                <span className="relatorio-kpi-desc">Fotos de Canteiro</span>
               </div>
+              {(obra?.notas?.length || 0) > 0 && (
+                <div className="relatorio-kpi-item">
+                  <span className="relatorio-kpi-num" style={{ color: '#8c6b3e' }}>{obra.notas?.length || 0}</span>
+                  <span className="relatorio-kpi-desc">Notas Fiscais</span>
+                </div>
+              )}
               {orcamentoInicial > 0 && (
                 <div className="relatorio-kpi-item">
                   <span className="relatorio-kpi-num" style={{ fontSize: '1.02rem' }}>{formatarMoeda(investimentoTotal)}</span>
@@ -353,45 +439,62 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     <table className="relatorio-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '90px' }}>Status</th>
+                          <th style={{ width: '120px' }}>Status</th>
                           <th>Serviço / Atividade Técnica</th>
                           <th style={{ width: '160px', textAlign: 'right' }}>Conclusão</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {tarefasEtapa.map((tarefa) => (
-                          <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
-                            <td>
-                              <span
-                                className={`relatorio-status-badge ${
-                                  tarefa.concluida ? 'badge-ok' : 'badge-pendente'
-                                }`}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              >
-                                {tarefa.concluida ? (
-                                  <>
-                                    <Check size={12} weight="bold" />
-                                    <span>Cumprido</span>
-                                  </>
-                                ) : (
-                                  <span>Pendente</span>
-                                )}
-                              </span>
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
-                                {tarefa.nome}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
-                              {tarefa.concluidaEm ? (
-                                <span>{formatarDataHora(tarefa.concluidaEm)}</span>
-                              ) : (
-                                <span style={{ color: '#936c39' }}>Em andamento</span>
-                              )}
+                        {tarefasEtapa.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', fontSize: '0.80rem', color: '#6e512b', padding: '10px' }}>
+                              Nenhum serviço cadastrado nesta etapa.
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          tarefasEtapa.map((tarefa) => {
+                            const statusT = getTarefaStatus(tarefa);
+                            const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                            return (
+                              <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
+                                <td>
+                                  <span
+                                    className={`relatorio-status-badge ${configT.badgeClass}`}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                  >
+                                    {statusT === 'concluido' ? (
+                                      <>
+                                        <Check size={12} weight="bold" />
+                                        <span>Concluído</span>
+                                      </>
+                                    ) : statusT === 'em_andamento' ? (
+                                      <>
+                                        <Clock size={12} weight="bold" />
+                                        <span>Em andamento</span>
+                                      </>
+                                    ) : (
+                                      <span>Pendente</span>
+                                    )}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
+                                    {tarefa.nome}
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right', fontSize: '0.75rem', color: '#6e512b' }}>
+                                  {tarefa.concluidaEm ? (
+                                    <span>{formatarDataHora(tarefa.concluidaEm)}</span>
+                                  ) : statusT === 'em_andamento' ? (
+                                    <span style={{ color: '#b45309', fontWeight: 600 }}>Em andamento</span>
+                                  ) : (
+                                    <span style={{ color: '#6b7280' }}>Não iniciado</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -419,7 +522,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {obra.etapas.map((etapa) => {
-                  const tarefasComRegistro = etapa.tarefas.filter(
+                  const tarefasComRegistro = (etapa.tarefas || []).filter(
                     (t) => (t.fotos && t.fotos.length > 0) || (t.anotacoes && t.anotacoes.length > 0)
                   );
                   if (tarefasComRegistro.length === 0) return null;
@@ -585,15 +688,37 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
                         {/* Impactos */}
                         <div style={{ textAlign: 'right', fontSize: '0.80rem' }}>
-                          {decisao.impactoFinanceiro !== undefined && (
-                            <div style={{ fontWeight: 700, color: decisao.impactoFinanceiro > 0 ? '#b91c1c' : decisao.impactoFinanceiro < 0 ? '#16a34a' : '#6e512b' }}>
-                              {decisao.impactoFinanceiro > 0
-                                ? `+ ${formatarMoeda(decisao.impactoFinanceiro)} (Aditivo)`
-                                : decisao.impactoFinanceiro < 0
-                                ? `- ${formatarMoeda(Math.abs(decisao.impactoFinanceiro))} (Supressivo)`
-                                : 'Sem impacto financeiro'}
+                          {decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined ? (
+                            <div>
+                              <div style={{ fontWeight: 700, color: '#b91c1c' }}>
+                                + {formatarMoeda(decisao.valorAditivo)} (Aditivo)
+                              </div>
+                              <div style={{ fontWeight: 700, color: '#16a34a' }}>
+                                - {formatarMoeda(decisao.valorSupressivo)} (Supressivo)
+                              </div>
+                              {decisao.impactoFinanceiro !== undefined && (
+                                <div style={{ fontSize: '0.74rem', color: '#6e512b', fontWeight: 600 }}>
+                                  Saldo: {decisao.impactoFinanceiro >= 0 ? '+' : '-'}{formatarMoeda(Math.abs(decisao.impactoFinanceiro))}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          ) : (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) ? (
+                            (() => {
+                              const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
+                              const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
+                              const val = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
+
+                              return (
+                                <div style={{ fontWeight: 700, color: isAditivo ? '#b91c1c' : isSupressivo ? '#16a34a' : '#6e512b' }}>
+                                  {isAditivo
+                                    ? `+ ${formatarMoeda(val)} (Aditivo)`
+                                    : isSupressivo
+                                    ? `- ${formatarMoeda(val)} (Supressivo)`
+                                    : 'Sem impacto financeiro'}
+                                </div>
+                              );
+                            })()
+                          ) : null}
                           {decisao.impactoPrazoDias !== undefined && (
                             <div style={{ color: '#6e512b', fontSize: '0.74rem' }}>
                               {decisao.impactoPrazoDias > 0 ? `+ ${decisao.impactoPrazoDias} dias no prazo` : 'Sem alteração de prazo'}
@@ -609,7 +734,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                       {/* Fotos da Decisão */}
                       {decisao.fotos && decisao.fotos.length > 0 && (
                         <div className="relatorio-fotos-grid" style={{ marginBottom: 10 }}>
-                          {decisao.fotos.map((f, i) => (
+                          {decisao.fotos.map((f: string, i: number) => (
                             <div key={i} className="relatorio-foto-item">
                               <img src={f} alt={`Amostra ${i + 1}`} className="relatorio-foto-img" style={{ maxHeight: 110 }} />
                               <span className="relatorio-foto-caption">Amostra {i + 1}</span>
@@ -749,20 +874,185 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
           </section>
 
           {/* ========================================================
-              CAPÍTULO 5: TERMO DE CONCLUSÃO & ENTREGA TÉCNICA
+              CAPÍTULO 5: REGISTRO DE NOTAS & COMPROVANTES FISCAIS
+             ======================================================== */}
+          <section className="relatorio-section">
+            <div className="relatorio-section-header">
+              <span className="relatorio-section-tag">Capítulo 05</span>
+              <h2 className="relatorio-section-title">Registro de Notas e Comprovantes Fiscais</h2>
+              <p className="relatorio-section-desc">
+                Registro fotográfico de notas fiscais, cupons e recibos comprobatórios vinculados a esta obra
+              </p>
+            </div>
+
+            {(!obra.notas || obra.notas.length === 0) ? (
+              <div className="relatorio-empty-box print-avoid-break">
+                Nenhuma nota fiscal ou comprovante anexado ao registro desta obra.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {obra.notas.map((nota, nIdx) => (
+                  <div
+                    key={nota.id || nIdx}
+                    className="print-avoid-break"
+                    style={{
+                      border: '1px solid #e0d8cf',
+                      borderRadius: 8,
+                      padding: 16,
+                      background: '#ffffff',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                      <div>
+                        <strong style={{ fontSize: '0.90rem', color: '#1a130a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Receipt size={16} weight="bold" color="var(--primary-accent, #c95135)" />
+                          <span>{nota.titulo || `Nota Fiscal / Recibo #${nIdx + 1}`}</span>
+                        </strong>
+                        {nota.observacoes && (
+                          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#6e512b' }}>
+                            {nota.observacoes}
+                          </p>
+                        )}
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: '#8c6b3e', fontWeight: 600 }}>
+                        {formatarData(nota.criadoEm)}
+                      </span>
+                    </div>
+
+                    {nota.fotos && nota.fotos.length > 0 && (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                          gap: 10,
+                          marginTop: 10,
+                        }}
+                      >
+                        {nota.fotos.map((foto, fIdx) => (
+                          <div
+                            key={fIdx}
+                            style={{
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              border: '1px solid #e0d8cf',
+                              background: '#f8f5f0',
+                            }}
+                          >
+                            <img
+                              src={foto}
+                              alt={`Nota ${nIdx + 1} - Foto ${fIdx + 1}`}
+                              style={{
+                                width: '100%',
+                                height: 160,
+                                objectFit: 'cover',
+                                display: 'block',
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* ========================================================
+              CAPÍTULO 6: TERMO TÉCNICO & DECLARAÇÃO DE RESPONSABILIDADE
              ======================================================== */}
           <section className="relatorio-section print-avoid-break">
             <div className="relatorio-section-header">
-              <span className="relatorio-section-tag">Capítulo 05</span>
-              <h2 className="relatorio-section-title">Termo de Conclusão & Entrega Técnica</h2>
+              <span className="relatorio-section-tag">Capítulo 06</span>
+              <h2 className="relatorio-section-title">
+                {!temAtividadesNaoConcluidas
+                  ? 'Termo de Aceite Definitivo & Entrega de Chaves'
+                  : 'Termo de Responsabilidade & Declaração de Pendências'}
+              </h2>
             </div>
 
             <div className="relatorio-termo-box">
-              <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
-                Declaramos que os serviços e etapas constantes neste documento técnico foram executados em estrita
-                observância aos projetos, especificações e alinhamentos validados bilateralmente entre as partes na plataforma Eixo.
-                O presente relatório consolida o histórico integral físico, fotográfico e de decisões técnicas da obra.
-              </p>
+              {!temAtividadesNaoConcluidas ? (
+                <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
+                  Declaramos que todos os serviços e etapas constantes neste documento técnico foram integralmente
+                  executados (100% de avanço físico) em estrita observância aos projetos, especificações e alinhamentos
+                  validados bilateralmente entre as partes na plataforma Eixo. O presente relatório consolida o histórico
+                  integral físico, fotográfico e de decisões técnicas da obra, servindo como termo formal de entrega e aceite de chaves.
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', margin: 0 }}>
+                    Declaramos, para os devidos fins de medição técnica, avanço físico e acompanhamento periódico da obra,
+                    que o cronograma geral se encontra com <strong>{percentual}% de avanço concluído</strong>, registrando{' '}
+                    <strong>{tarefasConcluidas} atividades concluídas</strong>,{' '}
+                    <strong>{tarefasEmAndamento} em andamento</strong> e{' '}
+                    <strong>{tarefasPendentes} pendentes de execução</strong>.
+                  </p>
+                  <p style={{ fontSize: '0.84rem', lineHeight: 1.6, color: '#251b0e', marginTop: 8, marginBottom: 0 }}>
+                    Declara-se ciência do estado atual dos serviços e registra-se que as etapas e atividades
+                    listadas abaixo permanecem sob responsabilidade técnica de execução e acompanhamento da empresa responsável até sua integral finalização:
+                  </p>
+
+                  {/* Tabela Oficial de Atividades Não Concluídas */}
+                  <div style={{ marginTop: 14, marginBottom: 14 }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#1a130a', marginBottom: 6 }}>
+                      Relação de Atividades Pendentes e em Andamento ({tarefasEmAndamento + tarefasPendentes})
+                    </div>
+                    {tarefasEmAndamento + tarefasPendentes === 0 ? (
+                      <div className="relatorio-empty-box print-avoid-break">
+                        Nenhuma atividade pendente ou em andamento cadastrada nas etapas.
+                      </div>
+                    ) : (
+                      <table className="relatorio-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '120px' }}>Status</th>
+                            <th style={{ width: '170px' }}>Etapa</th>
+                            <th>Serviço / Atividade Técnica</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(obra.etapas || []).flatMap((etapa) =>
+                            (etapa.tarefas || [])
+                              .filter((t) => !t.concluida)
+                              .map((t) => {
+                                const statusT = getTarefaStatus(t);
+                                const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+                                return (
+                                  <tr key={`${etapa.id}-${t.id}`} className="row-pendente">
+                                    <td>
+                                      <span
+                                        className={`relatorio-status-badge ${configT.badgeClass}`}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                      >
+                                        {statusT === 'em_andamento' ? (
+                                          <>
+                                            <Clock size={11} weight="bold" />
+                                            <span>Em andamento</span>
+                                          </>
+                                        ) : (
+                                          <span>Pendente</span>
+                                        )}
+                                      </span>
+                                    </td>
+                                    <td style={{ fontSize: '0.78rem', color: '#6e512b', fontWeight: 600 }}>
+                                      {etapa.nome}
+                                    </td>
+                                    <td>
+                                      <span style={{ fontSize: '0.82rem', color: '#1a130a' }}>
+                                        {t.nome}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Checklist de Vistoria Final */}
               {obra.punchList && obra.punchList.length > 0 && (
@@ -814,27 +1104,30 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                 </div>
               )}
 
-              <div className="relatorio-assinaturas-grid">
-                <div className="relatorio-linha-assinatura">
-                  <div className="relatorio-linha" />
-                  <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
-                    {nomeEmpresa}
-                  </strong>
-                  <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
-                    Empresa Responsável pela Execução
-                  </span>
-                </div>
+              {/* Assinaturas Formais (Exclusivas do Relatório de Conclusão da Obra - 100% Concluído) */}
+              {!temAtividadesNaoConcluidas && (
+                <div className="relatorio-assinaturas-grid">
+                  <div className="relatorio-linha-assinatura">
+                    <div className="relatorio-linha" />
+                    <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
+                      {nomeEmpresa}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
+                      Empresa Responsável pela Execução
+                    </span>
+                  </div>
 
-                <div className="relatorio-linha-assinatura">
-                  <div className="relatorio-linha" />
-                  <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
-                    {obra.cliente}
-                  </strong>
-                  <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
-                    Cliente / Proprietário(a)
-                  </span>
+                  <div className="relatorio-linha-assinatura">
+                    <div className="relatorio-linha" />
+                    <strong style={{ fontSize: '0.86rem', color: '#1a130a', display: 'block' }}>
+                      {obra.cliente}
+                    </strong>
+                    <span style={{ fontSize: '0.74rem', color: '#6e512b' }}>
+                      Cliente / Proprietário(a)
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div style={{ textAlign: 'center', fontSize: '0.74rem', color: '#6e512b', marginTop: 18, borderTop: '1px solid #e2cfb6', paddingTop: 10 }}>
                 Emitido eletronicamente pela plataforma <strong>Eixo</strong> • Data: {dataEmissaoHoje}

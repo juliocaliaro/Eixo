@@ -10,7 +10,8 @@ import {
   Trash,
   CheckCircle,
   Clock,
-  SlidersHorizontal
+  Copy,
+  Check,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -35,15 +36,46 @@ export const ObraList: React.FC<ObraListProps> = ({
   onOpenSettings,
 }) => {
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
+  const [copiedObraId, setCopiedObraId] = useState<string | null>(null);
+
+  const handleCopyEndereco = (e: React.MouseEvent, endereco: string, obraId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!endereco) return;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(endereco);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = endereco;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch {}
+      document.body.removeChild(textarea);
+    }
+
+    setCopiedObraId(obraId);
+    setTimeout(() => {
+      setCopiedObraId((prev) => (prev === obraId ? null : prev));
+    }, 2000);
+  };
   // Empty State com âncora visual fotográfica forte (conforme frontend-skill)
   if (obras.length === 0) {
     return (
       <div>
         <div className="hero-visual-anchor">
           <img
-            src="https://images.unsplash.com/photo-1541888946425-d0fbb1861593?w=1600&auto=format&fit=crop&q=80"
-            alt="Canteiro de obras moderno"
+            src="/hero-bg.jpg"
+            alt="Canteiro de obras"
             className="hero-visual-bg"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
           />
           <div className="hero-visual-overlay" />
           <div className="hero-visual-content">
@@ -142,17 +174,6 @@ export const ObraList: React.FC<ObraListProps> = ({
 
         {perfilAtivo !== 'cliente' && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {onOpenSettings && (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className="btn-secondary"
-                title="Personalizar modelos padrão de etapas e tarefas"
-              >
-                <SlidersHorizontal size={17} weight="bold" />
-                <span>Modelos de Obra</span>
-              </button>
-            )}
             <button onClick={onOpenCreateModal} className="btn-primary">
               <Plus size={18} weight="bold" />
               <span>Nova Obra</span>
@@ -169,89 +190,332 @@ export const ObraList: React.FC<ObraListProps> = ({
           const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
 
           return (
-            <div
-              key={obra.id}
-              className="cardless-row"
-              onClick={() => onSelectObra(obra.id)}
-            >
-              {/* Identificação da Obra */}
-              <div style={{ minWidth: '220px', flex: 1.2 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      fontSize: '1.05rem',
-                      color: 'var(--text-main)',
-                      letterSpacing: '-0.2px',
-                    }}
-                  >
-                    {obra.nome}
+            <React.Fragment key={obra.id}>
+              {/* ========================================================
+                  VERSÃO DESKTOP (Inalterada)
+                  ======================================================== */}
+              <div
+                className="cardless-row obra-card-desktop"
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir detalhes da obra ${obra.nome}`}
+                onClick={() => onSelectObra(obra.id)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectObra(obra.id);
+                  }
+                }}
+              >
+                {/* Identificação da Obra */}
+                <div style={{ flex: 2.5, minWidth: 0, paddingRight: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '1.05rem',
+                        color: 'var(--text-main)',
+                        letterSpacing: '-0.2px',
+                      }}
+                    >
+                      {obra.nome}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        background: 'var(--dark-coffee-100)',
+                        color: 'var(--dark-coffee-800)',
+                      }}
+                    >
+                      {obra.etapas.length} etapas
+                    </span>
+                  </div>
+                  {/* Linha do Cliente */}
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
+                  </div>
+
+                  {/* Linha do Endereço */}
+                  {obra.endereco && (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                      <span>{obra.endereco}</span>
+                    </div>
+                  )}
+
+                  {/* Botão Copiar abaixo do endereço */}
+                  {obra.endereco && (
+                    <div style={{ marginTop: 6 }}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title="Copiar endereço completo"
+                        aria-label="Copiar endereço"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '3px 9px',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          borderRadius: 'var(--radius-xs)',
+                          border: '1px solid var(--border-hairline)',
+                          background: copiedObraId === obra.id ? '#dcfce7' : 'var(--dark-coffee-50)',
+                          color: copiedObraId === obra.id ? '#15803d' : 'var(--dark-coffee-800)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {copiedObraId === obra.id ? (
+                          <>
+                            <Check size={13} weight="bold" color="#15803d" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} weight="bold" />
+                            <span>Copiar</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Data Prevista */}
+                <div style={{ width: '130px', flexShrink: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <span style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Previsão
                   </span>
-                  <span
+                  <strong style={{ color: 'var(--text-body)' }}>
+                    {obra.dataPrevista ? obra.dataPrevista.split('-').reverse().join('/') : 'Não informada'}
+                  </strong>
+                </div>
+
+                {/* Barra de Progresso Compacta */}
+                <div style={{ width: '170px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
+                    <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
+                  </div>
+                  <div className="progress-strip-track" style={{ height: 5 }}>
+                    <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>{concluidas}/{totalTarefas} serviços</span>
+                  </div>
+                </div>
+
+                {/* Ações */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                  {perfilAtivo !== 'cliente' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteObraTarget({ id: obra.id, nome: obra.nome });
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="btn-icon"
+                      style={{ color: 'var(--text-muted)' }}
+                      title="Excluir obra"
+                    >
+                      <Trash size={15} />
+                    </button>
+                  )}
+                  <div style={{ color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
+                    <ArrowRight size={18} weight="bold" />
+                  </div>
+                </div>
+              </div>
+
+              {/* ========================================================
+                  VERSÃO MOBILE (Exclusiva para <= 768px)
+                  ======================================================== */}
+              <div
+                className="cardless-row obra-card-mobile"
+                role="button"
+                tabIndex={0}
+                aria-label={`Abrir detalhes da obra ${obra.nome}`}
+                onClick={() => onSelectObra(obra.id)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectObra(obra.id);
+                  }
+                }}
+              >
+                {/* Cabeçalho da Obra (Título + Tag) e Linhas Reestruturadas */}
+                <div style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '1.05rem',
+                        color: 'var(--text-main)',
+                        letterSpacing: '-0.2px',
+                      }}
+                    >
+                      {obra.nome}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: 4,
+                        background: 'var(--dark-coffee-100)',
+                        color: 'var(--dark-coffee-800)',
+                      }}
+                    >
+                      {obra.etapas.length} etapas
+                    </span>
+                  </div>
+
+                  {/* Linha 1: Cliente e Previsão lado a lado (Row com space-between) */}
+                  <div
                     style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      background: 'var(--dark-coffee-100)',
-                      color: 'var(--dark-coffee-800)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginTop: 8,
+                      fontSize: '0.82rem',
+                      color: 'var(--text-muted)',
+                      width: '100%',
                     }}
                   >
-                    {obra.etapas.length} etapas
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 12 }}>
-                  <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
-                  <span>•</span>
-                  <span>{obra.endereco}</span>
-                </div>
-              </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                      <User size={15} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
+                      <strong
+                        style={{
+                          color: 'var(--text-body)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {obra.cliente}
+                      </strong>
+                    </div>
 
-              {/* Data Prevista */}
-              <div style={{ minWidth: '130px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                <span style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Previsão
-                </span>
-                <strong style={{ color: 'var(--text-body)' }}>
-                  {obra.dataPrevista ? obra.dataPrevista.split('-').reverse().join('/') : 'Não informada'}
-                </strong>
-              </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <CalendarBlank size={15} color="var(--primary-accent)" weight="bold" />
+                      <strong style={{ color: 'var(--text-body)' }}>
+                        {obra.dataPrevista ? obra.dataPrevista.split('-').reverse().join('/') : 'Não informada'}
+                      </strong>
+                    </div>
+                  </div>
 
-              {/* Barra de Progresso Compacta */}
-              <div style={{ minWidth: '160px', flex: 0.8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
-                  <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
-                </div>
-                <div className="progress-strip-track" style={{ height: 5 }}>
-                  <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                  <span>{concluidas}/{totalTarefas} serviços</span>
-                </div>
-              </div>
+                  {/* Linha 2: Endereço completo com ação de copiar */}
+                  {obra.endereco ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        marginTop: 8,
+                        padding: '6px 10px',
+                        background: 'var(--dark-coffee-50)',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: '0.80rem',
+                        color: 'var(--text-muted)',
+                        width: '100%',
+                      }}
+                    >
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                        <MapPin size={15} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
+                        <span
+                          style={{
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            color: 'var(--text-body)',
+                          }}
+                          title={obra.endereco}
+                        >
+                          {obra.endereco}
+                        </span>
+                      </div>
 
-              {/* Ações */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {perfilAtivo !== 'cliente' && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteObraTarget({ id: obra.id, nome: obra.nome });
-                    }}
-                    className="btn-icon"
-                    style={{ color: 'var(--text-muted)' }}
-                    title="Excluir obra"
-                  >
-                    <Trash size={15} />
-                  </button>
-                )}
-                <div style={{ color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
-                  <ArrowRight size={18} weight="bold" />
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
+                        aria-label="Copiar endereço"
+                        style={{
+                          background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
+                          border: 'none',
+                          padding: '4px 6px',
+                          cursor: 'pointer',
+                          color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          borderRadius: 4,
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {copiedObraId === obra.id ? (
+                          <>
+                            <Check size={15} weight="bold" color="#16a34a" />
+                            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
+                          </>
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Barra de Progresso Compacta */}
+                <div style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
+                    <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
+                  </div>
+                  <div className="progress-strip-track" style={{ height: 5 }}>
+                    <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>{concluidas}/{totalTarefas} serviços</span>
+                  </div>
+                </div>
+
+                {/* Linha inferior com Ações (Lixeira e Seta) */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div>
+                    {perfilAtivo !== 'cliente' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteObraTarget({ id: obra.id, nome: obra.nome });
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="btn-icon"
+                        style={{ color: 'var(--text-muted)' }}
+                        title="Excluir obra"
+                      >
+                        <Trash size={15} />
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
+                    <ArrowRight size={18} weight="bold" />
+                  </div>
                 </div>
               </div>
-            </div>
+            </React.Fragment>
           );
         })}
       </div>

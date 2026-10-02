@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  HardHat,
+  List,
   User,
   Bell,
   BellRinging,
   PenNib,
-  Gear
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
+import { SandwichMenu, NotificacaoPendente } from './SandwichMenu';
+import { ModalConfiguracoesCliente } from './ModalConfiguracoesCliente';
 
 interface NavbarProps {
   currentObra: Obra | null;
@@ -18,6 +19,17 @@ interface NavbarProps {
   onNavigateToDecisao?: (obraId: string) => void;
   onOpenSettings?: () => void;
   isConfigOpen?: boolean;
+  onLogout?: () => void;
+  onOpenCreateObra?: () => void;
+  onOpenRegistroNota?: () => void;
+  userName?: string;
+  userEmail?: string;
+  userEmpresa?: string;
+  onSaveProfile?: (dados: { nome: string; email: string; empresa?: string }) => void;
+  isLogged?: boolean;
+  onOpenLogin?: () => void;
+  activeTab?: string;
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'compartilhar') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -28,24 +40,40 @@ export const Navbar: React.FC<NavbarProps> = ({
   obras,
   onNavigateToDecisao,
   onOpenSettings,
-  isConfigOpen = false,
+  onLogout,
+  onOpenCreateObra,
+  onOpenRegistroNota,
+  userName = '',
+  userEmail = '',
+  userEmpresa = '',
+  onSaveProfile,
+  isLogged = true,
+  onOpenLogin,
+  activeTab,
+  onChangeTab,
 }) => {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isConfigClienteOpen, setIsConfigClienteOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  // Fechar dropdown ao clicar fora
+  // Fecha o dropdown de notificações ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setIsNotifOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    if (isNotifOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotifOpen]);
 
   // Coleta todas as decisões pendentes da assinatura do perfil logado
-  const notificacoesPendentes: { obraId: string; obraNome: string; decisaoId: string; titulo: string; criadaPorNome: string }[] = [];
+  const notificacoesPendentes: NotificacaoPendente[] = [];
 
   obras.forEach((o) => {
     (o.decisoes || []).forEach((d) => {
@@ -66,95 +94,61 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        {/* Esquerda: Apenas Logotipo Limpo */}
-        <div
-          onClick={onBackToObras}
-          className="brand-logo"
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-        >
-          <img
-            src="/eixo-icon.jpg"
-            alt="Eixo"
+        {/* Canto Superior Esquerdo: Menu Hambúrguer (gatilho do drawer) + Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => setIsDrawerOpen(true)}
+            className="btn-icon"
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              objectFit: 'cover',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+              position: 'relative',
+              width: 38,
+              height: 38,
+              borderRadius: 'var(--radius-sm, 6px)',
+              border: '1px solid var(--border-hairline)',
+              background: '#ffffff',
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
-          />
-          <div>
-            <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
-              Eixo
-            </span>
-            <span style={{ display: 'block', fontSize: '0.70rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Canteiro & Decisões
-            </span>
+            title="Abrir menu de navegação"
+            aria-label="Abrir menu de navegação"
+          >
+            <List size={22} weight="bold" />
+          </button>
+
+          <div
+            onClick={onBackToObras}
+            className="brand-logo"
+            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
+          >
+            <img
+              src="/eixo-icon.jpg"
+              alt="Eixo"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 8,
+                objectFit: 'cover',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+              }}
+            />
+            <div>
+              <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
+                Eixo
+              </span>
+              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Canteiro & Decisões
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Direita: Controle de Perfil + Notificações */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Seletor de Perfil (Construtor vs Cliente) */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: 'var(--dark-coffee-50)',
-              padding: '3px',
-              borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border-hairline)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => onTogglePerfil('construtor')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'transparent',
-                color: perfilAtivo === 'construtor' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: perfilAtivo === 'construtor' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-              title="Acesso pleno à gestão técnica da obra"
-            >
-              <HardHat size={14} weight={perfilAtivo === 'construtor' ? 'fill' : 'bold'} />
-              <span>Construtor</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onTogglePerfil('cliente')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '5px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                background: perfilAtivo === 'cliente' ? 'var(--primary-accent)' : 'transparent',
-                color: perfilAtivo === 'cliente' ? '#ffffff' : 'var(--text-muted)',
-                boxShadow: perfilAtivo === 'cliente' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-              title="Visão do cliente para acompanhamento e aprovações"
-            >
-              <User size={14} weight={perfilAtivo === 'cliente' ? 'fill' : 'bold'} />
-              <span>Cliente</span>
-            </button>
-          </div>
-
+        {/* Canto Superior Direito: Notificações + Ícone de Perfil de Usuário */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Sininho de Notificações de Decisões */}
           <div style={{ position: 'relative' }} ref={notifRef}>
             <button
@@ -163,21 +157,29 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="btn-icon"
               style={{
                 position: 'relative',
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                border: '1px solid var(--border-hairline)',
+                background: isNotifOpen ? 'var(--dark-coffee-100)' : '#ffffff',
                 color: temNotificacoes ? 'var(--primary-accent)' : 'var(--text-muted)',
-                background: isNotifOpen ? 'var(--dark-coffee-100)' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
               title={
                 temNotificacoes
                   ? `${notificacoesPendentes.length} decisão(ões) aguardando sua assinatura`
                   : 'Nenhuma notificação no momento'
               }
+              aria-label="Notificações de Decisões"
             >
               {temNotificacoes ? (
-                <BellRinging size={19} weight="fill" />
+                <BellRinging size={20} weight="fill" />
               ) : (
-                <Bell size={19} />
+                <Bell size={20} weight="regular" />
               )}
 
               {/* Badge Contador */}
@@ -185,18 +187,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span
                   style={{
                     position: 'absolute',
-                    top: 4,
-                    right: 4,
-                    width: 16,
+                    top: 2,
+                    right: 2,
+                    minWidth: 16,
                     height: 16,
-                    borderRadius: '50%',
-                    background: 'var(--coral-glow-500)',
+                    borderRadius: 10,
+                    background: 'var(--coral-glow-500, #e05a47)',
                     color: '#ffffff',
                     fontSize: '0.65rem',
                     fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    padding: '0 4px',
                     boxShadow: '0 0 0 2px #ffffff',
                   }}
                 >
@@ -216,8 +219,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   width: 320,
                   background: '#ffffff',
                   border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-floating)',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
                   zIndex: 80,
                   overflow: 'hidden',
                   animation: 'modalIn 0.15s ease',
@@ -230,7 +233,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: 'var(--dark-coffee-50)',
+                    background: 'var(--dark-coffee-50, #fcfaf8)',
                   }}
                 >
                   <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
@@ -262,6 +265,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                           gap: 10,
                         }}
                         className="notif-dropdown-item"
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       >
                         <PenNib size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0, marginTop: 2 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -288,25 +293,64 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* Botão de Configurações / Templates (exclusivo para Construtor) */}
-          {perfilAtivo === 'construtor' && onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="btn-icon"
-              style={{
-                width: 36,
-                height: 36,
-                color: isConfigOpen ? 'var(--primary-accent)' : 'var(--text-muted)',
-                background: isConfigOpen ? 'var(--dark-coffee-100)' : 'transparent',
-              }}
-              title="Configurações gerais e modelos de etapas/tarefas"
-            >
-              <Gear size={19} weight={isConfigOpen ? 'fill' : 'bold'} />
-            </button>
-          )}
+          {/* Ícone de Perfil de Usuário (atalho para Configurações do Cliente) */}
+          <button
+            type="button"
+            onClick={() => setIsConfigClienteOpen(true)}
+            className="btn-icon"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              border: '1px solid var(--border-hairline)',
+              background: '#ffffff',
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Configurações do Cliente"
+            aria-label="Configurações do Cliente"
+          >
+            <User size={21} weight="regular" />
+          </button>
         </div>
       </div>
+
+      {/* Menu Lateral Esquerdo (Side Drawer) */}
+      <SandwichMenu
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        currentObra={currentObra}
+        activeTab={activeTab}
+        onChangeTab={onChangeTab}
+        notificacoes={notificacoesPendentes}
+        onNavigateToDecisao={onNavigateToDecisao}
+        onOpenCreateObra={onOpenCreateObra}
+        onOpenRegistroNota={onOpenRegistroNota}
+        onOpenSettings={onOpenSettings}
+        onBackToObras={onBackToObras}
+        perfilAtivo={perfilAtivo}
+        isLogged={isLogged}
+        onLogout={onLogout}
+        onOpenLogin={onOpenLogin}
+      />
+
+      {/* Modal de Configurações do Cliente */}
+      <ModalConfiguracoesCliente
+        isOpen={isConfigClienteOpen}
+        onClose={() => setIsConfigClienteOpen(false)}
+        perfilAtivo={perfilAtivo}
+        onTogglePerfil={onTogglePerfil}
+        userName={userName}
+        userEmail={userEmail}
+        userEmpresa={userEmpresa}
+        onSaveProfile={(dados) => {
+          if (onSaveProfile) onSaveProfile(dados);
+        }}
+      />
     </header>
   );
 };

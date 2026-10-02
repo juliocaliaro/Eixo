@@ -1,26 +1,29 @@
 import React, { useState } from 'react';
-import { Kanban, Scales, Image as ImageIcon, Plus, ArrowLeft, ShareNetwork, Blueprint } from '@phosphor-icons/react';
+import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint, PencilSimple } from '@phosphor-icons/react';
 import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
 import { VistoriaPunchList } from './VistoriaPunchList';
 import { DecisoesTab } from './DecisoesTab';
-import { AnexosTab } from './AnexosTab';
+import { DiarioObraTab } from './DiarioObraTab';
 import { ProjetosTab } from './ProjetosTab';
 import { ClientShareTab } from './ClientShareTab';
 import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
-import { ModalPreviewRelatorio } from './ModalPreviewRelatorio';
+
+const ModalPreviewRelatorio = React.lazy(() =>
+  import('./ModalPreviewRelatorio').then((m) => ({ default: m.ModalPreviewRelatorio }))
+);
 
 interface ObraDetailProps {
   obra: Obra;
   onUpdateObra: (updatedObra: Obra) => void;
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
   perfilAtivo?: PerfilUsuario;
-  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar';
-  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => void;
+  activeTab?: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar';
+  onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar') => void;
   onBackToObras?: () => void;
   onSwitchToClient?: () => void;
   templates?: PresetTipoObra[];
@@ -37,13 +40,17 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   onSwitchToClient,
   templates,
 }) => {
-  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'
-  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
-  const activeTab = activeTabProp || localActiveTab;
+  // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'
+  const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(
+    perfilAtivo === 'cliente' ? 'diario' : 'etapas'
+  );
+  const rawActiveTab = activeTabProp || localActiveTab;
+  const activeTab = rawActiveTab === 'anexos' ? 'diario' : rawActiveTab;
 
-  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar') => {
-    setLocalActiveTab(tab);
-    if (onChangeTab) onChangeTab(tab);
+  const handleSelectTab = (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar') => {
+    const canonicalTab = tab === 'anexos' ? 'diario' : tab;
+    setLocalActiveTab(canonicalTab);
+    if (onChangeTab) onChangeTab(canonicalTab);
   };
 
   // Navegação direta para uma tarefa vinda de outra aba (ex: Anexos)
@@ -101,6 +108,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
   // --- Handlers de Etapa ---
   const handleOpenWizard = (insertIndex: number | null = null) => {
+    if (perfilAtivo === 'cliente') return;
     setWizardInsertIndex(insertIndex);
     setIsWizardOpen(true);
   };
@@ -109,6 +117,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     novaEtapaData: { nome: string; tarefas: { nome: string }[]; tipoOrigem?: string },
     insertIndex?: number | null
   ) => {
+    if (perfilAtivo === 'cliente') return;
     const novaEtapa: Etapa = {
       id: `etapa_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       nome: novaEtapaData.nome,
@@ -490,9 +499,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
   return (
     <div>
-      {/* Botão Voltar no Corpo da Página */}
-      {onBackToObras && (
-        <div style={{ marginBottom: 14 }}>
+      {/* Barra Superior: Navegação e Ação de Edição */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 14,
+        }}
+      >
+        {onBackToObras ? (
           <button
             type="button"
             onClick={onBackToObras}
@@ -522,89 +538,139 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
             <ArrowLeft size={16} weight="bold" />
             <span>Todas as Obras</span>
           </button>
-        </div>
-      )}
+        ) : (
+          <div />
+        )}
 
-      {/* Header com Informações, Progresso e Botão de Editar */}
+        {/* Ação de Edição da Obra (alinhada à direita, apenas ícone de lápis) */}
+        {perfilAtivo === 'construtor' && (
+          <button
+            type="button"
+            onClick={() => setIsEditObraOpen(true)}
+            className="btn-icon"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 'var(--radius-sm, 6px)',
+              border: '1px solid var(--border-hairline)',
+              background: '#ffffff',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--primary-accent)';
+              e.currentTarget.style.borderColor = 'var(--primary-accent)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--text-muted)';
+              e.currentTarget.style.borderColor = 'var(--border-hairline)';
+            }}
+            title="Editar Obra"
+            aria-label="Editar Obra"
+          >
+            <PencilSimple size={18} weight="bold" />
+          </button>
+        )}
+      </div>
+
+      {/* Header com Informações e Progresso */}
       <ObraHeader
         obra={obra}
-        onEdit={() => setIsEditObraOpen(true)}
         onOpenRelatorio={() => setIsRelatorioOpen(true)}
         perfilAtivo={perfilAtivo}
       />
 
-      {/* Navegação por Abas: Etapas, Projetos, Decisões, Anexos, Link do Cliente */}
+      {/* Navegação por Abas:
+          Construtor: Etapas -> Arquivos -> Decisões -> Diário -> Compartilhar
+          Cliente: Diário -> Etapas -> Arquivos -> Decisões -> Compartilhar
+      */}
       <nav className="tabs-nav" aria-label="Abas da Obra">
-        <button
-          className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('etapas')}
-        >
-          <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
-          <span>Etapas & Cronograma</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('projetos')}
-        >
-          <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
-          <span>Projetos (PDF)</span>
-          {(obra.projetos || []).length > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {obra.projetos!.length}
-            </span>
-          )}
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'decisoes' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('decisoes')}
-          style={{ position: 'relative' }}
-        >
-          <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
-          <span>Decisões & Aprovações</span>
-          {pendenciasDecisao > 0 && (
-            <span
-              style={{
-                marginLeft: 4,
-                background: 'var(--coral-glow-500)',
-                color: '#ffffff',
-                fontSize: '0.68rem',
-                fontWeight: 800,
-                padding: '1px 6px',
-                borderRadius: 10,
-              }}
-            >
-              {pendenciasDecisao}
-            </span>
-          )}
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'anexos' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('anexos')}
-        >
-          <ImageIcon size={20} weight={activeTab === 'anexos' ? 'fill' : 'bold'} />
-          <span>Anexos & Diário</span>
-        </button>
-
-        <button
-          className={`tab-btn ${activeTab === 'compartilhar' ? 'active' : ''}`}
-          onClick={() => handleSelectTab('compartilhar')}
-        >
-          <ShareNetwork size={20} weight={activeTab === 'compartilhar' ? 'fill' : 'bold'} />
-          <span>Link do Cliente</span>
-        </button>
+        {(perfilAtivo === 'cliente'
+          ? (['diario', 'etapas', 'projetos', 'decisoes', 'compartilhar'] as const)
+          : (['etapas', 'projetos', 'decisoes', 'diario', 'compartilhar'] as const)
+        ).map((tabKey) => {
+          if (tabKey === 'diario') {
+            return (
+              <button
+                key="diario"
+                className={`tab-btn ${activeTab === 'diario' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('diario')}
+              >
+                <BookOpen size={20} weight={activeTab === 'diario' ? 'fill' : 'bold'} />
+                <span>Diário</span>
+              </button>
+            );
+          }
+          if (tabKey === 'etapas') {
+            return (
+              <button
+                key="etapas"
+                className={`tab-btn ${activeTab === 'etapas' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('etapas')}
+              >
+                <Kanban size={20} weight={activeTab === 'etapas' ? 'fill' : 'bold'} />
+                <span>Etapas</span>
+              </button>
+            );
+          }
+          if (tabKey === 'projetos') {
+            return (
+              <button
+                key="projetos"
+                className={`tab-btn ${activeTab === 'projetos' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('projetos')}
+              >
+                <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
+                <span>Arquivos</span>
+              </button>
+            );
+          }
+          if (tabKey === 'decisoes') {
+            return (
+              <button
+                key="decisoes"
+                className={`tab-btn ${activeTab === 'decisoes' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('decisoes')}
+                style={{ position: 'relative' }}
+              >
+                <Scales size={20} weight={activeTab === 'decisoes' ? 'fill' : 'bold'} />
+                <span>Decisões e Aprovações</span>
+                {pendenciasDecisao > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 4,
+                      background: 'var(--coral-glow-500)',
+                      color: '#ffffff',
+                      fontSize: '0.68rem',
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                    }}
+                  >
+                    {pendenciasDecisao}
+                  </span>
+                )}
+              </button>
+            );
+          }
+          if (tabKey === 'compartilhar') {
+            return (
+              <button
+                key="compartilhar"
+                className={`tab-btn ${activeTab === 'compartilhar' ? 'active' : ''}`}
+                onClick={() => handleSelectTab('compartilhar')}
+              >
+                <ShareNetwork size={20} weight={activeTab === 'compartilhar' ? 'fill' : 'bold'} />
+                <span>Compartilhar</span>
+              </button>
+            );
+          }
+          return null;
+        })}
       </nav>
 
       {/* Conteúdo da Aba Ativa */}
@@ -659,13 +725,14 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         />
       )}
 
-      {activeTab === 'anexos' && (
-        <AnexosTab
+      {activeTab === 'diario' && (
+        <DiarioObraTab
           obra={obra}
           perfilAtivo={perfilAtivo}
           onAddAnexoGeral={handleAddAnexoGeral}
           onDeleteAnexo={handleDeleteAnexoGeral}
           onNavigateToTask={handleNavigateToTask}
+          onNavigateToDecisoes={() => handleSelectTab('decisoes')}
           onUpdateTaskMedia={handleUpdateTaskMedia}
         />
       )}
@@ -687,7 +754,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       />
 
       <ModalCreateEtapaWizard
-        isOpen={isWizardOpen}
+        isOpen={isWizardOpen && perfilAtivo !== 'cliente'}
         onClose={() => {
           setIsWizardOpen(false);
           setWizardInsertIndex(null);
@@ -716,12 +783,16 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         onEmitirRelatorio={handleEmitirRelatorio}
       />
 
-      <ModalPreviewRelatorio
-        isOpen={isPreviewRelatorioOpen}
-        onClose={() => setIsPreviewRelatorioOpen(false)}
-        obra={obra}
-        autoPrint={autoPrintRelatorio}
-      />
+      {isPreviewRelatorioOpen && (
+        <React.Suspense fallback={null}>
+          <ModalPreviewRelatorio
+            isOpen={isPreviewRelatorioOpen}
+            onClose={() => setIsPreviewRelatorioOpen(false)}
+            obra={obra}
+            autoPrint={autoPrintRelatorio}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

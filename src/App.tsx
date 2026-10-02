@@ -1,43 +1,283 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto } from './types/obra';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
 import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
-import { ConfigTemplatesPage } from './components/ConfigTemplatesPage';
-import { PublicUploadProjetoPage } from './components/PublicUploadProjetoPage';
+import { ModalRegistroNota, NovaNotaData } from './components/ModalRegistroNota';
+import { LoginPage, UserRole } from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
+
+const ConfigTemplatesPage = React.lazy(() =>
+  import('./components/ConfigTemplatesPage').then((m) => ({ default: m.ConfigTemplatesPage }))
+);
+const PublicUploadProjetoPage = React.lazy(() =>
+  import('./components/PublicUploadProjetoPage').then((m) => ({ default: m.PublicUploadProjetoPage }))
+);
+const RegistroNotasPage = React.lazy(() =>
+  import('./components/RegistroNotasPage').then((m) => ({ default: m.RegistroNotasPage }))
+);
 
 export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
   const [templates, setTemplates] = useState<PresetTipoObra[]>(() => loadTemplatesFromStorage());
-  const [currentObraId, setCurrentObraId] = useState<string | null>(null);
+  const [currentObraId, setCurrentObraId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('obra');
+    } catch {
+      return null;
+    }
+  });
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
+  const [isRegistroNotaOpen, setIsRegistroNotaOpen] = useState(false);
+  const [notaPreselectedObraId, setNotaPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [perfilAtivo, setPerfilAtivo] = useState<PerfilUsuario>('construtor');
-  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'anexos' | 'compartilhar'>('etapas');
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(null);
+  const [isRegistroNotasPageOpen, setIsRegistroNotasPageOpen] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') === 'notas';
+    } catch {
+      return false;
+    }
+  });
 
-  // Sincronizar parâmetros de URL (ex: ?perfil=cliente&obra=... ou ?upload=projeto&obra=...)
-  useEffect(() => {
+  // Gerenciamento de Estado de Autenticação (Fake Login & Local State)
+  const [isLogged, setIsLogged] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('perfil') === 'cliente' || params.get('upload') === 'projeto') {
+        return true;
+      }
+      const stored = localStorage.getItem('eixo_auth_isLogged');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return false;
+  });
+
+  const [Role, setRole] = useState<UserRole>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const perfilParam = params.get('perfil');
-      const obraParam = params.get('obra');
-      const uploadParam = params.get('upload');
+      if (perfilParam === 'cliente') return 'Cliente';
+      if (perfilParam === 'construtor') return 'Construtor';
+      const stored = localStorage.getItem('eixo_auth_role') as UserRole;
+      if (stored === 'Cliente' || stored === 'Construtor') return stored;
+    } catch {}
+    return 'Construtor';
+  });
 
-      if (uploadParam === 'projeto' && obraParam) {
-        setPublicUploadObraId(obraParam);
-      }
-      if (perfilParam === 'cliente' || perfilParam === 'construtor') {
-        setPerfilAtivo(perfilParam);
-      }
-      if (obraParam) {
-        setCurrentObraId(obraParam);
+  const perfilAtivo: PerfilUsuario = Role.toLowerCase() as PerfilUsuario;
+
+  const setPerfilAtivo = (novo: PerfilUsuario) => {
+    const newRole: UserRole = novo === 'cliente' ? 'Cliente' : 'Construtor';
+    setRole(newRole);
+    try {
+      localStorage.setItem('eixo_auth_role', newRole);
+    } catch {}
+  };
+
+  // Dados Cadastrais do Perfil de Usuário (campos em branco por padrão)
+  const [userName, setUserName] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_auth_userName');
+      if (stored) return stored;
+    } catch {}
+    return '';
+  });
+
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_auth_userEmail');
+      if (stored) return stored;
+    } catch {}
+    return '';
+  });
+
+  const [userEmpresa, setUserEmpresa] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('eixo_empresa_cadastrada');
+      if (stored) return stored;
+    } catch {}
+    return '';
+  });
+
+  const handleSaveProfile = (dados: { nome: string; email: string; empresa?: string }) => {
+    setUserName(dados.nome);
+    setUserEmail(dados.email);
+    if (dados.empresa !== undefined) {
+      setUserEmpresa(dados.empresa);
+    }
+    try {
+      localStorage.setItem('eixo_auth_userName', dados.nome);
+      localStorage.setItem('eixo_auth_userEmail', dados.email);
+      if (dados.empresa !== undefined) {
+        localStorage.setItem('eixo_empresa_cadastrada', dados.empresa);
       }
     } catch {}
+    showToast(
+      'Perfil Atualizado',
+      'As configurações de perfil foram salvas com sucesso.',
+      'success'
+    );
+  };
+  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'anexos') return 'diario';
+      if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
+        return tabParam;
+      }
+      const perfilParam = params.get('perfil');
+      if (perfilParam === 'cliente') {
+        return 'diario';
+      }
+    } catch {}
+    return 'etapas';
+  });
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('upload') === 'projeto') {
+        return params.get('obra');
+      }
+    } catch {}
+    return null;
+  });
+
+  // Verificar reset/limpeza inicial de dados via parâmetro de URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const resetParam = params.get('reset') || params.get('limpar');
+      if (resetParam === 'true' || resetParam === '1') {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        // Em produção, exige confirmação para evitar perda acidental de dados através de link malicioso
+        const podeResetar = isLocalhost || window.confirm('Deseja realmente redefinir todos os dados locais do Eixo para o estado inicial?');
+        if (podeResetar) {
+          // Limpa estritamente as chaves gerenciadas pelo Eixo
+          ['eixo_obras_v1', 'eixo_templates_v1', 'eixo_empresa_cadastrada', 'eixo_public_upload_token'].forEach((k) => {
+            localStorage.removeItem(k);
+          });
+          sessionStorage.clear();
+          window.location.href = window.location.origin + window.location.pathname;
+          return;
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Sincronizar parâmetros de URL em tempo real para evitar perda de contexto ao dar F5
+  useEffect(() => {
+    if (publicUploadObraId) return;
+
+    try {
+      const url = new URL(window.location.href);
+      const prevSearch = url.search;
+
+      if (currentObraId) {
+        url.searchParams.set('obra', currentObraId);
+
+        if (perfilAtivo === 'cliente') {
+          url.searchParams.set('perfil', 'cliente');
+        } else {
+          url.searchParams.delete('perfil');
+        }
+
+        const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
+        if (activeTab && activeTab !== defaultTab) {
+          url.searchParams.set('tab', activeTab);
+        } else {
+          url.searchParams.delete('tab');
+        }
+      } else {
+        url.searchParams.delete('obra');
+        url.searchParams.delete('tab');
+        if (perfilAtivo === 'cliente') {
+          url.searchParams.set('perfil', 'cliente');
+        } else {
+          url.searchParams.delete('perfil');
+        }
+      }
+
+      if (isRegistroNotasPageOpen) {
+        url.searchParams.set('view', 'notas');
+      } else {
+        url.searchParams.delete('view');
+      }
+
+      if (url.search !== prevSearch) {
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId, isRegistroNotasPageOpen]);
+
+  // -------------------------------------------------------
+  // visualViewport: mantém --vvh sempre igual à altura real
+  // do viewport visível (fundamental para modais no mobile
+  // quando o teclado virtual encolhe a tela)
+  // -------------------------------------------------------
+  useEffect(() => {
+    const setVVH = () => {
+      const h = window.visualViewport
+        ? window.visualViewport.height
+        : window.innerHeight;
+      document.documentElement.style.setProperty('--vvh', `${h}px`);
+    };
+
+    setVVH(); // valor inicial
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', setVVH);
+      vv.addEventListener('scroll', setVVH);
+    } else {
+      window.addEventListener('resize', setVVH);
+    }
+
+    return () => {
+      const vv2 = window.visualViewport;
+      if (vv2) {
+        vv2.removeEventListener('resize', setVVH);
+        vv2.removeEventListener('scroll', setVVH);
+      } else {
+        window.removeEventListener('resize', setVVH);
+      }
+    };
+  }, []);
+
+  // Suporte a navegação nativa do navegador (botões Voltar e Avançar via popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const obraParam = params.get('obra');
+        const perfilParam = params.get('perfil');
+        const tabParam = params.get('tab');
+        const viewParam = params.get('view');
+
+        setIsRegistroNotasPageOpen(viewParam === 'notas');
+        setCurrentObraId(obraParam);
+        if (perfilParam === 'cliente' || perfilParam === 'construtor') {
+          setPerfilAtivo(perfilParam);
+        } else {
+          setPerfilAtivo('construtor');
+        }
+        if (tabParam === 'anexos') {
+          setActiveTab('diario');
+        } else if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
+          setActiveTab(tabParam);
+        } else {
+          setActiveTab(perfilParam === 'cliente' ? 'diario' : 'etapas');
+        }
+      } catch {}
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Salvar no localStorage sempre que obras mudarem
@@ -115,6 +355,42 @@ export const App: React.FC = () => {
     saveTemplatesToStorage(updated);
   };
 
+  // Navegação para dentro de uma obra
+  const handleSelectObra = (id: string) => {
+    setIsConfigOpen(false);
+    setCurrentObraId(id);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('obra', id);
+      if (perfilAtivo === 'cliente') {
+        url.searchParams.set('perfil', 'cliente');
+      } else {
+        url.searchParams.delete('perfil');
+      }
+      const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
+      if (activeTab && activeTab !== defaultTab) {
+        url.searchParams.set('tab', activeTab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+  };
+
+  // Voltar para a lista de obras
+  const handleBackToObras = () => {
+    setCurrentObraId(null);
+    setIsConfigOpen(false);
+    setIsRegistroNotasPageOpen(false);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('obra');
+      url.searchParams.delete('tab');
+      url.searchParams.delete('view');
+      window.history.pushState({}, '', url.toString());
+    } catch {}
+  };
+
   // Criar nova obra
   const handleCreateObra = (dados: {
     nome: string;
@@ -147,7 +423,7 @@ export const App: React.FC = () => {
     setObras(updated);
     setIsCreateObraOpen(false);
     // Já entra diretamente nos detalhes da obra recém criada!
-    setCurrentObraId(novaObra.id);
+    handleSelectObra(novaObra.id);
 
     showToast(
       'Obra criada com sucesso!',
@@ -158,6 +434,98 @@ export const App: React.FC = () => {
   // Atualizar dados de uma obra existente
   const handleUpdateObra = (updatedObra: Obra) => {
     setObras((prev) => prev.map((o) => (o.id === updatedObra.id ? updatedObra : o)));
+  };
+
+  // Controle de Registro de Notas
+  const handleOpenRegistroNota = (targetObraId?: string) => {
+    if (obras.length === 0) {
+      showToast(
+        'Nenhuma obra cadastrada',
+        'Cadastre uma obra antes de realizar o registro de notas.',
+        'warning'
+      );
+      return;
+    }
+    setNotaPreselectedObraId(targetObraId || currentObraId || undefined);
+    setIsRegistroNotaOpen(true);
+  };
+
+  const handleSaveNota = (dados: NovaNotaData) => {
+    const obraAlvo = obras.find((o) => o.id === dados.obraId);
+    if (!obraAlvo) return;
+
+    const novoRegistro: RegistroNota = {
+      id: `nota_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      obraId: dados.obraId,
+      fotos: dados.fotos,
+      titulo: dados.titulo,
+      observacoes: dados.observacoes,
+      criadoEm: new Date().toISOString(),
+    };
+
+    const updatedObra: Obra = {
+      ...obraAlvo,
+      notas: [novoRegistro, ...(obraAlvo.notas || [])],
+    };
+
+    handleUpdateObra(updatedObra);
+    setIsRegistroNotaOpen(false);
+
+    showToast(
+      'Nota Registrada!',
+      `A nota foi anexada com sucesso à obra "${obraAlvo.nome}".`,
+      'success'
+    );
+
+    // Se estiver na visão geral de obras, navega diretamente para os detalhes da obra no diário
+    if (!currentObraId || currentObraId !== dados.obraId) {
+      handleSelectObra(dados.obraId);
+      setActiveTab('diario');
+    }
+  };
+
+  // Simulação de Autenticação (Fake Login & Cadastro)
+  const handleLogin = (
+    selectedRole: UserRole,
+    emailDigitado?: string,
+    nomeDigitado?: string,
+    empresaDigitada?: string
+  ) => {
+    setIsLogged(true);
+    setRole(selectedRole);
+    setCurrentObraId(null); // Redireciona para a Home
+    setIsConfigOpen(false);
+    const emailToSet = emailDigitado || (selectedRole === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
+    const nomeToSet = nomeDigitado || (selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes');
+    setUserEmail(emailToSet);
+    setUserName(nomeToSet);
+    if (empresaDigitada) {
+      setUserEmpresa(empresaDigitada);
+    }
+    try {
+      localStorage.setItem('eixo_auth_isLogged', 'true');
+      localStorage.setItem('eixo_auth_role', selectedRole);
+      localStorage.setItem('eixo_auth_userEmail', emailToSet);
+      localStorage.setItem('eixo_auth_userName', nomeToSet);
+      if (empresaDigitada) {
+        localStorage.setItem('eixo_empresa_cadastrada', empresaDigitada);
+      }
+    } catch {}
+    showToast(
+      nomeDigitado ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!',
+      `Bem-vindo ao Eixo, ${nomeToSet} (${selectedRole}).`,
+      'success'
+    );
+  };
+
+  const handleLogout = () => {
+    setIsLogged(false);
+    setCurrentObraId(null);
+    setIsConfigOpen(false);
+    try {
+      localStorage.setItem('eixo_auth_isLogged', 'false');
+    } catch {}
+    showToast('Sessão encerrada', 'Você saiu do sistema.', 'info');
   };
 
   // Carregar Obra de Demonstração (atende o exemplo exato: 2 etapas com 2 tarefas cada = 25% por tarefa)
@@ -302,18 +670,30 @@ export const App: React.FC = () => {
         },
       ],
       punchList: [],
+      notas: [
+        {
+          id: 'nota_demo_1',
+          obraId: `obra_demo_${Date.now()}`,
+          titulo: 'NF 48.912 - Depósito São Paulo',
+          observacoes: 'Entrega de cimento e areia lavada conferida no canteiro.',
+          fotos: [
+            'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=600&auto=format&fit=crop&q=80',
+          ],
+          criadoEm: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+        },
+      ],
     };
 
     setObras([demoObra, ...obras]);
-    setCurrentObraId(demoObra.id);
-    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, decisões e a nova aba de Projetos (PDF).');
+    handleSelectObra(demoObra.id);
+    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, arquivos, decisões e o diário.');
   };
 
   // Excluir obra
   const handleDeleteObra = (obraId: string) => {
     setObras((prev) => prev.filter((o) => o.id !== obraId));
     if (currentObraId === obraId) {
-      setCurrentObraId(null);
+      handleBackToObras();
     }
   };
 
@@ -371,24 +751,39 @@ export const App: React.FC = () => {
     if (obraDestino) {
       return (
         <div className="app-container">
-          <PublicUploadProjetoPage
-            obra={obraDestino}
-            onUploadProjeto={handlePublicUploadProjeto}
-            onBackToApp={() => {
-              setPublicUploadObraId(null);
-              setCurrentObraId(obraDestino.id);
-              setActiveTab('projetos');
-              try {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('upload');
-                window.history.replaceState({}, '', url.toString());
-              } catch {}
-            }}
-          />
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando tela de envio...</div>}>
+            <PublicUploadProjetoPage
+              obra={obraDestino}
+              onUploadProjeto={handlePublicUploadProjeto}
+              onBackToApp={() => {
+                setPublicUploadObraId(null);
+                setCurrentObraId(obraDestino.id);
+                setActiveTab('projetos');
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('upload');
+                  window.history.replaceState({}, '', url.toString());
+                } catch {}
+              }}
+            />
+          </React.Suspense>
           <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
         </div>
       );
     }
+  }
+
+  // Se o usuário não estiver logado, exibe a tela de login
+  if (!isLogged) {
+    return (
+      <div className="login-screen-wrapper">
+        <LoginPage
+          onLogin={handleLogin}
+          initialRole={Role}
+        />
+        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+      </div>
+    );
   }
 
   // Obra atualmente aberta
@@ -399,15 +794,17 @@ export const App: React.FC = () => {
       {/* Barra de Navegação Superior com Perfis e Notificações */}
       <Navbar
         currentObra={currentObra}
-        onBackToObras={() => {
-          setCurrentObraId(null);
-          setIsConfigOpen(false);
-        }}
+        onBackToObras={handleBackToObras}
         perfilAtivo={perfilAtivo}
         onTogglePerfil={(novo) => {
           setPerfilAtivo(novo);
           if (novo === 'cliente' && isConfigOpen) {
             setIsConfigOpen(false);
+          }
+          if (novo === 'cliente' && activeTab === 'etapas') {
+            setActiveTab('diario');
+          } else if (novo === 'construtor' && activeTab === 'diario') {
+            setActiveTab('etapas');
           }
           showToast(
             `Perfil alterado para ${novo === 'construtor' ? 'Construtor' : 'Cliente'}`,
@@ -418,37 +815,60 @@ export const App: React.FC = () => {
         obras={obras}
         onNavigateToDecisao={(obraId) => {
           setIsConfigOpen(false);
-          setCurrentObraId(obraId);
+          handleSelectObra(obraId);
           setActiveTab('decisoes');
         }}
         onOpenSettings={() => {
           setIsConfigOpen((prev) => !prev);
         }}
         isConfigOpen={isConfigOpen}
+        onLogout={handleLogout}
+        onOpenCreateObra={() => setIsCreateObraOpen(true)}
+        onOpenRegistroNota={() => {
+          setIsConfigOpen(false);
+          setIsRegistroNotasPageOpen(true);
+        }}
+        userName={userName}
+        userEmail={userEmail}
+        userEmpresa={userEmpresa}
+        onSaveProfile={handleSaveProfile}
+        isLogged={isLogged}
+        onOpenLogin={() => setIsLogged(false)}
+        activeTab={activeTab}
+        onChangeTab={(t) => setActiveTab(t)}
       />
 
       {/* Conteúdo Principal */}
       <main className="main-content">
         {isConfigOpen ? (
-          <ConfigTemplatesPage
-            templates={templates}
-            onUpdateTemplates={handleUpdateTemplates}
-            onBack={() => setIsConfigOpen(false)}
-            showToast={showToast}
-          />
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando modelos de obra...</div>}>
+            <ConfigTemplatesPage
+              templates={templates}
+              onUpdateTemplates={handleUpdateTemplates}
+              onBack={() => setIsConfigOpen(false)}
+              showToast={showToast}
+            />
+          </React.Suspense>
+        ) : isRegistroNotasPageOpen ? (
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de notas...</div>}>
+            <RegistroNotasPage
+              obras={obras}
+              onUpdateObra={handleUpdateObra}
+              onBack={() => setIsRegistroNotasPageOpen(false)}
+              showToast={showToast}
+              perfilAtivo={perfilAtivo}
+            />
+          </React.Suspense>
         ) : !currentObra ? (
           /* Visão Externa: Empty State ou Lista de Obras */
           <ObraList
             obras={obras}
-            onSelectObra={(id) => {
-              setIsConfigOpen(false);
-              setCurrentObraId(id);
-            }}
+            onSelectObra={handleSelectObra}
             onOpenCreateModal={() => setIsCreateObraOpen(true)}
             onDeleteObra={handleDeleteObra}
             onLoadDemo={handleLoadDemo}
             perfilAtivo={perfilAtivo}
-            onOpenSettings={() => setIsConfigOpen(true)}
+            onOpenSettings={Role === 'Construtor' ? () => setIsConfigOpen(true) : undefined}
           />
         ) : (
           /* Visão Interna: Detalhes da Obra com Abas e Timeline */
@@ -459,9 +879,12 @@ export const App: React.FC = () => {
             perfilAtivo={perfilAtivo}
             activeTab={activeTab}
             onChangeTab={(t) => setActiveTab(t)}
-            onBackToObras={() => setCurrentObraId(null)}
+            onBackToObras={handleBackToObras}
             onSwitchToClient={() => {
               setPerfilAtivo('cliente');
+              if (activeTab === 'etapas') {
+                setActiveTab('diario');
+              }
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
             templates={templates}
@@ -474,6 +897,15 @@ export const App: React.FC = () => {
         isOpen={isCreateObraOpen}
         onClose={() => setIsCreateObraOpen(false)}
         onSubmit={handleCreateObra}
+      />
+
+      {/* Modal de Registro de Notas */}
+      <ModalRegistroNota
+        isOpen={isRegistroNotaOpen}
+        onClose={() => setIsRegistroNotaOpen(false)}
+        obras={obras}
+        preselectedObraId={notaPreselectedObraId}
+        onSave={handleSaveNota}
       />
 
       {/* Notificações Toast Flutuantes */}

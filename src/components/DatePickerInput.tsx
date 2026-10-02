@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CalendarBlank, CaretLeft, CaretRight, X } from '@phosphor-icons/react';
+import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 interface DatePickerInputProps {
   value: string; // Formato YYYY-MM-DD
@@ -8,6 +8,7 @@ interface DatePickerInputProps {
   label?: string;
   helperText?: string;
   required?: boolean;
+  autoScrollOnMobile?: boolean;
 }
 
 /**
@@ -69,12 +70,25 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   onChange,
   minDate,
   label = 'Data Prevista de Conclusão',
-  helperText = 'Permitido apenas datas futuras (a partir de amanhã).',
+  helperText = 'Informe a previsão de conclusão da obra (DD/MM/AAAA).',
   required = false,
+  autoScrollOnMobile = true,
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [textoBr, setTextoBr] = useState<string>(() => isoToBr(value));
   const [avisoErro, setAvisoErro] = useState<string>('');
+
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Mês e ano em visualização no calendário customizado
   const [viewDate, setViewDate] = useState<Date>(() => {
@@ -91,6 +105,24 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const calendarPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll exclusivo para mobile ao abrir o pop-up
+  useEffect(() => {
+    if (isCalendarOpen && autoScrollOnMobile && isMobile) {
+      const timer = setTimeout(() => {
+        if (calendarPopoverRef.current) {
+          calendarPopoverRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          });
+
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isCalendarOpen, autoScrollOnMobile, isMobile]);
 
   // Sincronizar texto quando o valor externo mudar
   useEffect(() => {
@@ -105,7 +137,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   }, [value]);
 
-  // Fechar calendário ao clicar fora ou pressionar ESC
+  // Click outside & Escape key listeners para fechar o pop-up
   useEffect(() => {
     if (!isCalendarOpen) return;
 
@@ -117,20 +149,22 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.stopPropagation();
         setIsCalendarOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isCalendarOpen]);
+
 
   // Manipular digitação manual no input (SEM disparar clique nem abrir picker)
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,7 +188,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         setAvisoErro('Dia inválido.');
         return;
       }
-      if (ano < 2024 || ano > 2100) {
+      if (ano < 1900 || ano > 2100) {
         setAvisoErro('Ano inválido.');
         return;
       }
@@ -171,7 +205,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
 
       const iso = brToIso(formatado);
       if (minDate && iso < minDate) {
-        setAvisoErro('A data deve ser futura (a partir de amanhã).');
+        setAvisoErro('A data não pode ser anterior à data mínima permitida.');
         return;
       }
 
@@ -200,7 +234,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   // Selecionar dia no calendário customizado
   const handleSelectDate = (iso: string) => {
     if (minDate && iso < minDate) {
-      setAvisoErro('A data deve ser futura (a partir de amanhã).');
+      setAvisoErro('A data não pode ser anterior à data mínima permitida.');
       return;
     }
     setAvisoErro('');
@@ -268,10 +302,10 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       className="date-picker-custom"
       style={{
         position: 'relative',
-        marginBottom: isCalendarOpen ? 24 : 16,
-        transition: 'margin-bottom 0.2s ease',
+        marginBottom: 16,
       }}
     >
+
       {/* Rótulo com Data Amigável */}
       <div
         style={{
@@ -352,27 +386,29 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         >
           <CalendarBlank size={19} weight={isCalendarOpen ? 'fill' : 'bold'} />
         </button>
-      </div>
 
-      {/* Popover do Calendário Customizado em React */}
-      {isCalendarOpen && (
-        <div
-          role="dialog"
-          aria-label="Calendário"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            zIndex: 1050,
-            width: '290px',
-            background: '#ffffff',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-floating)',
-            padding: '14px',
-            animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-        >
+        {/* Pop-up do Calendário Customizado (Aberto para Cima) */}
+        {isCalendarOpen && (
+          <div
+            ref={calendarPopoverRef}
+            role="dialog"
+            aria-label="Calendário"
+            style={{
+              position: 'absolute',
+              bottom: 'calc(100% + 6px)',
+              left: 0,
+              zIndex: 1050,
+              width: '296px',
+              maxWidth: '100%',
+              background: '#ffffff',
+              border: '1px solid var(--border-hairline)',
+              borderRadius: 'var(--radius-md, 10px)',
+              boxShadow: '0 -10px 28px -4px rgba(26, 19, 10, 0.16), 0 -4px 12px -2px rgba(26, 19, 10, 0.08)',
+              padding: '14px',
+              animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+
           {/* Header do Calendário: Navegação de Mês */}
           <div
             style={{
@@ -506,7 +542,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                   opacity: isDisabled ? 0.35 : 1,
                   transition: 'all 0.12s ease',
                 }}
-                title={isDisabled ? 'Data não permitida (deve ser futura)' : isoToBr(iso)}
+                title={isDisabled ? 'Data não permitida (anterior à data mínima)' : isoToBr(iso)}
               >
                 {dia}
               </button>
@@ -579,6 +615,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
           </div>
         </div>
       )}
+      </div>
+
 
       {/* Mensagem de Erro de Validação de Data */}
       {avisoErro && (

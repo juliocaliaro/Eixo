@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ArrowRight,
@@ -44,6 +44,16 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   const [tarefasSelecionadas, setTarefasSelecionadas] = useState<{ id: string; nome: string; checked: boolean }[]>([]);
   const [novaTarefaTexto, setNovaTarefaTexto] = useState('');
   const [erroMsg, setErroMsg] = useState('');
+
+  // Fechar com tecla Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

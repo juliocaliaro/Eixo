@@ -13,7 +13,6 @@ import {
   Eye,
   Check
 } from '@phosphor-icons/react';
-import confetti from 'canvas-confetti';
 import { Obra, Etapa, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
 import { ModalConfirm } from './ModalConfirm';
@@ -51,13 +50,27 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   isReadOnly = false,
   targetTaskNavigation,
 }) => {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>(() => {
+    const mobile = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
     const initial: { [key: string]: boolean } = {};
     obra.etapas.forEach((e) => {
-      initial[e.id] = true;
+      initial[e.id] = !mobile;
     });
     return initial;
   });
+
 
   const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
@@ -158,11 +171,15 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   };
 
   const toggleAccordion = (etapaId: string) => {
-    setOpenAccordions((prev) => ({
-      ...prev,
-      [etapaId]: !prev[etapaId],
-    }));
+    setOpenAccordions((prev) => {
+      const current = prev[etapaId] ?? (!isMobile);
+      return {
+        ...prev,
+        [etapaId]: !current,
+      };
+    });
   };
+
 
   const handleQuickAddTask = (etapaId: string) => {
     const text = newTaskInput[etapaId]?.trim();
@@ -226,12 +243,29 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
           Nenhuma etapa no cronograma
         </h2>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto 18px auto' }}>
-          Adicione etapas para estruturar a execução e acompanhar os serviços diários.
+          {isReadOnly
+            ? 'Aguardando o construtor cadastrar as etapas deste cronograma para acompanhamento.'
+            : 'Adicione etapas para estruturar a execução e acompanhar os serviços diários.'}
         </p>
-        <button onClick={() => onOpenWizard(null)} className="btn-primary">
-          <Plus size={16} weight="bold" />
-          <span>Adicionar Etapa</span>
-        </button>
+        {!isReadOnly ? (
+          <button onClick={() => onOpenWizard(null)} className="btn-primary">
+            <Plus size={16} weight="bold" />
+            <span>Adicionar Etapa</span>
+          </button>
+        ) : (
+          <span
+            className="timeline-badge"
+            style={{
+              background: 'var(--coral-glow-100)',
+              color: 'var(--coral-glow-700)',
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+            }}
+          >
+            Modo de Acompanhamento (Leitura)
+          </span>
+        )}
       </div>
     );
   }
@@ -241,14 +275,9 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
       {/* Título de Seção */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
             Cronograma Físico
           </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {isReadOnly
-              ? 'Acompanhe as etapas, serviços e fotos do diário de obra em tempo real.'
-              : 'Arraste pelo ícone ⋮⋮ para reordenar etapas e serviços'}
-          </p>
         </div>
 
         {isReadOnly ? (
@@ -279,8 +308,9 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
         <div className="timeline-items-flow">
           {obra.etapas.map((etapa, etapaIndex) => {
-            const isOpen = openAccordions[etapa.id] ?? true;
+            const isOpen = openAccordions[etapa.id] ?? (!isMobile);
             const totalTarefas = etapa.tarefas.length;
+
             const concluidas = etapa.tarefas.filter((t) => t.concluida).length;
             const todasConcluidas = totalTarefas > 0 && concluidas === totalTarefas;
             const percEtapa = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
@@ -312,7 +342,17 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                     {/* Header da Etapa */}
                     <div
                       className="timeline-item-header"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isOpen}
                       onClick={() => toggleAccordion(etapa.id)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleAccordion(etapa.id);
+                        }
+                      }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                         {/* Drag Handle da Etapa */}
@@ -321,6 +361,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             draggable
                             onDragStart={(e) => handleEtapaDragStart(e, etapaIndex)}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                             className="drag-handle-grip"
                             title="Arrastar para reordenar etapa"
                           >
@@ -372,6 +413,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                           <div
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
                           >
                             <button
                               type="button"
@@ -458,9 +500,12 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                         if (isReadOnly) return;
                                         onToggleTask(etapa.id, tarefa.id);
                                         if (!tarefa.concluida) {
-                                          try {
-                                            confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
-                                          } catch {}
+                                          import('canvas-confetti')
+                                            .then((confettiModule) => {
+                                              const fire = confettiModule.default || confettiModule;
+                                              fire({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
+                                            })
+                                            .catch(() => {});
                                         }
                                       }}
                                       title={isReadOnly ? 'Status gerenciado pelo construtor (somente leitura)' : tarefa.concluida ? 'Desmarcar' : 'Concluir'}

@@ -98,7 +98,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
           <button
             type="button"
             onClick={onSwitchToClient}
-            className="btn-secondary"
+            className="btn-secondary share-testar-cliente-btn"
             style={{
               padding: '9px 14px',
               fontSize: '0.84rem',
@@ -113,6 +113,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
             <span>Testar Visão do Cliente</span>
           </button>
         )}
+
       </div>
 
       {/* Como funciona o acesso */}
