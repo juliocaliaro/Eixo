@@ -539,29 +539,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <ArrowRight size={16} weight="bold" />
               </button>
 
-              {/* Link Alternativo para Cadastro */}
-              <div style={{ textAlign: 'center', marginTop: 4 }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Ainda não possui uma conta?{' '}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleAlternarModo('cadastro')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    color: 'var(--primary-accent)',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Cadastre-se gratuitamente
-                </button>
-              </div>
-
               {/* Atalhos Rápidos para Demonstração */}
               <div
                 style={{
@@ -809,29 +786,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <UserPlus size={16} weight="bold" />
                 <span>Criar Conta e Acessar</span>
               </button>
-
-              {/* Link Alternativo para Entrar */}
-              <div style={{ textAlign: 'center', marginTop: 4 }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Já possui uma conta cadastrada?{' '}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleAlternarModo('login')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    color: 'var(--primary-accent)',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  Fazer Login
-                </button>
-              </div>
 
               <div
                 style={{
