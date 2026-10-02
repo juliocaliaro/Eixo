@@ -437,11 +437,13 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Remoção de Dentro da Obra**: O botão "Registrar Material" foi removido da barra superior do Diário de Obra (`DiarioObraTab.tsx`) e desacoplado dos detalhes da obra (`ObraDetail.tsx`).
 - **Acesso Único e Centralizado**: A ação reside exclusivamente no menu lateral (`SandwichMenu.tsx`), preservando uma visualização mais limpa do canteiro físico e evitando redundância de botões dentro da obra.
 
-### 22.8 Calendário em Formato Pop-up (Popover Ancorado)
-- **Formato Pop-up Ancorado (`DatePickerInput.tsx`)**: O calendário opera como pop-up/popover flutuante posicionado diretamente sob o campo de texto (`top: calc(100% + 6px); z-index: 1050`), eliminando modais intrusivos de tela cheia.
+### 22.8 Calendário em Formato Pop-up Aberto para Cima (Dropup Ancorado)
+- **Abertura Superior Ancorada (`DatePickerInput.tsx`)**: O calendário opera como pop-up flutuante que abre **para cima** diretamente sobre o campo de texto (`bottom: calc(100% + 6px); z-index: 1050`), aproveitando a área útil superior dos formulários e modais e eliminando qualquer risco de corte pelo rodapé.
+- **Sombra de Elevação Superior**: Sombra personalizada projetada para cima (`0 -10px 28px -4px rgba(26, 19, 10, 0.16)`), mantendo o input original 100% visível enquanto a seleção de data ocorre.
 - **Fechamento e Acessibilidade**: Fechamento automático ao clicar fora (`mousedown`/`touchstart`), ao pressionar a tecla `Escape` ou ao selecionar um dia.
-- **Scroll Suave e Ergonomia Mobile**: Com `autoScrollOnMobile: true` por padrão, a abertura no smartphone expande a margem inferior e executa rolagem suave automática (`scrollIntoView`) para garantir visibilidade total sem cortes.
+- **Scroll Suave e Ergonomia Mobile**: Com `autoScrollOnMobile: true` por padrão, a abertura no smartphone executa rolagem suave automática (`scrollIntoView({ block: 'nearest' })`) para garantir visibilidade desimpedida.
 - **Controles Rápidos**: Mantém navegação fluida de meses (`<CaretLeft />`, `<CaretRight />`), grade de dias com destaque para "hoje" e data selecionada, além de atalhos rápidos (`+30 dias`, `+60 dias`, `+90 dias`).
+
 
 ### 22.9 Painel Financeiro & Aditivos Contratuais (Accordion Exclusivo no Mobile)
 - **Comportamento Mobile (`.painel-financeiro-mobile`)**:

@@ -114,9 +114,10 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         if (calendarPopoverRef.current) {
           calendarPopoverRef.current.scrollIntoView({
             behavior: 'smooth',
-            block: 'end',
+            block: 'nearest',
             inline: 'nearest',
           });
+
         }
       }, 100);
       return () => clearTimeout(timer);
@@ -301,8 +302,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       className="date-picker-custom"
       style={{
         position: 'relative',
-        marginBottom: isCalendarOpen ? (autoScrollOnMobile && isMobile ? 330 : 20) : 16,
-        transition: 'margin-bottom 0.2s ease',
+        marginBottom: 16,
       }}
     >
 
@@ -386,29 +386,29 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
         >
           <CalendarBlank size={19} weight={isCalendarOpen ? 'fill' : 'bold'} />
         </button>
-      </div>
 
-      {/* Pop-up do Calendário Customizado (Popover) */}
-      {isCalendarOpen && (
-        <div
-          ref={calendarPopoverRef}
-          role="dialog"
-          aria-label="Calendário"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            left: 0,
-            zIndex: 1050,
-            width: '296px',
-            maxWidth: '100%',
-            background: '#ffffff',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-md, 10px)',
-            boxShadow: '0 12px 28px -4px rgba(26, 19, 10, 0.16), 0 4px 12px -2px rgba(26, 19, 10, 0.08)',
-            padding: '14px',
-            animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
-        >
+        {/* Pop-up do Calendário Customizado (Aberto para Cima) */}
+        {isCalendarOpen && (
+          <div
+            ref={calendarPopoverRef}
+            role="dialog"
+            aria-label="Calendário"
+            style={{
+              position: 'absolute',
+              bottom: 'calc(100% + 6px)',
+              left: 0,
+              zIndex: 1050,
+              width: '296px',
+              maxWidth: '100%',
+              background: '#ffffff',
+              border: '1px solid var(--border-hairline)',
+              borderRadius: 'var(--radius-md, 10px)',
+              boxShadow: '0 -10px 28px -4px rgba(26, 19, 10, 0.16), 0 -4px 12px -2px rgba(26, 19, 10, 0.08)',
+              padding: '14px',
+              animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+
           {/* Header do Calendário: Navegação de Mês */}
           <div
             style={{
@@ -615,6 +615,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
           </div>
         </div>
       )}
+      </div>
+
 
       {/* Mensagem de Erro de Validação de Data */}
       {avisoErro && (
