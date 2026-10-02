@@ -52,25 +52,7 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
     <div className="obra-header-panel">
       <div className="obra-header-top">
         <div className="obra-title-block">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.8px',
-                color: isConcluida ? '#16a34a' : 'var(--primary-accent)',
-              }}
-            >
-              {isConcluida ? 'Obra Concluída' : 'Obra Ativa'}
-            </span>
-            <span style={{ color: 'var(--border-hairline)' }}>•</span>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              {obra.etapas.length} {obra.etapas.length === 1 ? 'etapa' : 'etapas'} no cronograma
-            </span>
-          </div>
-
-          <h1 style={{ marginTop: 4 }}>{obra.nome}</h1>
+          <h1 style={{ margin: 0 }}>{obra.nome}</h1>
 
           {/* Faixa de Metadados Diretos */}
           <div className="obra-meta-strip">
