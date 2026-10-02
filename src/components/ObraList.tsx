@@ -231,79 +231,57 @@ export const ObraList: React.FC<ObraListProps> = ({
                       {obra.etapas.length} etapas
                     </span>
                   </div>
-                  <div
-                    style={{
-                      fontSize: '0.82rem',
-                      color: 'var(--text-muted)',
-                      marginTop: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      minWidth: 0,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <span style={{ flexShrink: 0 }}>
-                      Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong>
-                    </span>
-                    {obra.endereco && (
-                      <>
-                        <span style={{ color: 'var(--border-hairline)', flexShrink: 0 }}>•</span>
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            minWidth: 0,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <span
-                            style={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              color: 'var(--text-muted)',
-                            }}
-                            title={obra.endereco}
-                          >
-                            {obra.endereco}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
-                            onKeyDown={(e) => e.stopPropagation()}
-                            title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
-                            aria-label="Copiar endereço"
-                            style={{
-                              background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
-                              border: 'none',
-                              padding: '2px 4px',
-                              cursor: 'pointer',
-                              color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 3,
-                              borderRadius: 3,
-                              flexShrink: 0,
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            {copiedObraId === obra.id ? (
-                              <>
-                                <Check size={14} weight="bold" color="#16a34a" />
-                                <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
-                              </>
-                            ) : (
-                              <Copy size={14} />
-                            )}
-                          </button>
-                        </div>
-                      </>
-                    )}
+                  {/* Linha do Cliente */}
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
                   </div>
+
+                  {/* Linha do Endereço por inteiro com ícone de copiar */}
+                  {obra.endereco && (
+                    <div
+                      style={{
+                        fontSize: '0.82rem',
+                        color: 'var(--text-muted)',
+                        marginTop: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>{obra.endereco}</span>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
+                        aria-label="Copiar endereço"
+                        style={{
+                          background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
+                          border: 'none',
+                          padding: '2px 4px',
+                          cursor: 'pointer',
+                          color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          borderRadius: 3,
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {copiedObraId === obra.id ? (
+                          <>
+                            <Check size={14} weight="bold" color="#16a34a" />
+                            <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
+                          </>
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Data Prevista */}
