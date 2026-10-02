@@ -206,7 +206,7 @@ export const ObraList: React.FC<ObraListProps> = ({
                 }}
               >
                 {/* Identificação da Obra */}
-                <div style={{ minWidth: '220px', flex: 1.2 }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span
                       style={{
@@ -231,15 +231,83 @@ export const ObraList: React.FC<ObraListProps> = ({
                       {obra.etapas.length} etapas
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 12 }}>
-                    <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
-                    <span>•</span>
-                    <span>{obra.endereco}</span>
+                  <div
+                    style={{
+                      fontSize: '0.82rem',
+                      color: 'var(--text-muted)',
+                      marginTop: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minWidth: 0,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <span style={{ flexShrink: 0 }}>
+                      Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong>
+                    </span>
+                    {obra.endereco && (
+                      <>
+                        <span style={{ color: 'var(--border-hairline)', flexShrink: 0 }}>•</span>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: 'var(--text-muted)',
+                            }}
+                            title={obra.endereco}
+                          >
+                            {obra.endereco}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
+                            aria-label="Copiar endereço"
+                            style={{
+                              background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
+                              border: 'none',
+                              padding: '2px 4px',
+                              cursor: 'pointer',
+                              color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 3,
+                              borderRadius: 3,
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            {copiedObraId === obra.id ? (
+                              <>
+                                <Check size={14} weight="bold" color="#16a34a" />
+                                <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
+                              </>
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Data Prevista */}
-                <div style={{ minWidth: '130px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                <div style={{ width: '130px', flexShrink: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   <span style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Previsão
                   </span>
@@ -249,7 +317,7 @@ export const ObraList: React.FC<ObraListProps> = ({
                 </div>
 
                 {/* Barra de Progresso Compacta */}
-                <div style={{ minWidth: '160px', flex: 0.8 }}>
+                <div style={{ width: '170px', flexShrink: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
                     <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
                     <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
@@ -263,7 +331,7 @@ export const ObraList: React.FC<ObraListProps> = ({
                 </div>
 
                 {/* Ações */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   {perfilAtivo !== 'cliente' && (
                     <button
                       type="button"
