@@ -2222,3 +2222,28 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   CABEÇALHO DA OBRA: METADADOS RESPONSIVOS (DESKTOP VS MOBILE)
+   ======================================================== */
+.obra-meta-desktop {
+  display: flex;
+}
+
+.obra-meta-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .obra-meta-desktop {
+    display: none !important;
+  }
+
+  .obra-meta-mobile {
+    display: flex !important;
+    flex-direction: column;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+}
+

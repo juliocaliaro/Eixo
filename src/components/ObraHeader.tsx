@@ -54,8 +54,8 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
         <div className="obra-title-block">
           <h1 style={{ margin: 0 }}>{obra.nome}</h1>
 
-          {/* Faixa de Metadados Diretos */}
-          <div className="obra-meta-strip">
+          {/* Faixa de Metadados Diretos - Versão Desktop (inalterada) */}
+          <div className="obra-meta-strip obra-meta-desktop">
             <div className="obra-meta-item">
               <User size={16} color="var(--primary-accent)" weight="bold" />
               <span>Cliente: <strong>{obra.cliente}</strong></span>
@@ -90,6 +90,35 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Faixa de Metadados Diretos - Versão Mobile (exclusivo <= 768px) */}
+          <div className="obra-meta-mobile">
+            <div className="obra-meta-item" style={{ marginBottom: 8 }}>
+              <User size={16} color="var(--primary-accent)" weight="bold" />
+              <span>Cliente: <strong>{obra.cliente}</strong></span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 18,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div className="obra-meta-item">
+                <CalendarBlank size={16} color="var(--primary-accent)" weight="bold" />
+                <strong>{formatarData(obra.dataPrevista)}</strong>
+              </div>
+
+              {obra.orcamentoInicial !== undefined && obra.orcamentoInicial > 0 && (
+                <div className="obra-meta-item">
+                  <CurrencyDollar size={16} color="var(--primary-accent)" weight="bold" />
+                  <strong>{formatarMoeda(obra.orcamentoInicial)}</strong>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
