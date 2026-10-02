@@ -26,8 +26,8 @@ export interface SandwichMenuProps {
   onNavigateToDecisao?: (obraId: string) => void;
   // Registro de Obra (Nova Obra)
   onOpenCreateObra?: () => void;
-  // Registro de Materiais
-  onOpenRegistroMaterial?: () => void;
+  // Registro de Notas
+  onOpenRegistroNota?: () => void;
   // Configurações de Modelos
   onOpenSettings?: () => void;
   // Navegação
@@ -49,7 +49,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
   notificacoes,
   onNavigateToDecisao,
   onOpenCreateObra,
-  onOpenRegistroMaterial,
+  onOpenRegistroNota,
   onOpenSettings,
   onBackToObras,
   perfilAtivo,
@@ -215,13 +215,13 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             </button>
           )}
 
-          {/* 2. Registro de materiais */}
-          {onOpenRegistroMaterial && (
+          {/* 2. Registro de notas */}
+          {onOpenRegistroNota && (
             <button
               type="button"
               onClick={() => {
                 onClose();
-                onOpenRegistroMaterial();
+                onOpenRegistroNota();
               }}
               style={{
                 width: '100%',
@@ -243,7 +243,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span>Registro de materiais</span>
+              <span>Registro de notas</span>
             </button>
           )}
         </div>

@@ -464,9 +464,11 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - No mobile (`window.innerWidth <= 768`), todas as etapas iniciam **minimizadas/colapsadas por padrão**, reduzindo a rolagem vertical e permitindo ao usuário abrir pontualmente a etapa de interesse.
   - A versão desktop permanece com todas as etapas expandidas por padrão.
 
-
-
-
-
-
-
+### 22.11 Registro de Notas (Substituição de Registro de Materiais)
+- **Descontinuação de Materiais**: O módulo "Registro de Materiais" foi integralmente substituído por **"Registro de Notas"** (`ModalRegistroNota.tsx`).
+- **Campos Obrigatórios Principais**:
+  - **Selecionar a Obra**: Dropdown com seleção obrigatória da obra de destino (com pré-seleção automática caso haja apenas uma obra ou se o modal for disparado a partir do contexto da obra atual).
+  - **Upload de Imagem da Nota**: Campo para captura de foto ou upload de comprovantes/notas fiscais (`image/*`), compressão leve via canvas no front-end, preview com remoção individual e botão para anexar múltiplas fotos da mesma nota.
+- **Campos Opcionais Auxiliares**: Título/identificação da nota (ex: número da NF ou fornecedor) e observações técnicas adicionais.
+- **Menu Lateral (`SandwichMenu.tsx`)**: O item de menu foi renomeado para "Registro de notas", mantendo acesso direto via gaveta lateral esquerda.
+- **Integração com o Diário de Obra (`DiarioObraTab.tsx`)**: As notas registradas geram lançamentos na timeline do Diário com badge executivo `NOTA`, ícone temático `<Receipt />` e link direto para visualização das fotos.

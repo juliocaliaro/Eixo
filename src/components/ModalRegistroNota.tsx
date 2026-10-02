@@ -1,24 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Plus } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 
-export interface NovoMaterialData {
+export interface NovaNotaData {
   obraId: string;
-  nome: string;
-  status: string;
   fotos: string[];
+  titulo?: string;
   observacoes?: string;
 }
 
-interface ModalRegistroMaterialProps {
+interface ModalRegistroNotaProps {
   isOpen: boolean;
   onClose: () => void;
   obras: Obra[];
   preselectedObraId?: string;
-  onSave: (dados: NovoMaterialData) => void;
+  onSave: (dados: NovaNotaData) => void;
 }
 
-export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
+export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   isOpen,
   onClose,
   obras,
@@ -26,8 +25,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
   onSave,
 }) => {
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
-  const [status, setStatus] = useState<string>('Materiais');
-  const [nome, setNome] = useState<string>('');
+  const [titulo, setTitulo] = useState<string>('');
   const [observacoes, setObservacoes] = useState<string>('');
   const [fotos, setFotos] = useState<string[]>([]);
   const [erro, setErro] = useState<string>('');
@@ -37,8 +35,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
   useEffect(() => {
     if (isOpen) {
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
-      setStatus('Materiais');
-      setNome('');
+      setTitulo('');
       setObservacoes('');
       setFotos([]);
       setErro('');
@@ -64,7 +61,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 1400;
           let { width, height } = img;
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -81,7 +78,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
           } else {
             resolve(e.target?.result as string);
           }
@@ -101,6 +98,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
       const fileList = Array.from(files);
       const novasFotos = await Promise.all(fileList.map((f) => processarArquivo(f)));
       setFotos((prev) => [...prev, ...novasFotos]);
+      if (erro) setErro('');
     } catch {
       setErro('Erro ao processar imagem.');
     } finally {
@@ -121,16 +119,15 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
       return;
     }
 
-    if (!nome.trim()) {
-      setErro('Informe o nome do material.');
+    if (fotos.length === 0) {
+      setErro('Faça o upload de pelo menos uma imagem da nota ou recibo.');
       return;
     }
 
     onSave({
       obraId,
-      nome: nome.trim(),
-      status,
       fotos,
+      titulo: titulo.trim() ? titulo.trim() : undefined,
       observacoes: observacoes.trim() ? observacoes.trim() : undefined,
     });
 
@@ -141,16 +138,36 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal-card"
-        style={{ maxWidth: 460 }}
+        style={{ maxWidth: 480 }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         {/* Cabeçalho Minimalista */}
-        <div className="modal-header" style={{ padding: '16px 20px' }}>
-          <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>
-            Registrar Material
-          </h2>
+        <div className="modal-header" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                background: 'var(--dark-coffee-100)',
+                color: 'var(--dark-coffee-800)',
+                padding: 8,
+                borderRadius: 8,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Receipt size={20} weight="fill" />
+            </div>
+            <div>
+              <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>
+                Registro de Notas
+              </h2>
+              <p style={{ fontSize: '0.80rem', color: 'var(--text-muted)', margin: 0 }}>
+                Anexe a imagem da nota fiscal ou recibo da obra
+              </p>
+            </div>
+          </div>
           <button onClick={onClose} className="btn-icon" title="Fechar (Escape)">
             <X size={20} />
           </button>
@@ -158,90 +175,57 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
 
         {/* Formulário */}
         <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="modal-body" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {erro && (
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  padding: '8px 12px',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
+                  padding: '10px 14px',
+                  background: 'var(--coral-glow-50)',
+                  border: '1px solid var(--coral-glow-300)',
                   borderRadius: 'var(--radius-sm)',
-                  color: '#b91c1c',
-                  fontSize: '0.82rem',
+                  color: 'var(--coral-glow-700)',
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
                 }}
               >
-                <WarningCircle size={16} weight="fill" />
+                <WarningCircle size={18} weight="fill" />
                 <span>{erro}</span>
               </div>
             )}
 
-            {/* Linha 1: Obra e Status lado a lado */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Obra *</label>
-                <select
-                  className="form-select"
-                  value={obraId}
-                  onChange={(e) => setObraId(e.target.value)}
-                  required
-                >
-                  <option value="">Selecione...</option>
-                  {obras.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="Materiais">Materiais</option>
-                  <option value="Entregue">Entregue</option>
-                  <option value="Comprado">Comprado</option>
-                  <option value="Pendente">Pendente</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Linha 2: Descrição / Nome */}
+            {/* Campo 1: Selecionar a Obra */}
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Nome do Material *</label>
-              <input
-                type="text"
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+                <span>Obra *</span>
+              </label>
+              <select
                 className="form-input"
-                placeholder="Ex: 50 sacos de cimento, porcelanato, cabos..."
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
+                value={obraId}
+                onChange={(e) => {
+                  setObraId(e.target.value);
+                  if (erro) setErro('');
+                }}
                 required
-              />
+                style={{ cursor: 'pointer', appearance: 'auto' }}
+              >
+                <option value="">Selecione a obra...</option>
+                {obras.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nome} {o.cliente ? `(${o.cliente})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Linha 3: Observações */}
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Observações</label>
-              <textarea
-                className="form-input"
-                rows={2}
-                placeholder="Fornecedor, nota fiscal ou anotações (opcional)..."
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                style={{ resize: 'vertical' }}
-              />
-            </div>
-
-            {/* Linha 4: Fotos / Comprovantes */}
+            {/* Campo 2: Upload de Imagem */}
             <div className="form-group" style={{ margin: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <label className="form-label" style={{ margin: 0 }}>Fotos / Comprovantes</label>
+                <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                  Upload de Imagem da Nota *
+                </label>
                 {fotos.length > 0 && (
                   <button
                     type="button"
@@ -260,7 +244,7 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                     }}
                   >
                     <Plus size={13} weight="bold" />
-                    <span>Adicionar foto</span>
+                    <span>Adicionar outra foto</span>
                   </button>
                 )}
               </div>
@@ -269,18 +253,18 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: '1px dashed var(--border-hairline)',
+                    border: '1.5px dashed var(--border-hairline)',
                     borderRadius: 'var(--radius-sm)',
-                    padding: '12px 14px',
+                    padding: '24px 16px',
                     textAlign: 'center',
                     background: 'var(--dark-coffee-50)',
                     cursor: 'pointer',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 8,
+                    gap: 10,
                     color: 'var(--text-muted)',
-                    fontSize: '0.80rem',
                     transition: 'border-color 0.15s, background 0.15s',
                   }}
                   onMouseEnter={(e) => {
@@ -292,26 +276,48 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                     e.currentTarget.style.background = 'var(--dark-coffee-50)';
                   }}
                 >
-                  <Camera size={16} />
-                  <span>Anexar fotos do material ou comprovantes</span>
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '50%',
+                      background: '#ffffff',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary-accent)',
+                    }}
+                  >
+                    <Camera size={22} weight="bold" />
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)', display: 'block' }}>
+                      Clique ou tire uma foto da nota
+                    </span>
+                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                      Formatos JPG, PNG ou captura direta no celular
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                   {fotos.map((fotoUrl, idx) => (
                     <div
                       key={idx}
                       style={{
                         position: 'relative',
-                        width: 52,
-                        height: 52,
-                        borderRadius: 'var(--radius-xs)',
+                        width: 72,
+                        height: 72,
+                        borderRadius: 'var(--radius-sm)',
                         overflow: 'hidden',
                         border: '1px solid var(--border-hairline)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
                       }}
                     >
                       <img
                         src={fotoUrl}
-                        alt=""
+                        alt={`Nota ${idx + 1}`}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                       <button
@@ -319,23 +325,24 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                         onClick={() => handleRemoveFoto(idx)}
                         style={{
                           position: 'absolute',
-                          top: 2,
-                          right: 2,
-                          background: 'rgba(0, 0, 0, 0.65)',
+                          top: 3,
+                          right: 3,
+                          background: 'rgba(0, 0, 0, 0.70)',
                           color: '#ffffff',
                           border: 'none',
                           borderRadius: '50%',
-                          width: 16,
-                          height: 16,
+                          width: 20,
+                          height: 20,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: 'pointer',
                           padding: 0,
+                          transition: 'background 0.15s ease',
                         }}
                         title="Remover foto"
                       >
-                        <X size={10} weight="bold" />
+                        <Trash size={12} weight="bold" />
                       </button>
                     </div>
                   ))}
@@ -343,20 +350,24 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 'var(--radius-xs)',
-                      border: '1px dashed var(--border-hairline)',
+                      width: 72,
+                      height: 72,
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1.5px dashed var(--border-hairline)',
                       background: 'var(--dark-coffee-50)',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
                       cursor: 'pointer',
                       color: 'var(--text-muted)',
+                      gap: 4,
+                      transition: 'border-color 0.15s',
                     }}
                     title="Adicionar mais fotos"
                   >
-                    <Plus size={16} />
+                    <Plus size={18} />
+                    <span style={{ fontSize: '0.68rem', fontWeight: 600 }}>Mais foto</span>
                   </button>
                 </div>
               )}
@@ -370,16 +381,45 @@ export const ModalRegistroMaterial: React.FC<ModalRegistroMaterialProps> = ({
                 onChange={handleFilesChange}
               />
             </div>
+
+            {/* Campo 3: Título ou Descrição (opcional) */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>
+                Título / Identificação (opcional)
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Ex: NF 4589 - Tintas e Acabamentos, Recibo Madeireira..."
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+              />
+            </div>
+
+            {/* Campo 4: Observações (opcional) */}
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>
+                Observações (opcional)
+              </label>
+              <textarea
+                className="form-input"
+                rows={2}
+                placeholder="Fornecedor, forma de pagamento, observações do recibo..."
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                style={{ resize: 'vertical' }}
+              />
+            </div>
           </div>
 
           {/* Rodapé Minimalista */}
-          <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.84rem' }}>
+          <div className="modal-footer" style={{ padding: '14px 20px', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '9px 18px', fontSize: '0.88rem' }}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" style={{ padding: '8px 18px', fontSize: '0.84rem' }}>
+            <button type="submit" className="btn-primary" style={{ padding: '9px 20px', fontSize: '0.88rem' }}>
               <FloppyDisk size={16} weight="bold" />
-              <span>Salvar</span>
+              <span>Salvar Nota</span>
             </button>
           </div>
         </form>

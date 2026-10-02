@@ -95,6 +95,16 @@ export interface RegistroMaterial {
   criadoEm: string;
 }
 
+export interface RegistroNota {
+  id: string;
+  obraId: string;
+  titulo?: string;
+  fotos: string[]; // URLs ou base64 das imagens da nota
+  observacoes?: string;
+  valor?: number;
+  criadoEm: string;
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -110,6 +120,7 @@ export interface Obra {
   decisoes?: Decisao[];
   projetos?: ProjetoPDF[];
   materiais?: RegistroMaterial[];
+  notas?: RegistroNota[];
 }
 
 export interface AnexoItem {

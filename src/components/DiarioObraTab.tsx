@@ -21,9 +21,10 @@ import {
   Funnel,
   Check,
   Package,
+  Receipt,
   CaretDown,
 } from '@phosphor-icons/react';
-import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial } from '../types/obra';
+import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial, RegistroNota } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { formatarMoeda } from '../utils/moeda';
 
@@ -40,8 +41,9 @@ export interface DiarioEntry {
     | 'evidencia_tarefa'
     | 'anexo_geral'
     | 'vistoria_concluida'
-    | 'material_registrado';
-  categoria: 'etapa' | 'decisao' | 'evidencia' | 'financeiro' | 'material';
+    | 'material_registrado'
+    | 'nota_registrada';
+  categoria: 'etapa' | 'decisao' | 'evidencia' | 'financeiro' | 'material' | 'nota';
   titulo: string;
   subtitulo?: string;
   descricao?: string;
@@ -360,17 +362,33 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       }
     });
 
-    // E) Registros de Materiais
+    // E) Registros de Notas
+    (obra.notas || []).forEach((nota) => {
+      const timestamp = nota.criadoEm || obraCriadaEm;
+      entries.push({
+        id: `entry_nota_${nota.id}`,
+        dataHora: timestamp,
+        dataKey: extrairDataKey(timestamp),
+        tipo: 'nota_registrada',
+        categoria: 'nota',
+        titulo: nota.titulo || 'Nota Fiscal / Recibo',
+        subtitulo: 'Nota Anexada',
+        descricao: nota.observacoes,
+        fotos: nota.fotos,
+      });
+    });
+
+    // Compatibilidade com materiais legados existentes
     (obra.materiais || []).forEach((material) => {
       const timestamp = material.criadoEm || obraCriadaEm;
       entries.push({
         id: `entry_material_${material.id}`,
         dataHora: timestamp,
         dataKey: extrairDataKey(timestamp),
-        tipo: 'material_registrado',
-        categoria: 'material',
+        tipo: 'nota_registrada',
+        categoria: 'nota',
         titulo: material.nome,
-        subtitulo: material.status !== 'Materiais' ? material.status : undefined,
+        subtitulo: material.status !== 'Materiais' ? material.status : 'Nota Anexada',
         descricao: material.observacoes,
         fotos: material.fotos,
       });
@@ -1075,13 +1093,13 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     tagBg = '#dcfce7';
                     tagColor = '#15803d';
                     IconComponent = CheckCircle;
-                  } else if (entry.tipo === 'material_registrado') {
+                  } else if (entry.tipo === 'nota_registrada' || entry.tipo === 'material_registrado') {
                     iconBg = 'var(--dark-coffee-100)';
                     iconColor = 'var(--dark-coffee-800)';
-                    tagLabel = 'MATERIAL';
+                    tagLabel = 'NOTA';
                     tagBg = 'var(--dark-coffee-100)';
                     tagColor = 'var(--dark-coffee-800)';
-                    IconComponent = Package;
+                    IconComponent = Receipt;
                   }
 
                   const temAditivo = entry.valorAditivo !== undefined && entry.valorAditivo > 0;
@@ -1119,8 +1137,8 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   } else if (entry.tipo === 'vistoria_concluida') {
                     mobileTituloPrincipal = 'Vistoria Final';
                     mobileSubtitulo = entry.titulo.replace(/^Vistoria Final:\s*/, '');
-                  } else if (entry.tipo === 'material_registrado') {
-                    mobileTituloPrincipal = 'Registro de Material';
+                  } else if (entry.tipo === 'nota_registrada' || entry.tipo === 'material_registrado') {
+                    mobileTituloPrincipal = 'Registro de Nota';
                     mobileSubtitulo = entry.titulo;
                   } else if (entry.tipo === 'anexo_geral') {
                     mobileTituloPrincipal = 'Diário de Canteiro';

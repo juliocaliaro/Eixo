@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroMaterial } from './types/obra';
+import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
 import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
 import { ModalCreateObra } from './components/ModalCreateObra';
-import { ModalRegistroMaterial, NovoMaterialData } from './components/ModalRegistroMaterial';
+import { ModalRegistroNota, NovaNotaData } from './components/ModalRegistroNota';
 import { LoginPage, UserRole } from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
 
@@ -28,8 +28,8 @@ export const App: React.FC = () => {
     }
   });
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
-  const [isRegistroMaterialOpen, setIsRegistroMaterialOpen] = useState(false);
-  const [materialPreselectedObraId, setMaterialPreselectedObraId] = useState<string | undefined>(undefined);
+  const [isRegistroNotaOpen, setIsRegistroNotaOpen] = useState(false);
+  const [notaPreselectedObraId, setNotaPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Gerenciamento de Estado de Autenticação (Fake Login & Local State)
@@ -415,45 +415,44 @@ export const App: React.FC = () => {
     setObras((prev) => prev.map((o) => (o.id === updatedObra.id ? updatedObra : o)));
   };
 
-  // Controle de Registro de Materiais
-  const handleOpenRegistroMaterial = (targetObraId?: string) => {
+  // Controle de Registro de Notas
+  const handleOpenRegistroNota = (targetObraId?: string) => {
     if (obras.length === 0) {
       showToast(
         'Nenhuma obra cadastrada',
-        'Cadastre uma obra antes de realizar o registro de materiais.',
+        'Cadastre uma obra antes de realizar o registro de notas.',
         'warning'
       );
       return;
     }
-    setMaterialPreselectedObraId(targetObraId || currentObraId || undefined);
-    setIsRegistroMaterialOpen(true);
+    setNotaPreselectedObraId(targetObraId || currentObraId || undefined);
+    setIsRegistroNotaOpen(true);
   };
 
-  const handleSaveMaterial = (dados: NovoMaterialData) => {
+  const handleSaveNota = (dados: NovaNotaData) => {
     const obraAlvo = obras.find((o) => o.id === dados.obraId);
     if (!obraAlvo) return;
 
-    const novoRegistro: RegistroMaterial = {
-      id: `mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    const novoRegistro: RegistroNota = {
+      id: `nota_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       obraId: dados.obraId,
-      nome: dados.nome,
-      status: dados.status,
       fotos: dados.fotos,
+      titulo: dados.titulo,
       observacoes: dados.observacoes,
       criadoEm: new Date().toISOString(),
     };
 
     const updatedObra: Obra = {
       ...obraAlvo,
-      materiais: [novoRegistro, ...(obraAlvo.materiais || [])],
+      notas: [novoRegistro, ...(obraAlvo.notas || [])],
     };
 
     handleUpdateObra(updatedObra);
-    setIsRegistroMaterialOpen(false);
+    setIsRegistroNotaOpen(false);
 
     showToast(
-      'Material Registrado!',
-      `"${dados.nome}" foi vinculado com sucesso à obra "${obraAlvo.nome}".`,
+      'Nota Registrada!',
+      `A nota foi anexada com sucesso à obra "${obraAlvo.nome}".`,
       'success'
     );
 
@@ -639,13 +638,12 @@ export const App: React.FC = () => {
         },
       ],
       punchList: [],
-      materiais: [
+      notas: [
         {
-          id: 'mat_demo_1',
+          id: 'nota_demo_1',
           obraId: `obra_demo_${Date.now()}`,
-          nome: '50 sacos de Cimento CP-II 32 e Areia Lavada',
-          status: 'Entregue na Obra',
-          observacoes: 'Entrega realizada pelo Depósito São Paulo. NF nº 48.912 conferida e material armazenado no canteiro.',
+          titulo: 'NF 48.912 - Depósito São Paulo',
+          observacoes: 'Entrega de cimento e areia lavada conferida no canteiro.',
           fotos: [
             'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=600&auto=format&fit=crop&q=80',
           ],
@@ -794,7 +792,7 @@ export const App: React.FC = () => {
         isConfigOpen={isConfigOpen}
         onLogout={handleLogout}
         onOpenCreateObra={() => setIsCreateObraOpen(true)}
-        onOpenRegistroMaterial={() => handleOpenRegistroMaterial(currentObraId || undefined)}
+        onOpenRegistroNota={() => handleOpenRegistroNota(currentObraId || undefined)}
         userName={userName}
         userEmail={userEmail}
         userEmpresa={userEmpresa}
@@ -856,13 +854,13 @@ export const App: React.FC = () => {
         onSubmit={handleCreateObra}
       />
 
-      {/* Modal de Registro de Materiais */}
-      <ModalRegistroMaterial
-        isOpen={isRegistroMaterialOpen}
-        onClose={() => setIsRegistroMaterialOpen(false)}
+      {/* Modal de Registro de Notas */}
+      <ModalRegistroNota
+        isOpen={isRegistroNotaOpen}
+        onClose={() => setIsRegistroNotaOpen(false)}
         obras={obras}
-        preselectedObraId={materialPreselectedObraId}
-        onSave={handleSaveMaterial}
+        preselectedObraId={notaPreselectedObraId}
+        onSave={handleSaveNota}
       />
 
       {/* Notificações Toast Flutuantes */}

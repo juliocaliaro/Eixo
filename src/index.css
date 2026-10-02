@@ -2327,47 +2327,44 @@ input, textarea, select {
 
 /* ========================================================
    CORREÇÃO DE SCROLL EM MODAIS NO MOBILE
-   Usa --vvh (definido pelo visualViewport listener em App.tsx)
-   para saber a altura REAL visível quando o teclado está aberto.
    ======================================================== */
 
-/* Garante min-height: 0 no modal-body para o flex scroll funcionar */
+/* Garante min-height: 0 para o flex scroll funcionar em todos os browsers */
 .modal-body {
   min-height: 0;
 }
 
 @media (max-width: 768px) {
-  /* Backdrop: sem padding, ancorado na base da tela */
+  /* Backdrop: remove o padding lateral para o modal usar a tela toda.
+     NÃO alteramos top/bottom/height — o inset:0 existente está correto. */
   .modal-backdrop {
     padding: 0 !important;
-    align-items: flex-end !important;
-    /* Usa --vvh para reancoragem exata ao viewport visual (iOS Safari) */
-    height: var(--vvh, 100dvh) !important;
-    top: auto !important;
-    bottom: 0 !important;
+    align-items: flex-end !important;  /* modal ancora na base da tela */
   }
 
-  /* Modal vira bottom-sheet: usa --vvh para saber o espaço disponível */
+  /* Modal vira bottom-sheet, crescendo a partir da base */
   .modal-card {
     width: 100% !important;
     max-width: 100% !important;
-    /* 92% da altura visível real — shrink automático quando teclado abre */
-    max-height: calc(var(--vvh, 100dvh) * 0.92) !important;
+    /* --vvh é atualizado pelo visualViewport listener (App.tsx)
+       → shrink automático quando o teclado virtual abre */
+    max-height: calc(var(--vvh, 93dvh) * 0.96) !important;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
-    /* safe-area para notch/barra de navegação inferior */
+    /* safe-area: espaço para o notch/barra de navegação inferior */
     padding-bottom: env(safe-area-inset-bottom, 0px);
     animation: slideUpModal 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
-  /* Body: scroll nativo + foco nunca some atrás do teclado */
+  /* Scroll nativo com momentum iOS.
+     scroll-padding-bottom: input focado não some atrás do teclado. */
   .modal-body {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    scroll-padding-bottom: 16px;
+    scroll-padding-bottom: 20px;
   }
 
-  /* Rodapé e cabeçalho sempre visíveis — nunca cortados */
+  /* Cabeçalho e rodapé sempre visíveis, nunca cortados */
   .modal-footer,
   .modal-header {
     flex-shrink: 0 !important;
@@ -2375,6 +2372,6 @@ input, textarea, select {
 }
 
 @keyframes slideUpModal {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
