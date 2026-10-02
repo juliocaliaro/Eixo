@@ -236,48 +236,47 @@ export const ObraList: React.FC<ObraListProps> = ({
                     <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
                   </div>
 
-                  {/* Linha do Endereço por inteiro com ícone de copiar */}
+                  {/* Linha do Endereço */}
                   {obra.endereco && (
-                    <div
-                      style={{
-                        fontSize: '0.82rem',
-                        color: 'var(--text-muted)',
-                        marginTop: 3,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{obra.endereco}</span>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                      <span>{obra.endereco}</span>
+                    </div>
+                  )}
 
+                  {/* Botão Copiar abaixo do endereço */}
+                  {obra.endereco && (
+                    <div style={{ marginTop: 6 }}>
                       <button
                         type="button"
                         onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
                         onKeyDown={(e) => e.stopPropagation()}
-                        title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
+                        title="Copiar endereço completo"
                         aria-label="Copiar endereço"
                         style={{
-                          background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
-                          border: 'none',
-                          padding: '2px 4px',
-                          cursor: 'pointer',
-                          color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 3,
-                          borderRadius: 3,
-                          flexShrink: 0,
+                          gap: 5,
+                          padding: '3px 9px',
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          borderRadius: 'var(--radius-xs)',
+                          border: '1px solid var(--border-hairline)',
+                          background: copiedObraId === obra.id ? '#dcfce7' : 'var(--dark-coffee-50)',
+                          color: copiedObraId === obra.id ? '#15803d' : 'var(--dark-coffee-800)',
+                          cursor: 'pointer',
                           transition: 'all 0.15s ease',
                         }}
                       >
                         {copiedObraId === obra.id ? (
                           <>
-                            <Check size={14} weight="bold" color="#16a34a" />
-                            <span style={{ fontSize: '0.70rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
+                            <Check size={13} weight="bold" color="#15803d" />
+                            <span>Copiado!</span>
                           </>
                         ) : (
-                          <Copy size={14} />
+                          <>
+                            <Copy size={13} weight="bold" />
+                            <span>Copiar</span>
+                          </>
                         )}
                       </button>
                     </div>
