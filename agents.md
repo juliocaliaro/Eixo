@@ -437,6 +437,13 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Remoção de Dentro da Obra**: O botão "Registrar Material" foi removido da barra superior do Diário de Obra (`DiarioObraTab.tsx`) e desacoplado dos detalhes da obra (`ObraDetail.tsx`).
 - **Acesso Único e Centralizado**: A ação reside exclusivamente no menu lateral (`SandwichMenu.tsx`), preservando uma visualização mais limpa do canteiro físico e evitando redundância de botões dentro da obra.
 
+### 22.8 Calendário em Modal Unificado (Web & Mobile via `createPortal`)
+- **Abertura em Modal Centralizado**: Abertura do calendário customizado (`DatePickerInput.tsx`) migrada integralmente de popover/dropdown ancorado para **Modal dedicado** renderizado via `createPortal` diretamente em `document.body` com `z-index: 99999`.
+- **Consistência Web & Mobile**: Experiência 100% idêntica e centralizada tanto no desktop quanto no smartphone, com backdrop fosco escurecido (`backdrop-filter: blur(5px)`), fechamento por clique fora ou tecla `Escape` e bloqueio de rolagem do fundo.
+- **Eliminação de Cortes e Hacks de Scroll**: Extingue a necessidade de expansão de margens inferiores (`marginBottom: 330px`) ou auto-scrolls complexos dentro de modais pais (`ModalCreateObra`, `ModalEditObra`), garantindo exibição perfeita e desimpedida de qualquer limite de contêiner.
+- **Componentes do Modal**: Cabeçalho com ícone, título "Selecionar Data", botão "X", faixa de data por extenso selecionada, controle de navegação de meses, grade de dias, atalhos rápidos (`Hoje`, `+30 dias`, `+60 dias`, `+90 dias`) e botões de ação no rodapé.
+
+
 
 
 
