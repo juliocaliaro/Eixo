@@ -2324,3 +2324,61 @@ input, textarea, select {
   }
 }
 
+
+/* ========================================================
+   CORREÇÃO DE SCROLL EM MODAIS NO MOBILE
+   Garante que todos os modais/formulários funcionem
+   corretamente em dispositivos móveis com teclado virtual
+   ======================================================== */
+
+/* Garante min-height: 0 no modal-body para o flex scroll funcionar corretamente */
+.modal-body {
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  /* Backdrop: sem padding, âncora na base da tela (bottom-sheet) */
+  .modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  /* Modal vira bottom-sheet — usa dvh para respeitar barra do browser */
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh !important;
+    height: auto !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    /* safe-area para notch/barra de navegação inferior */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: slideUpModal 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  /* Body do modal: scroll nativo com momentum iOS */
+  .modal-body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Form dentro do modal: garante cadeia flex correta */
+  .modal-card > form {
+    overflow: hidden !important;
+    min-height: 0 !important;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Rodapé e cabeçalho sempre visíveis — nunca podem ser cortados */
+  .modal-footer,
+  .modal-header {
+    flex-shrink: 0 !important;
+  }
+}
+
+@keyframes slideUpModal {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

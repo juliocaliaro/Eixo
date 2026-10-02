@@ -132,8 +132,6 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
           style={{
             width: '640px',
             maxWidth: '94vw',
-            height: '560px',
-            maxHeight: '88vh',
             display: 'flex',
             flexDirection: 'column',
           }}
