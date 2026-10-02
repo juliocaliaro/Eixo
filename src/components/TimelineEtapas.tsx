@@ -275,14 +275,9 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
       {/* Título de Seção */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
             Cronograma Físico
           </h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            {isReadOnly
-              ? 'Acompanhe as etapas, serviços e fotos do diário de obra em tempo real.'
-              : 'Arraste pelo ícone ⋮⋮ para reordenar etapas e serviços'}
-          </p>
         </div>
 
         {isReadOnly ? (

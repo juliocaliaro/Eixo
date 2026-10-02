@@ -505,12 +505,9 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
             Decisões e Aprovações
           </h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-            Registro de escolhas com validade de assinatura digital entre Construtor e Cliente.
-          </p>
         </div>
 
         <button

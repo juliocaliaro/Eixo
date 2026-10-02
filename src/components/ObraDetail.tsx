@@ -626,23 +626,6 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
               >
                 <Blueprint size={20} weight={activeTab === 'projetos' ? 'fill' : 'bold'} />
                 <span>Arquivos</span>
-                {(obra.projetos || []).length > 0 && (
-                  <span
-                    className="projetos-tab-badge-desktop"
-                    style={{
-                      marginLeft: 4,
-                      background: 'var(--dark-coffee-100)',
-                      color: 'var(--dark-coffee-800)',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      padding: '1px 6px',
-                      borderRadius: 10,
-                    }}
-                  >
-                    {obra.projetos!.length}
-                  </span>
-                )}
-
               </button>
             );
           }

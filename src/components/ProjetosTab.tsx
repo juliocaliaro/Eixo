@@ -145,28 +145,9 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>
-              Projetos e Documentos
-            </h2>
-            <span
-              className="projetos-contador-desktop"
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                padding: '2px 9px',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-              }}
-            >
-              {projetos.length} {projetos.length === 1 ? 'prancha' : 'pranchas'}
-            </span>
-
-          </div>
-          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            Plantas executivas categorizadas por disciplina técnica
-          </p>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px', margin: 0 }}>
+            Projetos e Documentos
+          </h2>
         </div>
 
         {/* Grupo de Ações do Topo: Lupa, Filtro e Anexar Projeto */}
