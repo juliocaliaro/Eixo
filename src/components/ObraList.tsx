@@ -206,7 +206,7 @@ export const ObraList: React.FC<ObraListProps> = ({
                 }}
               >
                 {/* Identificação da Obra */}
-                <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                <div style={{ flex: 2.5, minWidth: 0, paddingRight: 16 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span
                       style={{
@@ -243,13 +243,13 @@ export const ObraList: React.FC<ObraListProps> = ({
                         fontSize: '0.82rem',
                         color: 'var(--text-muted)',
                         marginTop: 3,
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
                         gap: 6,
-                        flexWrap: 'wrap',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)' }}>{obra.endereco}</span>
+                      <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{obra.endereco}</span>
 
                       <button
                         type="button"
