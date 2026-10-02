@@ -811,7 +811,6 @@ export const App: React.FC = () => {
               showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
             }}
             templates={templates}
-            onOpenRegistroMaterial={Role === 'Construtor' ? () => handleOpenRegistroMaterial(currentObra.id) : undefined}
           />
         )}
       </main>

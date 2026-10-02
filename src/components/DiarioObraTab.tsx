@@ -66,7 +66,6 @@ interface DiarioObraTabProps {
   onNavigateToTask?: (etapaId: string, tarefaId: string) => void;
   onNavigateToDecisoes?: () => void;
   onUpdateTaskMedia?: (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => void;
-  onOpenRegistroMaterial?: () => void;
 }
 
 export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
@@ -76,7 +75,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   onNavigateToTask,
   onNavigateToDecisoes,
   onUpdateTaskMedia,
-  onOpenRegistroMaterial,
 }) => {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -892,29 +890,9 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
             )}
           </div>
 
-          {/* Botão Novo Registro e Registrar Material (Construtor) */}
+          {/* Botão Novo Registro (Construtor) */}
           {perfilAtivo === 'construtor' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {onOpenRegistroMaterial && (
-                <button
-                  type="button"
-                  onClick={onOpenRegistroMaterial}
-                  className="btn-secondary"
-                  style={{
-                    height: 38,
-                    padding: '0 13px',
-                    fontSize: '0.82rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    whiteSpace: 'nowrap',
-                  }}
-                  title="Cadastrar compra ou entrega de materiais nesta obra"
-                >
-                  <Package size={15} weight="bold" />
-                  <span>Registrar Material</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setIsNovoRegistroOpen(true)}

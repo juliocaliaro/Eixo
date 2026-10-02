@@ -311,9 +311,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ## 18. Módulo de Registro de Materiais & Histórico de Canteiro
 
-- **Acesso pelo Menu / Página Inicial**:
-  - Botão dedicado `[ Registro de Materiais ]` com ícone `<Package />` disponível na Página Inicial (`ObraList`) para o perfil Construtor, tanto na listagem de obras quanto no cabeçalho.
-  - Acesso contextual complementar disponibilizado diretamente na aba de Diário (`DiarioObraTab`) com a obra já pré-selecionada.
+- **Acesso Centralizado Exclusivo pelo Menu Lateral**:
+  - O botão de acionamento do `[ Registro de Materiais ]` foi centralizado e vive **exclusivamente no menu lateral (`SandwichMenu.tsx`)**, tendo sido removido de dentro da obra (`DiarioObraTab`) para simplificar a visualização do canteiro.
+  - A seleção da obra alvo é feita no próprio modal `ModalRegistroMaterial`, garantindo integridade e consistência.
 - **Vínculo Obrigatório de Obra**:
   - O modal `ModalRegistroMaterial` exige a seleção obrigatória de uma obra já cadastrada via dropdown (`<select>`), garantindo integridade referencial dos dados (`obraId`).
 - **Campos Oficiais do Formulário**:
@@ -432,6 +432,10 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Correção de Viewport Dinâmico (`100dvh`)**: Substituição de `100vh` por `100dvh` com posicionamento ancorado (`top: 0; bottom: 0; left: 0; right: 0`), garantindo que o rodapé com a ação de "Sair da Conta" permaneça sempre visível acima da barra de navegação dos navegadores móveis (Safari iOS e Chrome Android).
 - **Suporte a Safe Area**: Aplicação de `padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px))` no footer da gaveta para respeitar a barra inicial/gestos dos dispositivos iOS e Android.
 - **Ergonomia e Toque**: Alturas mínimas de toque ampliadas (48px para itens e 46px para botões de autenticação) para garantir usabilidade ágil no smartphone.
+
+### 22.7 Isolamento do Botão de Registro de Materiais (Exclusivo no Menu)
+- **Remoção de Dentro da Obra**: O botão "Registrar Material" foi removido da barra superior do Diário de Obra (`DiarioObraTab.tsx`) e desacoplado dos detalhes da obra (`ObraDetail.tsx`).
+- **Acesso Único e Centralizado**: A ação reside exclusivamente no menu lateral (`SandwichMenu.tsx`), preservando uma visualização mais limpa do canteiro físico e evitando redundância de botões dentro da obra.
 
 
 
