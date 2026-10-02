@@ -11,7 +11,8 @@ import {
   ArrowsOut,
   CalendarBlank,
   NotePencil,
-  FileText
+  FileText,
+  CaretDown,
 } from '@phosphor-icons/react';
 import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
@@ -35,6 +36,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
   const [filtroObraId, setFiltroObraId] = useState<string>('todas');
   const [isModalNotaOpen, setIsModalNotaOpen] = useState(false);
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
+  const [expandedObrasMobile, setExpandedObrasMobile] = useState<Record<string, boolean>>({});
 
   // Lightbox de foto
   const [lightboxFoto, setLightboxFoto] = useState<{ url: string; titulo?: string } | null>(null);
@@ -126,12 +128,24 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     showToast('Nota Removida', 'A nota foi excluída com sucesso.', 'info');
   };
 
+  const toggleMobileObra = (obraId: string) => {
+    setExpandedObrasMobile((prev) => {
+      const currentVal = prev[obraId] !== undefined ? prev[obraId] : (filtroObraId === obraId);
+      return {
+        ...prev,
+        [obraId]: !currentVal,
+      };
+    });
+  };
+
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Cabeçalho Minimalista e Seletor de Obra */}
+      {/* ========================================================
+          CABEÇALHO DESKTOP (Inalterado, preservado 100%)
+          ======================================================== */}
       <div
+        className="registro-notas-header-desktop"
         style={{
-          display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 24,
@@ -224,6 +238,107 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
         </div>
       </div>
 
+      {/* ========================================================
+          CABEÇALHO MOBILE (Exclusivo para <= 768px, Organizado e Intuitivo)
+          ======================================================== */}
+      <div className="registro-notas-header-mobile">
+        {/* Linha 1: Voltar à esquerda e Registrar Nota à direita */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%' }}>
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary"
+            style={{ padding: '7px 12px', fontSize: '0.82rem', gap: 6 }}
+            title="Voltar para a lista de obras"
+          >
+            <ArrowLeft size={15} weight="bold" />
+            <span>Voltar</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenAddNota(filtroObraId !== 'todas' ? filtroObraId : undefined)}
+            className="btn-primary"
+            style={{ padding: '7px 14px', fontSize: '0.82rem', gap: 6 }}
+          >
+            <Plus size={15} weight="bold" />
+            <span>Registrar Nota</span>
+          </button>
+        </div>
+
+        {/* Linha 2: Título com Ícone */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 'var(--radius-xs)',
+              background: 'var(--dark-coffee-100)',
+              color: 'var(--dark-coffee-800)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Receipt size={18} weight="fill" />
+          </div>
+          <h1
+            style={{
+              fontSize: '1.20rem',
+              fontWeight: 800,
+              color: 'var(--text-main)',
+              margin: 0,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Registro de Notas
+          </h1>
+        </div>
+
+        {/* Linha 3: Seletor de Obras em Destaque 100% Full-Width */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: '#ffffff',
+            border: '1px solid var(--border-hairline)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '8px 12px',
+            boxShadow: 'var(--shadow-subtle)',
+            width: '100%',
+          }}
+        >
+          <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
+          <select
+            value={filtroObraId}
+            onChange={(e) => setFiltroObraId(e.target.value)}
+            className="form-input"
+            style={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontWeight: 600,
+              fontSize: '0.88rem',
+              color: 'var(--text-main)',
+              cursor: 'pointer',
+              padding: 0,
+              appearance: 'auto',
+            }}
+            title="Selecione a obra que deseja visualizar"
+          >
+            <option value="todas">Todas as Obras ({obras.length})</option>
+            {obras.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.nome} {o.cliente ? `• ${o.cliente}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Lista de Cards por Obra */}
       {obrasFiltradas.length === 0 ? (
         <div
@@ -249,20 +364,27 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
           {obrasFiltradas.map((obra) => {
             const notasDaObra = obra.notas || [];
             const temNotas = notasDaObra.length > 0;
+            const isExpandedMobile = expandedObrasMobile[obra.id] !== undefined
+              ? expandedObrasMobile[obra.id]
+              : (filtroObraId === obra.id);
 
             return (
-              <div
-                key={obra.id}
-                style={{
-                  background: '#ffffff',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-hairline)',
-                  boxShadow: 'var(--shadow-sm)',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* Cabeçalho do Card da Obra */}
+              <React.Fragment key={obra.id}>
+                {/* ========================================================
+                    VERSÃO DESKTOP (Inalterada, 100% como está)
+                    ======================================================== */}
                 <div
+                  className="registro-notas-card-desktop"
+                  style={{
+                    background: '#ffffff',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-hairline)',
+                    boxShadow: 'var(--shadow-sm)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {/* Cabeçalho do Card da Obra */}
+                  <div
                   style={{
                     padding: '16px 22px',
                     borderBottom: '1px solid var(--border-hairline)',
@@ -590,6 +712,325 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                   )}
                 </div>
               </div>
+
+                {/* ========================================================
+                    VERSÃO MOBILE (Card Minimizado / Accordion por Obra)
+                    ======================================================== */}
+                <div className="registro-notas-card-mobile">
+                  {/* Cabeçalho Minimizado (Clickable / Accordion Trigger) */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="registro-notas-card-mobile-header"
+                    onClick={() => toggleMobileObra(obra.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleMobileObra(obra.id);
+                      }
+                    }}
+                    aria-expanded={isExpandedMobile}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 'var(--radius-xs)',
+                          background: '#ffffff',
+                          border: '1px solid var(--border-hairline)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--primary-accent)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <BuildingApartment size={18} weight="bold" />
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h2
+                          style={{
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            color: 'var(--text-main)',
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {obra.nome}
+                        </h2>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                          <User size={12} color="var(--primary-accent)" />
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{obra.cliente}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lado Direito: Badge de Notas + Caret */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: 100,
+                          background: temNotas ? 'var(--dark-coffee-100)' : '#f3f4f6',
+                          color: temNotas ? 'var(--dark-coffee-800)' : '#6b7280',
+                          border: `1px solid ${temNotas ? 'var(--dark-coffee-200)' : '#e5e7eb'}`,
+                        }}
+                      >
+                        {temNotas ? `${notasDaObra.length} ${notasDaObra.length === 1 ? 'nota' : 'notas'}` : 'Sem notas'}
+                      </span>
+
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          background: isExpandedMobile ? 'var(--dark-coffee-100)' : 'transparent',
+                          color: 'var(--text-main)',
+                          flexShrink: 0,
+                          transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease',
+                          transform: isExpandedMobile ? 'rotate(180deg)' : 'rotate(0deg)',
+                        }}
+                      >
+                        <CaretDown size={15} weight="bold" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Conteúdo Expandido no Mobile */}
+                  {isExpandedMobile && (
+                    <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border-hairline)' }}>
+                      {/* Barra superior de ações e endereço no mobile */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          marginBottom: 14,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        {obra.endereco && obra.endereco !== 'Endereço não informado' ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                            <MapPin size={13} color="var(--primary-accent)" />
+                            <span style={{ maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {obra.endereco}
+                            </span>
+                          </div>
+                        ) : <div />}
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddNota(obra.id)}
+                          className="btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '0.78rem', gap: 6, marginLeft: 'auto' }}
+                        >
+                          <Plus size={14} weight="bold" />
+                          <span>Anexar Nota</span>
+                        </button>
+                      </div>
+
+                      {/* Galeria de Fotos / Empty State no Mobile */}
+                      {!temNotas ? (
+                        <div
+                          onClick={() => handleOpenAddNota(obra.id)}
+                          style={{
+                            border: '1.5px dashed var(--border-hairline)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '22px 14px',
+                            textAlign: 'center',
+                            background: '#ffffff',
+                            cursor: 'pointer',
+                            color: 'var(--text-muted)',
+                          }}
+                        >
+                          <Receipt size={24} weight="light" style={{ margin: '0 auto 6px auto', display: 'block', color: 'var(--text-muted)' }} />
+                          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)', display: 'block' }}>
+                            Nenhuma nota fiscal ou recibo anexado
+                          </span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                            Toque aqui para anexar a primeira nota
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {notasDaObra.map((nota, idx) => (
+                            <div
+                              key={nota.id || idx}
+                              style={{
+                                border: '1px solid var(--border-hairline)',
+                                borderRadius: 'var(--radius-sm)',
+                                background: '#ffffff',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                              }}
+                            >
+                              {/* Imagem da Nota */}
+                              <div style={{ position: 'relative', width: '100%', height: 160, background: '#f8f5f0', overflow: 'hidden' }}>
+                                {nota.fotos && nota.fotos.length > 0 ? (
+                                  <img
+                                    src={nota.fotos[0]}
+                                    alt={nota.titulo || 'Nota fiscal'}
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'cover',
+                                      cursor: 'pointer',
+                                    }}
+                                    onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: '100%',
+                                      height: '100%',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: 'var(--text-muted)',
+                                    }}
+                                  >
+                                    <FileText size={28} />
+                                  </div>
+                                )}
+
+                                {nota.fotos && nota.fotos.length > 1 && (
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: 8,
+                                      right: 8,
+                                      background: 'rgba(26, 19, 10, 0.78)',
+                                      color: '#ffffff',
+                                      fontSize: '0.70rem',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: 100,
+                                      backdropFilter: 'blur(3px)',
+                                    }}
+                                  >
+                                    +{nota.fotos.length - 1} foto{nota.fotos.length - 1 > 1 ? 's' : ''}
+                                  </span>
+                                )}
+
+                                {nota.fotos && nota.fotos.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
+                                    style={{
+                                      position: 'absolute',
+                                      top: 8,
+                                      left: 8,
+                                      background: 'rgba(26, 19, 10, 0.65)',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      borderRadius: 'var(--radius-xs)',
+                                      width: 28,
+                                      height: 28,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                    }}
+                                    title="Visualizar foto ampliada"
+                                  >
+                                    <ArrowsOut size={14} weight="bold" />
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      obraId: obra.id,
+                                      notaId: nota.id,
+                                      titulo: nota.titulo || `Nota #${idx + 1}`,
+                                    })
+                                  }
+                                  style={{
+                                    position: 'absolute',
+                                    top: 8,
+                                    right: 8,
+                                    background: 'rgba(255, 255, 255, 0.90)',
+                                    color: '#b91c1c',
+                                    border: '1px solid rgba(185, 28, 28, 0.2)',
+                                    borderRadius: 'var(--radius-xs)',
+                                    width: 28,
+                                    height: 28,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                  }}
+                                  title="Excluir nota"
+                                >
+                                  <Trash size={14} />
+                                </button>
+                              </div>
+
+                              {/* Metadados da Nota */}
+                              <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <strong
+                                      style={{
+                                        fontSize: '0.88rem',
+                                        color: 'var(--text-main)',
+                                        display: 'block',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                      }}
+                                    >
+                                      {nota.titulo || 'Nota Fiscal / Cupom'}
+                                    </strong>
+                                    {nota.criadoEm && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                        <CalendarBlank size={12} />
+                                        <span>{formatarData(nota.criadoEm)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {nota.observacoes && (
+                                  <div
+                                    style={{
+                                      fontSize: '0.76rem',
+                                      color: 'var(--text-muted)',
+                                      background: 'var(--dark-coffee-50)',
+                                      padding: '6px 8px',
+                                      borderRadius: 'var(--radius-xs)',
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: 5,
+                                      lineHeight: 1.35,
+                                    }}
+                                  >
+                                    <NotePencil size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                                    <span>{nota.observacoes}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </React.Fragment>
             );
           })}
         </div>

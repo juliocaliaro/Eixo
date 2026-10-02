@@ -2375,3 +2375,73 @@ input, textarea, select {
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ========================================================
+   REGISTRO DE NOTAS: RESPONSIVIDADE DESKTOP VS MOBILE
+   (Header Organizado e Cards Minimizados no Mobile)
+   ======================================================== */
+.registro-notas-header-desktop {
+  display: flex !important;
+}
+
+.registro-notas-header-mobile {
+  display: none !important;
+}
+
+.registro-notas-card-desktop {
+  display: block !important;
+}
+
+.registro-notas-card-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .registro-notas-header-desktop {
+    display: none !important;
+  }
+
+  .registro-notas-header-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .registro-notas-card-desktop {
+    display: none !important;
+  }
+
+  .registro-notas-card-mobile {
+    display: block !important;
+    background: #ffffff;
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .registro-notas-card-mobile-header {
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--dark-coffee-50);
+    transition: background 0.15s ease;
+  }
+
+  .registro-notas-card-mobile-header:hover {
+    background: var(--dark-coffee-100);
+  }
+
+  .registro-notas-card-mobile-header:focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: -2px;
+  }
+}
+
