@@ -977,6 +977,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     {grupo.headerTexto}
                   </strong>
                   <span
+                    className="diario-contador-desktop"
                     style={{
                       fontSize: '0.70rem',
                       fontWeight: 600,
@@ -988,6 +989,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   >
                     {grupo.entries.length} {grupo.entries.length === 1 ? 'registro' : 'registros'}
                   </span>
+
                 </div>
 
                 {grupo.saldoDia !== 0 && (

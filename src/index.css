@@ -2302,3 +2302,25 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   SUPRESSÃO MOBILE: CONTADORES E AÇÃO TESTAR CLIENTE
+   ======================================================== */
+.diario-contador-desktop,
+.projetos-contador-desktop,
+.projetos-tab-badge-desktop {
+  display: inline-block;
+}
+
+.share-testar-cliente-btn {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .diario-contador-desktop,
+  .projetos-contador-desktop,
+  .projetos-tab-badge-desktop,
+  .share-testar-cliente-btn {
+    display: none !important;
+  }
+}
+

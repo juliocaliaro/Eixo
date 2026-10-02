@@ -628,6 +628,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
                 <span>Arquivos</span>
                 {(obra.projetos || []).length > 0 && (
                   <span
+                    className="projetos-tab-badge-desktop"
                     style={{
                       marginLeft: 4,
                       background: 'var(--dark-coffee-100)',
@@ -641,6 +642,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
                     {obra.projetos!.length}
                   </span>
                 )}
+
               </button>
             );
           }

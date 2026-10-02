@@ -454,6 +454,17 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Preservação Desktop (`.painel-financeiro-desktop`)**:
   - A visualização na versão web (> 768px) permanece 100% inalterada, mantendo o painel financeiro aberto e com todos os cartões visíveis em grid contínuo.
 
+### 22.10 Otimizações e Limpeza Visual Exclusivas no Mobile
+- **Diário de Obra (`DiarioObraTab.tsx`)**: O badge contador de registros diários (`.diario-contador-desktop`) ao lado da data no cabeçalho do dia foi suprimido no mobile (`display: none`), poupando espaço horizontal e mantendo o extrato limpo.
+- **Compartilhar (`ClientShareTab.tsx`)**: O botão de teste de visualização do cliente (`.share-testar-cliente-btn`, *"Testar Visão do Cliente"*) foi ocultado no mobile para evitar sobrecarga de ações, permanecendo exclusivo na versão desktop.
+- **Projetos e Documentos (`ProjetosTab.tsx` & `ObraDetail.tsx`)**:
+  - Removido o badge contador de pranchas ao lado do título da aba (`.projetos-contador-desktop`).
+  - Removido o badge numérico no botão de navegação da aba "Arquivos" (`.projetos-tab-badge-desktop`) no celular.
+- **Etapas & Cronograma (`TimelineEtapas.tsx`)**:
+  - No mobile (`window.innerWidth <= 768`), todas as etapas iniciam **minimizadas/colapsadas por padrão**, reduzindo a rolagem vertical e permitindo ao usuário abrir pontualmente a etapa de interesse.
+  - A versão desktop permanece com todas as etapas expandidas por padrão.
+
+
 
 
 

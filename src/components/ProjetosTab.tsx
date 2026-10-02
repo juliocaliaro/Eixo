@@ -150,6 +150,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
               Projetos e Documentos
             </h2>
             <span
+              className="projetos-contador-desktop"
               style={{
                 fontSize: '0.75rem',
                 fontWeight: 700,
@@ -161,6 +162,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
             >
               {projetos.length} {projetos.length === 1 ? 'prancha' : 'pranchas'}
             </span>
+
           </div>
           <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginTop: 2 }}>
             Plantas executivas categorizadas por disciplina técnica

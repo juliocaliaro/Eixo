@@ -50,13 +50,27 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   isReadOnly = false,
   targetTaskNavigation,
 }) => {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>(() => {
+    const mobile = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
     const initial: { [key: string]: boolean } = {};
     obra.etapas.forEach((e) => {
-      initial[e.id] = true;
+      initial[e.id] = !mobile;
     });
     return initial;
   });
+
 
   const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
@@ -157,11 +171,15 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   };
 
   const toggleAccordion = (etapaId: string) => {
-    setOpenAccordions((prev) => ({
-      ...prev,
-      [etapaId]: !prev[etapaId],
-    }));
+    setOpenAccordions((prev) => {
+      const current = prev[etapaId] ?? (!isMobile);
+      return {
+        ...prev,
+        [etapaId]: !current,
+      };
+    });
   };
+
 
   const handleQuickAddTask = (etapaId: string) => {
     const text = newTaskInput[etapaId]?.trim();
@@ -295,8 +313,9 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
         <div className="timeline-items-flow">
           {obra.etapas.map((etapa, etapaIndex) => {
-            const isOpen = openAccordions[etapa.id] ?? true;
+            const isOpen = openAccordions[etapa.id] ?? (!isMobile);
             const totalTarefas = etapa.tarefas.length;
+
             const concluidas = etapa.tarefas.filter((t) => t.concluida).length;
             const todasConcluidas = totalTarefas > 0 && concluidas === totalTarefas;
             const percEtapa = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
