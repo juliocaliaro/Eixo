@@ -2247,3 +2247,28 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   CARTÃO DE OBRA NA LISTA: RESPONSIVIDADE DESKTOP VS MOBILE
+   ======================================================== */
+.obra-card-desktop {
+  display: flex !important;
+}
+
+.obra-card-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .obra-card-desktop {
+    display: none !important;
+  }
+
+  .obra-card-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+}
+
