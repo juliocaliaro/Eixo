@@ -198,6 +198,40 @@ export const App: React.FC = () => {
     } catch {}
   }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId]);
 
+  // -------------------------------------------------------
+  // visualViewport: mantém --vvh sempre igual à altura real
+  // do viewport visível (fundamental para modais no mobile
+  // quando o teclado virtual encolhe a tela)
+  // -------------------------------------------------------
+  useEffect(() => {
+    const setVVH = () => {
+      const h = window.visualViewport
+        ? window.visualViewport.height
+        : window.innerHeight;
+      document.documentElement.style.setProperty('--vvh', `${h}px`);
+    };
+
+    setVVH(); // valor inicial
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', setVVH);
+      vv.addEventListener('scroll', setVVH);
+    } else {
+      window.addEventListener('resize', setVVH);
+    }
+
+    return () => {
+      const vv2 = window.visualViewport;
+      if (vv2) {
+        vv2.removeEventListener('resize', setVVH);
+        vv2.removeEventListener('scroll', setVVH);
+      } else {
+        window.removeEventListener('resize', setVVH);
+      }
+    };
+  }, []);
+
   // Suporte a navegação nativa do navegador (botões Voltar e Avançar via popstate)
   useEffect(() => {
     const handlePopState = () => {
