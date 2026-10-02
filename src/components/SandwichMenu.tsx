@@ -82,8 +82,11 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
         position: 'fixed',
         top: 0,
         left: 0,
-        width: '100vw',
-        height: '100vh',
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100dvh',
+        maxHeight: '100dvh',
         zIndex: 9999,
         display: 'flex',
         justifyContent: 'flex-start', // Desliza da tela esquerda
@@ -99,8 +102,8 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           position: 'absolute',
           top: 0,
           left: 0,
-          width: '100%',
-          height: '100%',
+          right: 0,
+          bottom: 0,
           background: 'rgba(26, 19, 10, 0.45)',
           backdropFilter: 'blur(3px)',
         }}
@@ -113,12 +116,14 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           width: '100%',
           maxWidth: 320,
           height: '100%',
+          maxHeight: '100dvh',
           background: '#ffffff',
           boxShadow: '8px 0 32px rgba(0, 0, 0, 0.16)',
           display: 'flex',
           flexDirection: 'column',
           zIndex: 1,
           animation: 'drawerSlideRight 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          overflow: 'hidden',
         }}
       >
         {/* Cabeçalho do Menu Lateral */}
@@ -130,6 +135,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             background: 'var(--dark-coffee-50, #fcfaf8)',
+            flexShrink: 0,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -148,8 +154,8 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
             onClick={onClose}
             className="btn-icon"
             style={{
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border-hairline)',
               background: '#ffffff',
@@ -170,7 +176,9 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
         <div
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -185,7 +193,8 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               }}
               style={{
                 width: '100%',
-                padding: '14px 20px',
+                padding: '16px 20px',
+                minHeight: 48,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -193,7 +202,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                 borderBottom: '1px solid var(--border-hairline)',
                 background: 'transparent',
                 color: 'var(--text-main)',
-                fontSize: '0.92rem',
+                fontSize: '0.94rem',
                 fontWeight: 600,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -207,16 +216,17 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           )}
 
           {/* 2. Registro de materiais */}
-          {perfilAtivo === 'construtor' && onOpenRegistroMaterial && (
+          {onOpenRegistroMaterial && (
             <button
               type="button"
               onClick={() => {
                 onClose();
-                if (onOpenRegistroMaterial) onOpenRegistroMaterial();
+                onOpenRegistroMaterial();
               }}
               style={{
                 width: '100%',
-                padding: '14px 20px',
+                padding: '16px 20px',
+                minHeight: 48,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -224,7 +234,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
                 borderBottom: '1px solid var(--border-hairline)',
                 background: 'transparent',
                 color: 'var(--text-main)',
-                fontSize: '0.92rem',
+                fontSize: '0.94rem',
                 fontWeight: 600,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -238,16 +248,18 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           )}
         </div>
 
-        {/* Rodapé do Menu: Sair da Conta fixado exclusivamente aqui */}
+        {/* Rodapé do Menu: Sair da Conta fixado exclusivamente aqui com safe-area mobile */}
         <div
           style={{
             marginTop: 'auto',
             padding: '16px 20px',
+            paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
             borderTop: '1px solid var(--border-hairline)',
             background: 'var(--dark-coffee-50, #fcfaf8)',
+            flexShrink: 0,
           }}
         >
-          {isLogged ? (
+          {isLogged || onLogout ? (
             <button
               type="button"
               onClick={() => {
@@ -256,15 +268,17 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               }}
               style={{
                 width: '100%',
-                padding: '11px 16px',
+                padding: '12px 16px',
+                minHeight: 46,
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 8,
                 borderRadius: 'var(--radius-sm, 6px)',
                 border: '1px solid var(--border-hairline)',
                 background: '#ffffff',
                 color: 'var(--text-main)',
-                fontSize: '0.88rem',
+                fontSize: '0.9rem',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
@@ -292,12 +306,13 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               className="btn-primary"
               style={{
                 width: '100%',
-                padding: '11px 16px',
+                padding: '12px 16px',
+                minHeight: 46,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-                fontSize: '0.88rem',
+                fontSize: '0.9rem',
               }}
             >
               <SignIn size={18} weight="bold" />
