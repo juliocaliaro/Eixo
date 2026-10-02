@@ -394,6 +394,40 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
     2. **Registro de materiais**: Atalho direto para abertura do modal de materiais (exibido para perfil Construtor).
   - **Rodapé do Menu (Footer)**: Botão de **Sair da Conta (Logout)** posicionado e fixado exclusivamente no rodapé do menu lateral esquerdo.
 
+---
+
+## 22. Refinamentos Recentes de Usabilidade e Layout (Mobile & Desktop)
+
+### 22.1 Auto-Scroll ao Abrir Calendário no Modal (`DatePickerInput.tsx` & `ModalEditObra.tsx`)
+- **Comportamento Mobile**: Ao clicar no ícone do calendário dentro do modal de edição no dispositivo móvel, a tela/modal-body executa rolagem suave automática (`scrollIntoView({ behavior: 'smooth', block: 'end' })`) trazendo o popover do calendário imediatamente para o campo de visão do usuário, sem necessidade de rolagem manual.
+- **Espaçamento Dinâmico**: No mobile, a margem inferior do contêiner expande temporariamente para acomodar o popover sem cortes e volta ao padrão de 16px ao fechar.
+- **Preservação Desktop**: O comportamento na versão web (> 768px) permanece 100% inalterado.
+
+### 22.2 Botão "Relatório Final" (`ObraHeader.tsx` & `ModalRelatorioObra.tsx`)
+- **Unificação Terminológica**: O botão de relatório no cabeçalho da obra foi padronizado oficialmente como **"Relatório Final"** (substituindo o antigo rótulo "Relatório de Evolução Física"), proporcionando maior clareza para construtores e clientes.
+- **Modal e Dossiê**: O modal de emissão exibe o título **"Relatório Final"** e a ação **"Baixar Relatório Final"**, mantendo a estrutura interna de conclusão (com termo de aceite) ou evolução (com termo de responsabilidade).
+
+### 22.3 Cabeçalho de Obra Otimizado no Mobile (`ObraHeader.tsx`)
+- **Remoção de Banners Redundantes**: Removida a linha superior `"Obra Ativa • X etapas no cronograma"`, alinhando o título da obra diretamente no topo.
+- **Ocultação de Endereço no Mobile**: O endereço é ocultado no cabeçalho principal no celular para poupar espaço vertical, permanecendo acessível no modal "Editar Dados da Obra".
+- **Grid Lado a Lado (Data e Orçamento)**: Sem os rótulos de texto extensos, os ícones de calendário (data) e cifrão (orçamento) ficam organizados lado a lado em uma única linha flex logo abaixo do nome do cliente.
+- **Isolamento Desktop**: A versão desktop mantém o layout completo intacto via classes responsivas isoladas (`.obra-meta-desktop` vs `.obra-meta-mobile`).
+
+### 22.4 Cards de Obra na Página Inicial (`ObraList.tsx`)
+- **Versão Mobile (`.obra-card-mobile`)**:
+  - **Linha 1**: Nome do cliente (com ícone `<User />`) e data prevista (com ícone `<CalendarBlank />`) dispostos lado a lado (`justify-content: space-between`) logo abaixo das etapas, sem rótulos repetitivos.
+  - **Linha 2**: Linha exclusiva para o endereço completo com ícone `<MapPin />` e botão de cópia rápida (`<Copy />`) alinhado à extrema direita com feedback visual temporário (`<Check /> Copiado`).
+  - **Linhas 3 e 4**: Barra de progresso linear e linha inferior de ações (lixeira e seta) mantidas.
+- **Versão Desktop (`.obra-card-desktop`)**:
+  - **Coluna Principal Expandida**: Espaçamento flex expandido (`flex: 2.5`) para preencher a largura útil e eliminar vazios indesejados.
+  - **Endereço em Linha Própria**: Endereço posicionado logo abaixo do nome do cliente, exibido por inteiro sem truncamento (`whiteSpace: 'nowrap'`).
+  - **Botão "Copiar" Dedicado**: Botão em formato de pílula posicionado abaixo do endereço, permitindo cópia rápida para o clipboard com `e.stopPropagation()`.
+
+### 22.5 Ativo Local para o Banner Hero (`public/hero-bg.jpg`)
+- **Eliminação de 404 Externo**: Substituído o link externo quebrado do Unsplash por fotografia de canteiro de obras incorporada diretamente no repositório local (`public/hero-bg.jpg`).
+- **Resiliência Offline**: Carregamento 100% local com latência zero e manipulador defensivo `onError` para ocultar o elemento caso qualquer erro ocorra, banindo ícones de imagem quebrada.
+
+
 
 
 
