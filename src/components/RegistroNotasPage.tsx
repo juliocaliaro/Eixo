@@ -7,7 +7,6 @@ import {
   BuildingApartment,
   User,
   MapPin,
-  MagnifyingGlass,
   X,
   ArrowsOut,
   CalendarBlank,
@@ -33,7 +32,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
   showToast,
   perfilAtivo = 'construtor',
 }) => {
-  const [busca, setBusca] = useState('');
+  const [filtroObraId, setFiltroObraId] = useState<string>('todas');
   const [isModalNotaOpen, setIsModalNotaOpen] = useState(false);
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
 
@@ -71,23 +70,11 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     }
   };
 
-  // Filtragem de obras por termo de busca
+  // Filtragem de obras por seleção direta
   const obrasFiltradas = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return obras;
-    return obras.filter((o) => {
-      const matchNome = o.nome.toLowerCase().includes(q);
-      const matchCliente = o.cliente.toLowerCase().includes(q);
-      const matchNotas = (o.notas || []).some(
-        (n) => (n.titulo && n.titulo.toLowerCase().includes(q)) || (n.observacoes && n.observacoes.toLowerCase().includes(q))
-      );
-      return matchNome || matchCliente || matchNotas;
-    });
-  }, [obras, busca]);
-
-  const totalNotasGerais = useMemo(() => {
-    return obras.reduce((acc, o) => acc + (o.notas || []).length, 0);
-  }, [obras]);
+    if (filtroObraId === 'todas') return obras;
+    return obras.filter((o) => o.id === filtroObraId);
+  }, [obras, filtroObraId]);
 
   const handleOpenAddNota = (obraId?: string) => {
     setSelectedObraIdForModal(obraId);
@@ -141,139 +128,99 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
 
   return (
     <div style={{ maxWidth: '1080px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Barra de Ação Superior */}
+      {/* Cabeçalho Minimalista e Seletor de Obra */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 20,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <button onClick={onBack} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
-          <ArrowLeft size={16} weight="bold" />
-          <span>Voltar para Obras</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleOpenAddNota()}
-          className="btn-primary"
-          style={{ padding: '8px 18px', fontSize: '0.9rem' }}
-        >
-          <Plus size={16} weight="bold" />
-          <span>Registrar Nova Nota</span>
-        </button>
-      </div>
-
-      {/* Cabeçalho da Página */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-hairline)',
-          padding: '24px 28px',
           marginBottom: 24,
-          boxShadow: 'var(--shadow-sm)',
+          flexWrap: 'wrap',
+          gap: 16,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* Esquerda: Botão Voltar e Título */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button
+            onClick={onBack}
+            className="btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.88rem' }}
+            title="Voltar para a lista de obras"
+          >
+            <ArrowLeft size={16} weight="bold" />
+            <span>Voltar</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 'var(--radius-sm)',
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--radius-xs)',
                 background: 'var(--dark-coffee-100)',
                 color: 'var(--dark-coffee-800)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                flexShrink: 0,
               }}
             >
-              <Receipt size={26} weight="fill" />
+              <Receipt size={20} weight="fill" />
             </div>
-            <div>
-              <h1
-                style={{
-                  fontSize: '1.45rem',
-                  fontWeight: 800,
-                  color: 'var(--text-main)',
-                  margin: 0,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Registro de Notas
-              </h1>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
-                Galeria e controle de notas fiscais, cupons e recibos comprobatórios por obra
-              </p>
-            </div>
-          </div>
-
-          {/* Resumo de Indicadores */}
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div
+            <h1
               style={{
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '8px 16px',
-                textAlign: 'center',
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                color: 'var(--text-main)',
+                margin: 0,
+                letterSpacing: '-0.02em',
               }}
             >
-              <span style={{ display: 'block', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                {obras.length}
-              </span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                {obras.length === 1 ? 'Obra' : 'Obras'}
-              </span>
-            </div>
-
-            <div
-              style={{
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '8px 16px',
-                textAlign: 'center',
-              }}
-            >
-              <span style={{ display: 'block', fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
-                {totalNotasGerais}
-              </span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                {totalNotasGerais === 1 ? 'Nota Anexada' : 'Notas Anexadas'}
-              </span>
-            </div>
+              Registro de Notas
+            </h1>
           </div>
         </div>
 
-        {/* Campo de Busca Rápida */}
-        <div style={{ marginTop: 20 }}>
-          <div style={{ position: 'relative', maxWidth: '420px' }}>
-            <MagnifyingGlass
-              size={17}
-              style={{
-                position: 'absolute',
-                left: 12,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-              }}
-            />
-            <input
-              type="text"
+        {/* Direita: Campo onde escolhe qual obra quer ver ou acessar + Botão Registrar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BuildingApartment size={18} color="var(--text-muted)" />
+            <select
+              value={filtroObraId}
+              onChange={(e) => setFiltroObraId(e.target.value)}
               className="form-input"
-              placeholder="Buscar por obra, cliente ou nota..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              style={{ paddingLeft: 38, fontSize: '0.88rem' }}
-            />
+              style={{
+                minWidth: '220px',
+                maxWidth: '340px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-hairline)',
+                background: '#ffffff',
+                color: 'var(--text-main)',
+                appearance: 'auto',
+              }}
+              title="Selecione a obra que deseja visualizar"
+            >
+              <option value="todas">Todas as Obras ({obras.length})</option>
+              {obras.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.nome} {o.cliente ? `• ${o.cliente}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <button
+            type="button"
+            onClick={() => handleOpenAddNota(filtroObraId !== 'todas' ? filtroObraId : undefined)}
+            className="btn-primary"
+            style={{ padding: '8px 18px', fontSize: '0.88rem' }}
+          >
+            <Plus size={16} weight="bold" />
+            <span>Registrar Nota</span>
+          </button>
         </div>
       </div>
 
@@ -294,7 +241,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
             Nenhuma obra encontrada.
           </p>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem' }}>
-            {busca ? 'Tente buscar com outros termos.' : 'Cadastre sua primeira obra para anexar notas.'}
+            Cadastre uma obra para anexar notas fiscais.
           </p>
         </div>
       ) : (
@@ -383,22 +330,8 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                     </div>
                   </div>
 
-                  {/* Ações e Badge do Card */}
+                  {/* Ações do Card */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span
-                      style={{
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        padding: '4px 10px',
-                        borderRadius: 100,
-                        background: temNotas ? 'var(--dark-coffee-100)' : '#f3f4f6',
-                        color: temNotas ? 'var(--dark-coffee-800)' : '#6b7280',
-                        border: `1px solid ${temNotas ? 'var(--dark-coffee-200)' : '#e5e7eb'}`,
-                      }}
-                    >
-                      {temNotas ? `${notasDaObra.length} ${notasDaObra.length === 1 ? 'nota' : 'notas'}` : 'Sem notas'}
-                    </span>
-
                     <button
                       type="button"
                       onClick={() => handleOpenAddNota(obra.id)}
