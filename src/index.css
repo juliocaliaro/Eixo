@@ -2445,3 +2445,37 @@ input, textarea, select {
   }
 }
 
+/* ========================================================
+   DECISÕES & APROVAÇÕES: AÇÕES E FILTRO MOBILE VS DESKTOP
+   ======================================================== */
+.decisoes-btn-novaproposta-desktop {
+  display: inline-flex !important;
+}
+
+.decisoes-pills-desktop {
+  display: flex !important;
+}
+
+.decisoes-actions-mobile {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .decisoes-btn-novaproposta-desktop {
+    display: none !important;
+  }
+
+  .decisoes-pills-desktop {
+    display: none !important;
+  }
+
+  .decisoes-actions-mobile {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+}
+
+

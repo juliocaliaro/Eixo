@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Scales,
   Plus,
@@ -19,7 +19,8 @@ import {
   WhatsappLogo,
   CurrencyDollar,
   TrendUp,
-  CaretDown
+  CaretDown,
+  Funnel,
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
@@ -43,12 +44,34 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   onRecusarDecisao,
 }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [filter, setFilter] = useState<'todas' | 'pendentes' | 'aprovadas'>('todas');
+  const [filter, setFilter] = useState<'todas' | 'pendentes' | 'aprovadas' | 'recusadas'>('todas');
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const [confirmSignDecisao, setConfirmSignDecisao] = useState<Decisao | null>(null);
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
   const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
   const [isPainelFinanceiroOpenMobile, setIsPainelFinanceiroOpenMobile] = useState(false);
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const mobileFilterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMobileFilterOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mobileFilterRef.current && !mobileFilterRef.current.contains(e.target as Node)) {
+        setIsMobileFilterOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileFilterOpen]);
 
   const toggleMobileExpand = (id: string) => {
     setExpandedMobileIds((prev) => ({
@@ -176,6 +199,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const decisoesFiltradas = decisoes.filter((d) => {
     if (filter === 'pendentes') return d.status === 'pendente';
     if (filter === 'aprovadas') return d.status === 'aprovada';
+    if (filter === 'recusadas') return d.status === 'recusada';
     return true;
   });
 
@@ -513,7 +537,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         <button
           type="button"
           onClick={() => setIsCreateModalOpen(true)}
-          className="btn-primary"
+          className="btn-primary decisoes-btn-novaproposta-desktop"
           style={{ padding: '9px 16px', fontSize: '0.88rem' }}
         >
           <Plus size={16} weight="bold" />
@@ -795,9 +819,240 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         </div>
       )}
 
-      {/* Filtros em Pílula */}
+      {/* Barra de Ações Mobile (Exclusiva para Mobile: Nova Proposta na esquerda e Filtro Funil na direita) */}
+      <div className="decisoes-actions-mobile">
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(true)}
+          className="btn-primary"
+          style={{ padding: '7px 14px', fontSize: '0.84rem', gap: 6 }}
+        >
+          <Plus size={15} weight="bold" />
+          <span>Nova Proposta</span>
+        </button>
+
+        {decisoes.length > 0 && (
+          <div style={{ position: 'relative' }} ref={mobileFilterRef}>
+            <button
+              type="button"
+              onClick={() => setIsMobileFilterOpen((prev) => !prev)}
+              className="btn-icon"
+              style={{
+                width: 38,
+                height: 38,
+                border: '1px solid var(--border-hairline)',
+                background: isMobileFilterOpen || filter !== 'todas' ? 'var(--dark-coffee-100)' : '#ffffff',
+                color: filter !== 'todas' ? 'var(--primary-accent)' : 'var(--text-body)',
+                position: 'relative',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Filtrar decisões por status"
+              aria-label="Filtrar decisões por status"
+            >
+              <Funnel size={18} weight={filter !== 'todas' ? 'fill' : 'regular'} />
+              {filter !== 'todas' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--primary-accent)',
+                  }}
+                />
+              )}
+            </button>
+
+            {/* Popup Flutuante de Filtro Mobile */}
+            {isMobileFilterOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: 250,
+                  background: '#ffffff',
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-floating)',
+                  padding: '12px',
+                  zIndex: 200,
+                  animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 10,
+                    paddingBottom: 6,
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Filtrar Status
+                  </span>
+                  {filter !== 'todas' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilter('todas');
+                        setIsMobileFilterOpen(false);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary-accent)',
+                        fontSize: '0.76rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {/* Todas */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilter('todas');
+                      setIsMobileFilterOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: filter === 'todas' ? 'var(--dark-coffee-50)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: filter === 'todas' ? 700 : 500,
+                      color: filter === 'todas' ? 'var(--text-main)' : 'var(--text-body)',
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    <span>Todas as Decisões</span>
+                    <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {decisoes.length}
+                    </span>
+                  </button>
+
+                  {/* Pendentes */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilter('pendentes');
+                      setIsMobileFilterOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: filter === 'pendentes' ? 'var(--coral-glow-50)' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: filter === 'pendentes' ? 700 : 500,
+                      color: filter === 'pendentes' ? 'var(--primary-accent)' : 'var(--text-body)',
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <Clock size={13} weight="bold" />
+                      <span>Pendentes</span>
+                    </span>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--primary-accent)' }}>
+                      {decisoes.filter((d) => d.status === 'pendente').length}
+                    </span>
+                  </button>
+
+                  {/* Aprovadas */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilter('aprovadas');
+                      setIsMobileFilterOpen(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: filter === 'aprovadas' ? '#dcfce7' : 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontWeight: filter === 'aprovadas' ? 700 : 500,
+                      color: filter === 'aprovadas' ? '#16a34a' : 'var(--text-body)',
+                      fontSize: '0.84rem',
+                    }}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={13} weight="bold" />
+                      <span>Aprovadas por Ambos</span>
+                    </span>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#16a34a' }}>
+                      {decisoes.filter((d) => d.status === 'aprovada').length}
+                    </span>
+                  </button>
+
+                  {/* Recusadas (se houver) */}
+                  {decisoes.some((d) => d.status === 'recusada') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilter('recusadas');
+                        setIsMobileFilterOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: 'none',
+                        background: filter === 'recusadas' ? '#fee2e2' : 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontWeight: filter === 'recusadas' ? 700 : 500,
+                        color: filter === 'recusadas' ? '#dc2626' : 'var(--text-body)',
+                        fontSize: '0.84rem',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <XCircle size={13} weight="bold" />
+                        <span>Recusadas</span>
+                      </span>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#dc2626' }}>
+                        {decisoes.filter((d) => d.status === 'recusada').length}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Filtros em Pílula (Versão Desktop Inalterada) */}
       {decisoes.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        <div className="decisoes-pills-desktop" style={{ gap: 8, marginBottom: 20 }}>
           <button
             type="button"
             onClick={() => setFilter('todas')}
