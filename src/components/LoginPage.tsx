@@ -192,7 +192,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Eixo
           </h1>
           <p className="login-subtitle">
-            Acompanhamento e Gestão de Obra
+            Acompanhamento e Gestão de Obras
           </p>
         </div>
 
