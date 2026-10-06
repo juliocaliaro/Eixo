@@ -509,4 +509,23 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - O corpo do card (`.login-card-body`) conta com rolagem interna suave invisível (`overflow-y: auto`, `scrollbar-width: none`) exclusivamente como proteção em telas de altura extremamente reduzida ou ao abrir o teclado virtual, mantendo o fundo e os eixos estruturais do app 100% estáticos.
 - **Preservação Rigorosa da Versão Web**: A versão desktop (> 768px) permanece com seus espaçamentos e dimensões originais generosos intactos.
 
+---
+
+## 23. Infraestrutura de Banco de Dados Relacional PostgreSQL & Integração Supabase
+
+- **Migração do Modelo de Dados para Banco de Dados Relacional**:
+  - Superação do limite de quota do `localStorage` (5MB - 10MB) e eliminação do armazenamento de binários pesados em Base64 no frontend.
+  - Script oficial de migração disponível em `supabase/schema.sql` com 12 entidades normalizadas: `profiles`, `obras`, `etapas`, `tarefas`, `tarefa_evidencias`, `decisoes`, `decisao_assinaturas`, `projetos_pdf`, `registro_notas`, `punch_list_items` e `modelos_etapas_templates`.
+- **Arquitetura de Serviços & Repository Pattern (`src/services/`)**:
+  - `src/services/supabaseClient.ts`: Inicialização segura do cliente Supabase a partir de `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+  - `src/services/dbTypes.ts`: Tipagem formal do schema relacional do PostgreSQL (snake_case) com mapeamento bidirecional para os tipos de domínio do Eixo (camelCase).
+  - `src/services/api.ts`: Camada centralizada de chamadas RESTful assíncronas (`obrasApi`, `decisoesApi`, `storageApi`, `authApi`, `templatesApi`).
+- **Modo de Operação Híbrido Resiliente**:
+  - Quando as credenciais do Supabase estão configuradas no arquivo `.env`, o sistema conecta-se ao banco de dados PostgreSQL na nuvem e ao Object Storage.
+  - Caso não estejam configuradas (desenvolvimento offline ou demonstração local), a camada de serviço ativa automaticamente o fallback para `localStorage`, garantindo zero quebras de compilação ou execução.
+- **Row Level Security (RLS) & Regras de Acesso**:
+  - Construtor possui permissões plenas de gerenciamento (`CRUD`) nas suas obras, etapas, tarefas, projetos e notas.
+  - Cliente possui permissão de leitura (`SELECT`) nas obras associadas e permissão ativa exclusiva (`INSERT` / `UPDATE`) na tabela `decisoes` e `decisao_assinaturas`.
+
+
 

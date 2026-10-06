@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
-import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage, saveTemplatesToStorage } from './utils/storage';
+import { loadObrasFromStorage, loadTemplatesFromStorage } from './utils/storage';
+import { obrasApi, templatesApi } from './services/api';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
@@ -280,9 +281,27 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Salvar no localStorage sempre que obras mudarem
+  // Carregar dados remotos da API / Supabase se configurado
   useEffect(() => {
-    saveObrasToStorage(obras);
+    let isMounted = true;
+    obrasApi.list().then((loadedObras) => {
+      if (isMounted && loadedObras && loadedObras.length > 0) {
+        setObras(loadedObras);
+      }
+    });
+    templatesApi.list().then((loadedTemplates) => {
+      if (isMounted && loadedTemplates && loadedTemplates.length > 0) {
+        setTemplates(loadedTemplates);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Salvar no repositório / Supabase sempre que obras mudarem
+  useEffect(() => {
+    obrasApi.saveAll(obras);
   }, [obras]);
 
   // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
@@ -352,7 +371,7 @@ export const App: React.FC = () => {
   // Atualizar modelos padrão de etapas e tarefas
   const handleUpdateTemplates = (updated: PresetTipoObra[]) => {
     setTemplates(updated);
-    saveTemplatesToStorage(updated);
+    templatesApi.save(updated);
   };
 
   // Navegação para dentro de uma obra
