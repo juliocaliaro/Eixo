@@ -664,7 +664,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {/* Campo Senha */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ marginBottom: 4 }}>
-                  Criar Senha (mínimo 8 caracteres: letras maiúsculas, minúsculas, números e símbolos)
+                  Criar Senha
                 </label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <Lock
