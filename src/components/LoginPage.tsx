@@ -156,8 +156,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    if (passwordCadastro.length < 6) {
-      setErro('A senha deve conter no mínimo 6 caracteres para sua segurança.');
+    if (passwordCadastro.length < 8) {
+      setErro('A senha deve conter no mínimo 8 caracteres.');
+      return;
+    }
+
+    const hasUpperCase = /[A-Z]/.test(passwordCadastro);
+    const hasLowerCase = /[a-z]/.test(passwordCadastro);
+    const hasNumber = /[0-9]/.test(passwordCadastro);
+    const hasSymbol = /[^A-Za-z0-9]/.test(passwordCadastro);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSymbol) {
+      setErro('A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos.');
       return;
     }
 
@@ -644,7 +654,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {/* Campo Senha */}
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ marginBottom: 4 }}>
-                  Criar Senha (mínimo 6 caracteres)
+                  Criar Senha (mínimo 8 caracteres: letras maiúsculas, minúsculas, números e símbolos)
                 </label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <Lock
