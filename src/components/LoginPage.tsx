@@ -15,6 +15,8 @@ import {
   UserPlus,
   ShieldCheck,
   CircleNotch,
+  Check,
+  Circle,
 } from '@phosphor-icons/react';
 import { authApi } from '../services/api';
 
@@ -690,6 +692,65 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   >
                     {showPasswordCadastro ? <EyeSlash size={18} /> : <Eye size={18} />}
                   </button>
+                </div>
+
+                {/* Checklist Interativo de Requisitos de Senha com Feedback em Tempo Real */}
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: '10px 12px',
+                    background: 'var(--dark-coffee-50, #fcfaf8)',
+                    border: '1px solid var(--border-hairline)',
+                    borderRadius: 'var(--radius-sm, 6px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 5,
+                  }}
+                >
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 2 }}>
+                    Requisitos da Senha:
+                  </span>
+                  {[
+                    { label: 'Mínimo de 8 caracteres', ok: passwordCadastro.length >= 8 },
+                    { label: 'Pelo menos uma letra maiúscula (A-Z)', ok: /[A-Z]/.test(passwordCadastro) },
+                    { label: 'Pelo menos uma letra minúscula (a-z)', ok: /[a-z]/.test(passwordCadastro) },
+                    { label: 'Pelo menos um número (0-9)', ok: /[0-9]/.test(passwordCadastro) },
+                    { label: 'Pelo menos um símbolo especial (!@#$%^&*)', ok: /[^A-Za-z0-9]/.test(passwordCadastro) },
+                  ].map((req, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        fontSize: '0.76rem',
+                        color: req.ok ? '#15803d' : 'var(--text-muted)',
+                        fontWeight: req.ok ? 600 : 400,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {req.ok ? (
+                        <div
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: '50%',
+                            background: '#dcfce7',
+                            color: '#15803d',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Check size={10} weight="bold" />
+                        </div>
+                      ) : (
+                        <Circle size={12} weight="regular" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                      )}
+                      <span>{req.label}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
