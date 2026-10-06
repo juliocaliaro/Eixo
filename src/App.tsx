@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
 import { loadObrasFromStorage, loadTemplatesFromStorage } from './utils/storage';
-import { obrasApi, templatesApi } from './services/api';
+import { obrasApi, templatesApi, authApi } from './services/api';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
@@ -538,6 +538,7 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    authApi.signOut();
     setIsLogged(false);
     setCurrentObraId(null);
     setIsConfigOpen(false);

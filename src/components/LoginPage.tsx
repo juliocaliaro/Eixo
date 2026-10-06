@@ -14,7 +14,9 @@ import {
   SignIn,
   UserPlus,
   ShieldCheck,
+  CircleNotch,
 } from '@phosphor-icons/react';
+import { authApi } from '../services/api';
 
 export type UserRole = 'Construtor' | 'Cliente';
 
@@ -48,8 +50,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(true);
 
-  // Estado de Mensagens de Erro
+  // Estado de Mensagens de Erro e Carregamento
   const [erro, setErro] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Modal de Recuperação de Senha
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
@@ -78,7 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   // Submissão do Formulário de Login
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
 
@@ -103,11 +106,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    onLogin(selectedRole, email.trim());
+    setIsLoading(true);
+    try {
+      const res = await authApi.signIn(email.trim(), password);
+      if (res.error) {
+        // Se as credenciais estiverem incorretas no Supabase
+        setErro(res.error.includes('Invalid login credentials') 
+          ? 'E-mail ou senha incorretos. Caso seja sua primeira vez, clique na aba "Criar Conta".' 
+          : res.error);
+        setIsLoading(false);
+        return;
+      }
+
+      const meta = res.user?.user_metadata || {};
+      const roleFromDb: UserRole = meta.role === 'cliente' ? 'Cliente' : 'Construtor';
+      const nomeFromDb = meta.nome || undefined;
+      const empresaFromDb = meta.empresa || undefined;
+
+      onLogin(roleFromDb || selectedRole, email.trim(), nomeFromDb, empresaFromDb);
+    } catch {
+      onLogin(selectedRole, email.trim());
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Submissão do Formulário de Cadastro
-  const handleCadastroSubmit = (e: React.FormEvent) => {
+  const handleCadastroSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
 
@@ -146,13 +171,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    // Cadastro aprovado e autenticado diretamente
-    onLogin(
-      selectedRole,
-      emailCadastro.trim(),
-      nomeCadastro.trim(),
-      selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined
-    );
+    setIsLoading(true);
+    try {
+      const res = await authApi.signUp({
+        email: emailCadastro.trim(),
+        password: passwordCadastro,
+        nome: nomeCadastro.trim(),
+        role: selectedRole,
+        empresa: selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined,
+      });
+
+      if (res.error) {
+        setErro(res.error.includes('already registered')
+          ? 'Este e-mail já está cadastrado. Alterne para a aba "Entrar" para acessar.'
+          : res.error);
+        setIsLoading(false);
+        return;
+      }
+
+      // Cadastro aprovado e gravado no Supabase
+      onLogin(
+        selectedRole,
+        emailCadastro.trim(),
+        nomeCadastro.trim(),
+        selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined
+      );
+    } catch (err: any) {
+      setErro(err?.message || 'Erro ao registrar conta no servidor.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Acesso Rápido para Testes
@@ -471,9 +519,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="submit"
                 className="btn-primary login-submit-btn"
+                disabled={isLoading}
+                style={{ opacity: isLoading ? 0.7 : 1 }}
               >
-                <span>Entrar como {selectedRole}</span>
-                <ArrowRight size={16} weight="bold" />
+                {isLoading ? (
+                  <>
+                    <CircleNotch size={16} className="spin-animate" weight="bold" />
+                    <span>Autenticando...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Entrar como {selectedRole}</span>
+                    <ArrowRight size={16} weight="bold" />
+                  </>
+                )}
               </button>
 
               {/* Atalhos Rápidos para Demonstração */}
@@ -701,9 +760,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button
                 type="submit"
                 className="btn-primary login-submit-btn"
+                disabled={isLoading}
+                style={{ opacity: isLoading ? 0.7 : 1 }}
               >
-                <UserPlus size={16} weight="bold" />
-                <span>Criar Conta e Acessar</span>
+                {isLoading ? (
+                  <>
+                    <CircleNotch size={16} className="spin-animate" weight="bold" />
+                    <span>Criando conta no servidor...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={16} weight="bold" />
+                    <span>Criar Conta e Acessar</span>
+                  </>
+                )}
               </button>
 
               <div

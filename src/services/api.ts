@@ -289,55 +289,110 @@ export const storageApi = {
 // ==============================================================================
 
 export const authApi = {
-  async signUp(
-    email: string,
-    password: string,
-    metadata: { nome: string; role: 'Construtor' | 'Cliente'; empresa?: string }
-  ) {
+  async signUp(params: {
+    email: string;
+    password: string;
+    nome: string;
+    role: 'Construtor' | 'Cliente';
+    empresa?: string;
+  }): Promise<{ user: any; error: string | null }> {
     if (!isSupabaseConfigured() || !supabase) {
-      return { user: null, error: null };
+      return { user: { email: params.email }, error: null };
     }
 
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          nome: metadata.nome,
-          role: metadata.role.toLowerCase(),
-          empresa: metadata.empresa,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: params.email,
+        password: params.password,
+        options: {
+          data: {
+            nome: params.nome,
+            role: params.role.toLowerCase(),
+            empresa: params.empresa || null,
+          },
         },
-      },
-    });
+      });
+
+      if (error) {
+        return { user: null, error: error.message };
+      }
+
+      if (data.user) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: params.email,
+            nome: params.nome,
+            role: params.role.toLowerCase(),
+            empresa: params.empresa || null,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (profileErr) {
+          console.warn('Erro ao atualizar profile no banco:', profileErr);
+        }
+      }
+
+      return { user: data.user, error: null };
+    } catch (err: any) {
+      return { user: null, error: err?.message || 'Falha na comunicação com o servidor de autenticação.' };
+    }
   },
 
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string): Promise<{ user: any; error: string | null }> {
     if (!isSupabaseConfigured() || !supabase) {
-      return { session: null, error: null };
+      return { user: { email }, error: null };
     }
 
-    return await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { user: null, error: error.message };
+      }
+
+      return { user: data.user, error: null };
+    } catch (err: any) {
+      return { user: null, error: err?.message || 'Falha ao autenticar usuário.' };
+    }
   },
 
-  async signOut() {
+  async signOut(): Promise<void> {
     if (!isSupabaseConfigured() || !supabase) return;
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch {}
   },
 
-  async resetPassword(email: string) {
+  async resetPassword(email: string): Promise<void> {
     if (!isSupabaseConfigured() || !supabase) return;
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
-    });
+    try {
+      await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+    } catch {}
   },
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string): Promise<any> {
     if (!isSupabaseConfigured() || !supabase) return null;
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    return data;
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  async getCurrentUser(): Promise<any> {
+    if (!isSupabaseConfigured() || !supabase) return null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      return data.user || null;
+    } catch {
+      return null;
+    }
   },
 };
 
