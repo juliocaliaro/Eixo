@@ -56,6 +56,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [erro, setErro] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Validação em Tempo Real dos Requisitos da Senha
+  const hasMinLength = passwordCadastro.length >= 8;
+  const hasUpperCase = /[A-Z]/.test(passwordCadastro);
+  const hasLowerCase = /[a-z]/.test(passwordCadastro);
+  const hasNumber = /[0-9]/.test(passwordCadastro);
+  const hasSymbol = /[^A-Za-z0-9]/.test(passwordCadastro);
+  const isSenhaValida = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSymbol;
+
   // Modal de Recuperação de Senha
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -704,18 +712,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     borderRadius: 'var(--radius-sm, 6px)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 5,
+                    gap: 6,
                   }}
                 >
-                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 2 }}>
-                    Requisitos da Senha:
-                  </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                      Requisitos da Senha:
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.70rem',
+                        fontWeight: 700,
+                        color: isSenhaValida ? '#15803d' : 'var(--text-muted)',
+                      }}
+                    >
+                      {isSenhaValida ? 'Senha Forte ✓' : 'Pendente'}
+                    </span>
+                  </div>
                   {[
-                    { label: 'Mínimo de 8 caracteres', ok: passwordCadastro.length >= 8 },
-                    { label: 'Pelo menos uma letra maiúscula (A-Z)', ok: /[A-Z]/.test(passwordCadastro) },
-                    { label: 'Pelo menos uma letra minúscula (a-z)', ok: /[a-z]/.test(passwordCadastro) },
-                    { label: 'Pelo menos um número (0-9)', ok: /[0-9]/.test(passwordCadastro) },
-                    { label: 'Pelo menos um símbolo especial (!@#$%^&*)', ok: /[^A-Za-z0-9]/.test(passwordCadastro) },
+                    { label: 'Mínimo de 8 caracteres', ok: hasMinLength },
+                    { label: 'Pelo menos uma letra maiúscula (A-Z)', ok: hasUpperCase },
+                    { label: 'Pelo menos uma letra minúscula (a-z)', ok: hasLowerCase },
+                    { label: 'Pelo menos um número (0-9)', ok: hasNumber },
+                    { label: 'Pelo menos um caractere especial (!@#$%^&*)', ok: hasSymbol },
                   ].map((req, idx) => (
                     <div
                       key={idx}
@@ -724,7 +743,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         alignItems: 'center',
                         gap: 7,
                         fontSize: '0.76rem',
-                        color: req.ok ? '#15803d' : 'var(--text-muted)',
+                        color: req.ok ? '#15803d' : (passwordCadastro ? '#991b1b' : 'var(--text-muted)'),
                         fontWeight: req.ok ? 600 : 400,
                         transition: 'all 0.15s ease',
                       }}
@@ -746,7 +765,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                           <Check size={10} weight="bold" />
                         </div>
                       ) : (
-                        <Circle size={12} weight="regular" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                        <Circle
+                          size={12}
+                          weight="regular"
+                          style={{
+                            color: passwordCadastro ? '#f87171' : 'var(--text-muted)',
+                            flexShrink: 0,
+                          }}
+                        />
                       )}
                       <span>{req.label}</span>
                     </div>
@@ -829,12 +855,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </label>
               </div>
 
-              {/* Botão Submit (Criar Conta) */}
+              {/* Botão Submit (Criar Conta) - desabilitado com estilo visual até todos os requisitos serem atendidos */}
               <button
                 type="submit"
                 className="btn-primary login-submit-btn"
-                disabled={isLoading}
-                style={{ opacity: isLoading ? 0.7 : 1 }}
+                disabled={isLoading || !isSenhaValida}
+                style={{
+                  opacity: (!isSenhaValida && !isLoading) ? 0.45 : (isLoading ? 0.7 : 1),
+                  cursor: (!isSenhaValida || isLoading) ? 'not-allowed' : 'pointer',
+                  filter: (!isSenhaValida && !isLoading) ? 'grayscale(0.6)' : 'none',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                title={!isSenhaValida ? 'Preencha todos os requisitos da senha para prosseguir' : undefined}
               >
                 {isLoading ? (
                   <>
