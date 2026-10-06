@@ -535,30 +535,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 )}
               </button>
 
-              {/* Atalhos Rápidos para Demonstração */}
-              <div className="login-demo-section">
-                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
-                  Acesso rápido para demonstração com dados de teste:
-                </span>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('Construtor')}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.76rem' }}
-                  >
-                    Demo Construtor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('Cliente')}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '0.76rem' }}
-                  >
-                    Demo Cliente
-                  </button>
+              {/* Atalhos Rápidos para Demonstração (visíveis ESTRITAMENTE em ambiente de desenvolvimento local) */}
+              {(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) && (
+                <div className="login-demo-section">
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
+                    Acesso rápido para desenvolvimento (visível apenas em localhost):
+                  </span>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('Construtor')}
+                      className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.76rem' }}
+                    >
+                      Demo Construtor
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickLogin('Cliente')}
+                      className="btn-secondary"
+                      style={{ padding: '6px 12px', fontSize: '0.76rem' }}
+                    >
+                      Demo Cliente
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </form>
           ) : (
             /* ========================================================================= */
