@@ -155,9 +155,10 @@ export const obrasApi = {
       return;
     }
 
-    // Quando o Supabase estiver configurado, sincroniza com o banco remoto
+    // Quando o Supabase estiver configurado, sincroniza todas as tabelas e buckets
     try {
       for (const obra of obras) {
+        // 1. Obra principal
         await supabase.from('obras').upsert({
           id: obra.id,
           nome: obra.nome,
@@ -168,9 +169,130 @@ export const obrasApi = {
           empresa_responsavel: obra.empresaResponsavel || null,
           updated_at: new Date().toISOString(),
         });
+
+        // 2. Registro de Notas (com upload automático de fotos para o bucket registro-notas)
+        if (obra.notas && obra.notas.length > 0) {
+          for (const nota of obra.notas) {
+            const fotosProcessadas: string[] = [];
+            for (let i = 0; i < (nota.fotos || []).length; i++) {
+              const foto = nota.fotos[i];
+              if (foto.startsWith('data:')) {
+                const urlRemota = await storageApi.uploadDataUrl(
+                  'registro-notas',
+                  `${obra.id}/notas/${nota.id}_${i}`,
+                  foto
+                );
+                fotosProcessadas.push(urlRemota);
+              } else {
+                fotosProcessadas.push(foto);
+              }
+            }
+            nota.fotos = fotosProcessadas;
+
+            await supabase.from('registro_notas').upsert({
+              id: nota.id,
+              obra_id: obra.id,
+              titulo: nota.titulo || null,
+              observacoes: nota.observacoes || null,
+              fotos: fotosProcessadas,
+              created_at: nota.criadoEm || new Date().toISOString(),
+            });
+          }
+        }
+
+        // 3. Projetos PDF (com upload automático de PDF para o bucket projetos-pdf)
+        if (obra.projetos && obra.projetos.length > 0) {
+          for (const proj of obra.projetos) {
+            let urlRemota = proj.url;
+            if (proj.url.startsWith('data:')) {
+              urlRemota = await storageApi.uploadDataUrl(
+                'projetos-pdf',
+                `${obra.id}/projetos/${proj.id}_${proj.arquivoNome.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+                proj.url
+              );
+              proj.url = urlRemota;
+            }
+
+            await supabase.from('projetos_pdf').upsert({
+              id: proj.id,
+              obra_id: obra.id,
+              titulo: proj.titulo,
+              disciplina: proj.tipo,
+              disciplina_customizada: proj.tipoCustomizado || null,
+              arquivo_nome: proj.arquivoNome,
+              tamanho_bytes: proj.tamanhoBytes,
+              url: urlRemota,
+              versao: proj.versao || 'Rev. 01',
+              descricao: proj.descricao || null,
+              enviado_por: proj.enviadoPor || 'construtor',
+              enviado_por_nome: proj.enviadoPorNome || 'Construtor Responsável',
+              created_at: proj.dataUpload || new Date().toISOString(),
+            });
+          }
+        }
+
+        // 4. Etapas e Tarefas
+        if (obra.etapas && obra.etapas.length > 0) {
+          for (let eIdx = 0; eIdx < obra.etapas.length; eIdx++) {
+            const etapa = obra.etapas[eIdx];
+            await supabase.from('etapas').upsert({
+              id: etapa.id,
+              obra_id: obra.id,
+              nome: etapa.nome,
+              tipo_origem: etapa.tipoOrigem || null,
+              ordem: eIdx + 1,
+              concluida_em: etapa.concluidaEm || null,
+            });
+
+            if (etapa.tarefas && etapa.tarefas.length > 0) {
+              for (let tIdx = 0; tIdx < etapa.tarefas.length; tIdx++) {
+                const tarefa = etapa.tarefas[tIdx];
+                await supabase.from('tarefas').upsert({
+                  id: tarefa.id,
+                  etapa_id: etapa.id,
+                  nome: tarefa.nome,
+                  concluida: tarefa.concluida,
+                  ordem: tIdx + 1,
+                  concluida_em: tarefa.concluidaEm || null,
+                });
+
+                // Evidências da Tarefa (Fotos para evidencias-diario)
+                if (tarefa.fotos && tarefa.fotos.length > 0) {
+                  for (let fIdx = 0; fIdx < tarefa.fotos.length; fIdx++) {
+                    let fotoUrl = tarefa.fotos[fIdx];
+                    if (fotoUrl.startsWith('data:')) {
+                      fotoUrl = await storageApi.uploadDataUrl(
+                        'evidencias-diario',
+                        `${obra.id}/diario/${tarefa.id}_${fIdx}`,
+                        fotoUrl
+                      );
+                      tarefa.fotos[fIdx] = fotoUrl;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // 5. Punch List (Vistoria Final)
+        if (obra.punchList && obra.punchList.length > 0) {
+          for (let pIdx = 0; pIdx < obra.punchList.length; pIdx++) {
+            const p = obra.punchList[pIdx];
+            await supabase.from('punch_list_items').upsert({
+              id: p.id,
+              obra_id: obra.id,
+              ambiente: p.ambiente || 'Geral',
+              descricao: p.item,
+              resolvido: p.concluido,
+              ordem: pIdx + 1,
+              concluido_em: p.concluidoEm || null,
+            });
+          }
+        }
       }
     } catch (err) {
-      console.warn('Erro ao sincronizar obras com Supabase:', err);
+      console.warn('Erro ao sincronizar obras completas com Supabase:', err);
     }
   },
 };
@@ -261,10 +383,57 @@ export const decisoesApi = {
 };
 
 // ==============================================================================
-// 3. STORAGE & PROJETOS PDF API
+// 3. STORAGE & ARQUIVOS API
 // ==============================================================================
 
 export const storageApi = {
+  dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } | null {
+    try {
+      const arr = dataUrl.split(',');
+      if (arr.length < 2) return null;
+      const mimeMatch = arr[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return { blob: new Blob([u8arr], { type: mime }), mime };
+    } catch {
+      return null;
+    }
+  },
+
+  async uploadDataUrl(bucket: string, path: string, dataUrl: string): Promise<string> {
+    if (!isSupabaseConfigured() || !supabase) return dataUrl;
+    if (!dataUrl.startsWith('data:')) return dataUrl; // Já é uma URL pública
+
+    try {
+      const parsed = this.dataUrlToBlob(dataUrl);
+      if (!parsed) return dataUrl;
+
+      const ext = parsed.mime.includes('png') ? 'png' : parsed.mime.includes('pdf') ? 'pdf' : 'jpg';
+      const fullPath = path.includes('.') ? path : `${path}.${ext}`;
+
+      const { error } = await supabase.storage.from(bucket).upload(fullPath, parsed.blob, {
+        contentType: parsed.mime,
+        upsert: true,
+      });
+
+      if (error) {
+        console.warn(`Erro no upload para o bucket ${bucket}:`, error);
+        return dataUrl;
+      }
+
+      const { data } = supabase.storage.from(bucket).getPublicUrl(fullPath);
+      return data.publicUrl || dataUrl;
+    } catch (err) {
+      console.warn(`Erro ao converter e enviar dataUrl para ${bucket}:`, err);
+      return dataUrl;
+    }
+  },
+
   async uploadFile(bucket: string, path: string, file: File): Promise<string | null> {
     if (!isSupabaseConfigured() || !supabase) return null;
 
