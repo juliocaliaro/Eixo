@@ -68,6 +68,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
 
   // Escuta tecla Escape para fechar modal de esqueceu senha
   useEffect(() => {
@@ -235,15 +237,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   // Envio da recuperação de senha
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) return;
-    setForgotSuccess(true);
-    setTimeout(() => {
-      setIsForgotModalOpen(false);
-      setForgotSuccess(false);
-      setForgotEmail('');
-    }, 2500);
+    setForgotError('');
+    setIsForgotLoading(true);
+
+    try {
+      const res = await authApi.resetPassword(forgotEmail.trim());
+      if (res.error) {
+        setForgotError(res.error);
+        setIsForgotLoading(false);
+        return;
+      }
+      setForgotSuccess(true);
+    } catch (err: any) {
+      setForgotError(err?.message || 'Erro ao enviar e-mail de recuperação.');
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
   return (
@@ -923,6 +935,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             <form onSubmit={handleForgotSubmit}>
               <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {forgotError && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 12px',
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 'var(--radius-sm)',
+                      color: '#b91c1c',
+                      fontSize: '0.82rem',
+                    }}
+                  >
+                    <WarningCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
                 {forgotSuccess ? (
                   <div
                     style={{
@@ -937,7 +968,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     }}
                   >
                     <CheckCircle size={20} weight="fill" />
-                    <span>Instruções enviadas para <strong>{forgotEmail}</strong> com sucesso! Verifique sua caixa de entrada.</span>
+                    <span>Instruções enviadas para <strong>{forgotEmail}</strong> com sucesso! Verifique sua caixa de entrada (inclusive a pasta de Spam/Lixo Eletrônico).</span>
                   </div>
                 ) : (
                   <>
@@ -954,19 +985,47 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         onChange={(e) => setForgotEmail(e.target.value)}
                         autoFocus
                         required
+                        disabled={isForgotLoading}
                       />
                     </div>
                   </>
                 )}
               </div>
 
-              {!forgotSuccess && (
+              {!forgotSuccess ? (
                 <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                   <button type="button" onClick={() => setIsForgotModalOpen(false)} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
                     Cancelar
                   </button>
-                  <button type="submit" className="btn-primary" style={{ padding: '8px 16px', fontSize: '0.82rem' }}>
-                    Enviar Link
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={isForgotLoading}
+                    style={{ padding: '8px 16px', fontSize: '0.82rem', opacity: isForgotLoading ? 0.7 : 1 }}
+                  >
+                    {isForgotLoading ? (
+                      <>
+                        <CircleNotch size={14} className="spin-animate" weight="bold" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <span>Enviar Link</span>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotModalOpen(false);
+                      setForgotSuccess(false);
+                      setForgotEmail('');
+                    }}
+                    className="btn-primary"
+                    style={{ padding: '8px 16px', fontSize: '0.82rem' }}
+                  >
+                    Concluir
                   </button>
                 </div>
               )}

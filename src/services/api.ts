@@ -366,13 +366,22 @@ export const authApi = {
     } catch {}
   },
 
-  async resetPassword(email: string): Promise<void> {
-    if (!isSupabaseConfigured() || !supabase) return;
+  async resetPassword(email: string): Promise<{ error: string | null }> {
+    if (!isSupabaseConfigured() || !supabase) {
+      return { error: 'Serviço de autenticação não configurado.' };
+    }
     try {
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+      const redirectUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
       });
-    } catch {}
+      if (error) {
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err?.message || 'Falha ao solicitar redefinição de senha.' };
+    }
   },
 
   async getProfile(userId: string): Promise<any> {
