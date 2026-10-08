@@ -205,6 +205,7 @@ CREATE TABLE IF NOT EXISTS public.registro_locacoes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     obra_id UUID NOT NULL REFERENCES public.obras(id) ON DELETE CASCADE,
     item_locado TEXT NOT NULL,
+    periodo VARCHAR(50),
     data_vencimento DATE NOT NULL,
     fotos JSONB DEFAULT '[]'::jsonb NOT NULL,
     fornecedor VARCHAR(255),
@@ -216,6 +217,9 @@ CREATE TABLE IF NOT EXISTS public.registro_locacoes (
     vencimento_original DATE,
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+ALTER TABLE public.registro_locacoes ADD COLUMN IF NOT EXISTS periodo VARCHAR(50);
+ALTER TABLE public.registro_locacoes ADD COLUMN IF NOT EXISTS fotos JSONB DEFAULT '[]'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_locacoes_obra ON public.registro_locacoes(obra_id);
 

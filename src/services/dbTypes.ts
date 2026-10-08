@@ -279,6 +279,24 @@ export const mapProjetoFromDb = (row: ProjetoPdfRow): ProjetoPDF => {
   };
 };
 
+const parseFotosFromDb = (raw: any): string[] => {
+  if (Array.isArray(raw)) return raw.filter((f) => typeof f === 'string' && f.trim().length > 0);
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === '[]') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter((f) => typeof f === 'string' && f.trim().length > 0);
+      if (typeof parsed === 'string' && parsed.trim().length > 0) return [parsed.trim()];
+    } catch {
+      if (trimmed.startsWith('http') || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+        return [trimmed];
+      }
+    }
+  }
+  return [];
+};
+
 export const mapNotaFromDb = (row: RegistroNotaRow): RegistroNota => {
   return {
     id: row.id,
@@ -286,7 +304,7 @@ export const mapNotaFromDb = (row: RegistroNotaRow): RegistroNota => {
     titulo: row.titulo || undefined,
     valor: row.valor ? Number(row.valor) : undefined,
     observacoes: row.observacoes || undefined,
-    fotos: Array.isArray(row.fotos) ? row.fotos : [],
+    fotos: parseFotosFromDb(row.fotos),
     criadoEm: row.created_at,
   };
 };
@@ -308,7 +326,7 @@ export const mapLocacaoFromDb = (row: RegistroLocacaoRow): RegistroLocacao => {
     itemLocado: row.item_locado,
     periodo: (row.periodo as any) || undefined,
     dataVencimento: row.data_vencimento,
-    fotos: Array.isArray(row.fotos) ? row.fotos : [],
+    fotos: parseFotosFromDb(row.fotos),
     fornecedor: row.fornecedor || undefined,
     valor: row.valor ? Number(row.valor) : undefined,
     observacoes: row.observacoes || undefined,

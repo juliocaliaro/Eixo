@@ -567,11 +567,19 @@ export const obrasApi = {
               for (let i = 0; i < (loc.fotos || []).length; i++) {
                 const foto = loc.fotos[i];
                 if (foto.startsWith('data:')) {
-                  const urlRemota = await storageApi.uploadDataUrl(
+                  let urlRemota = await storageApi.uploadDataUrl(
                     'registro-notas',
                     `${obra.id}/locacoes/${loc.id}_${i}`,
                     foto
                   );
+                  if (urlRemota.startsWith('data:')) {
+                    // Fallback para evidencias-diario se registro-notas falhar
+                    urlRemota = await storageApi.uploadDataUrl(
+                      'evidencias-diario',
+                      `${obra.id}/locacoes/${loc.id}_${i}`,
+                      foto
+                    );
+                  }
                   fotosProcessadas.push(urlRemota);
                 } else {
                   fotosProcessadas.push(foto);
@@ -597,8 +605,22 @@ export const obrasApi = {
             }
             if (locacoesRows.length > 0) {
               try {
-                await supabase!.from('registro_locacoes').upsert(locacoesRows);
-              } catch {}
+                const { error: upsertErr } = await supabase!.from('registro_locacoes').upsert(locacoesRows);
+                if (upsertErr) {
+                  // Fallback se a coluna periodo não existir no banco
+                  if (upsertErr.message?.includes('periodo') || upsertErr.code === 'PGRST204') {
+                    const fallbackRows = locacoesRows.map(({ periodo, ...rest }) => rest);
+                    const { error: retryErr } = await supabase!.from('registro_locacoes').upsert(fallbackRows);
+                    if (retryErr) {
+                      console.error('Erro ao salvar locações no Supabase (retry sem periodo):', retryErr);
+                    }
+                  } else {
+                    console.error('Erro ao salvar locações no Supabase:', upsertErr);
+                  }
+                }
+              } catch (err) {
+                console.error('Falha de rede em registro_locacoes upsert:', err);
+              }
             }
           }
         }
@@ -710,6 +732,84 @@ export const decisoesApi = {
 };
 
 export const locacoesApi = {
+  async upsert(locacao: RegistroLocacao, obraId?: string): Promise<boolean> {
+    return trackApi(async () => {
+      if (!isSupabaseConfigured() || !supabase) return false;
+      const targetObraId = locacao.obraId || obraId;
+      if (!targetObraId) return false;
+
+      try {
+        // Se ainda houver fotos locais em formato data: URL, faz upload para o Storage
+        let fotosFinais = [...(locacao.fotos || [])];
+        if (fotosFinais.some((f) => f.startsWith('data:'))) {
+          const processadas: string[] = [];
+          for (let i = 0; i < fotosFinais.length; i++) {
+            const foto = fotosFinais[i];
+            if (foto.startsWith('data:')) {
+              let urlRemota = await storageApi.uploadDataUrl(
+                'registro-notas',
+                `${targetObraId}/locacoes/${locacao.id}_${i}`,
+                foto
+              );
+              if (urlRemota.startsWith('data:')) {
+                urlRemota = await storageApi.uploadDataUrl(
+                  'evidencias-diario',
+                  `${targetObraId}/locacoes/${locacao.id}_${i}`,
+                  foto
+                );
+              }
+              processadas.push(urlRemota);
+            } else {
+              processadas.push(foto);
+            }
+          }
+          fotosFinais = processadas;
+          locacao.fotos = processadas;
+        }
+
+        const payload: any = {
+          id: locacao.id,
+          obra_id: targetObraId,
+          item_locado: locacao.itemLocado,
+          data_vencimento: locacao.dataVencimento,
+          fotos: fotosFinais,
+          fornecedor: locacao.fornecedor || null,
+          valor: locacao.valor || null,
+          observacoes: locacao.observacoes || null,
+          status: locacao.status || 'ativo',
+          renovado: locacao.renovado || false,
+          renovado_em: locacao.renovadoEm || null,
+          vencimento_original: locacao.vencimentoOriginal || null,
+          created_at: locacao.criadoEm || new Date().toISOString(),
+        };
+
+        if (locacao.periodo) {
+          payload.periodo = locacao.periodo;
+        }
+
+        const { error } = await supabase.from('registro_locacoes').upsert(payload);
+        if (error) {
+          // Se a coluna 'periodo' não existir no banco, retenta sem a coluna 'periodo'
+          if (error.message?.includes('periodo') || error.code === 'PGRST204') {
+            delete payload.periodo;
+            const retry = await supabase.from('registro_locacoes').upsert(payload);
+            if (retry.error) {
+              console.error('Erro ao salvar locação no Supabase (retry sem periodo):', retry.error);
+              return false;
+            }
+            return true;
+          }
+          console.error('Erro ao salvar locação no Supabase:', error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error('Falha de rede ao salvar locação:', err);
+        return false;
+      }
+    }, 'Salvando locação na nuvem...');
+  },
+
   async delete(locacaoId: string, fotos?: string[]): Promise<void> {
     return trackApi(async () => {
       if (!isSupabaseConfigured() || !supabase) return;
@@ -717,6 +817,7 @@ export const locacoesApi = {
         if (fotos && fotos.length > 0) {
           for (const fotoUrl of fotos) {
             await storageApi.deleteFileFromUrl('registro-notas', fotoUrl);
+            await storageApi.deleteFileFromUrl('evidencias-diario', fotoUrl);
           }
         }
         await supabase.from('registro_locacoes').delete().eq('id', locacaoId);
@@ -827,6 +928,17 @@ export const storageApi = {
         });
 
         if (error) {
+          // Se falhou no bucket registro-notas, tenta fallback em evidencias-diario
+          if (bucket === 'registro-notas') {
+            const fallback = await supabase.storage.from('evidencias-diario').upload(path, blob, {
+              contentType: mimeType,
+              upsert: true,
+            });
+            if (!fallback.error) {
+              const { data } = supabase.storage.from('evidencias-diario').getPublicUrl(path);
+              return data.publicUrl || null;
+            }
+          }
           console.error(`Erro ao fazer upload no bucket ${bucket}:`, error);
           return null;
         }
@@ -834,6 +946,18 @@ export const storageApi = {
         const { data } = supabase.storage.from(bucket).getPublicUrl(path);
         return data.publicUrl || null;
       } catch (err) {
+        if (bucket === 'registro-notas') {
+          try {
+            const fallback = await supabase.storage.from('evidencias-diario').upload(path, blob, {
+              contentType: mimeType,
+              upsert: true,
+            });
+            if (!fallback.error) {
+              const { data } = supabase.storage.from('evidencias-diario').getPublicUrl(path);
+              return data.publicUrl || null;
+            }
+          } catch {}
+        }
         console.error(`Falha de rede ao enviar arquivo para ${bucket}:`, err);
         return null;
       }
@@ -882,6 +1006,16 @@ export const storageApi = {
       });
 
       if (error) {
+        if (bucket === 'registro-notas') {
+          const fallback = await supabase.storage.from('evidencias-diario').upload(fullPath, parsed.blob, {
+            contentType: parsed.mime,
+            upsert: true,
+          });
+          if (!fallback.error) {
+            const { data } = supabase.storage.from('evidencias-diario').getPublicUrl(fullPath);
+            return data.publicUrl || dataUrl;
+          }
+        }
         return dataUrl;
       }
 

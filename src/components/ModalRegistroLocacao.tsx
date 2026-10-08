@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch } from '@phosphor-icons/react';
 import { Obra, TipoPeriodoLocacao } from '../types/obra';
+import { storageApi } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 export interface NovaLocacaoData {
+  id?: string;
   obraId: string;
   itemLocado: string;
   periodo: TipoPeriodoLocacao;
@@ -11,12 +14,17 @@ export interface NovaLocacaoData {
   fornecedor?: string;
 }
 
+interface FotoItem {
+  blob: Blob;
+  previewUrl: string;
+}
+
 interface ModalRegistroLocacaoProps {
   isOpen: boolean;
   onClose: () => void;
   obras: Obra[];
   preselectedObraId?: string;
-  onSave: (dados: NovaLocacaoData) => void;
+  onSave: (dados: NovaLocacaoData) => Promise<void> | void;
 }
 
 export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
@@ -30,7 +38,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [itemLocado, setItemLocado] = useState<string>('');
   const [fornecedor, setFornecedor] = useState<string>('');
   const [periodo, setPeriodo] = useState<TipoPeriodoLocacao | ''>('');
-  const [fotos, setFotos] = useState<string[]>([]);
+  const [fotos, setFotos] = useState<FotoItem[]>([]);
   const [erro, setErro] = useState<string>('');
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +52,10 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setItemLocado('');
       setFornecedor('');
       setPeriodo('');
-      setFotos([]);
+      setFotos((prev) => {
+        prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+        return [];
+      });
       setErro('');
       setIsProcessingPhotos(false);
     }
@@ -63,9 +74,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
 
   if (!isOpen) return null;
 
-  // Processamento e compressão leve de imagem
-  const processarArquivo = (file: File): Promise<string> => {
+  // Processamento e compressão inteligente para Blob (leve e otimizado para mobile)
+  const comprimirArquivoParaBlob = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        resolve(file);
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -87,15 +102,31 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.82));
+            canvas.toBlob(
+              (blob) => {
+                resolve(blob || file);
+              },
+              'image/jpeg',
+              0.82
+            );
           } else {
-            resolve(e.target?.result as string);
+            resolve(file);
           }
         };
-        img.onerror = () => resolve(e.target?.result as string);
+        img.onerror = () => resolve(file);
         img.src = e.target?.result as string;
       };
+      reader.onerror = () => resolve(file);
       reader.readAsDataURL(file);
+    });
+  };
+
+  const blobToDataUrl = (blob: Blob): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(blob);
     });
   };
 
@@ -106,8 +137,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     setIsProcessingPhotos(true);
     try {
       const fileList = Array.from(files);
-      const novasFotos = await Promise.all(fileList.map((f) => processarArquivo(f)));
-      setFotos((prev) => [...prev, ...novasFotos]);
+      const novosItens: FotoItem[] = [];
+      for (const file of fileList) {
+        const blob = await comprimirArquivoParaBlob(file);
+        const previewUrl = URL.createObjectURL(blob);
+        novosItens.push({ blob, previewUrl });
+      }
+      setFotos((prev) => [...prev, ...novosItens]);
     } catch {
       setErro('Falha ao processar imagem(ns). Tente novamente.');
     } finally {
@@ -117,7 +153,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   };
 
   const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => prev.filter((_, i) => i !== index));
+    setFotos((prev) => {
+      const item = prev[index];
+      if (item?.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const calcularDataVencimento = (p: TipoPeriodoLocacao): string => {
@@ -129,7 +171,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     return d.toISOString().split('T')[0];
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!obraId.trim()) {
@@ -150,15 +192,45 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     const dataVencimento = calcularDataVencimento(periodo);
 
     setIsSaving(true);
+    setErro('');
     try {
-      onSave({
+      const locacaoId = generateUUID();
+      const urlsUpload: string[] = [];
+
+      // Faz upload de cada foto diretamente para o Supabase Storage antes de salvar
+      for (let i = 0; i < fotos.length; i++) {
+        const item = fotos[i];
+        const path = `${obraId}/locacoes/${locacaoId}_${i}.jpg`;
+        let remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, 'image/jpeg');
+        if (!remoteUrl) {
+          remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, item.blob, 'image/jpeg');
+        }
+
+        if (remoteUrl) {
+          urlsUpload.push(remoteUrl);
+        } else {
+          // Fallback offline caso sem conexão
+          const fallback = await blobToDataUrl(item.blob);
+          if (fallback) urlsUpload.push(fallback);
+        }
+      }
+
+      // Libera as referências da memória local
+      fotos.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+
+      await onSave({
+        id: locacaoId,
         obraId,
         itemLocado: itemLocado.trim(),
         periodo,
         dataVencimento,
-        fotos,
+        fotos: urlsUpload,
         fornecedor: fornecedor.trim() || undefined,
       });
+
+      onClose();
+    } catch (err: any) {
+      setErro(err?.message || 'Falha ao salvar locação. Tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -579,7 +651,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                       }}
                     >
                       <img
-                        src={foto}
+                        src={foto.previewUrl}
                         alt={`Foto locação ${idx + 1}`}
                         style={{
                           width: '100%',
@@ -666,7 +738,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               {isSaving || isProcessingPhotos ? (
                 <>
                   <CircleNotch size={18} className="spin-animate" weight="bold" />
-                  <span>{isProcessingPhotos ? 'Processando fotos...' : 'Salvando Locação...'}</span>
+                  <span>{isProcessingPhotos ? 'Processando fotos...' : 'Enviando fotos e salvando...'}</span>
                 </>
               ) : (
                 <>

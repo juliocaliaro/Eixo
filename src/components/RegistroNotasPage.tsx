@@ -13,6 +13,8 @@ import {
   NotePencil,
   FileText,
   CaretDown,
+  CaretLeft,
+  CaretRight,
 } from '@phosphor-icons/react';
 import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
@@ -40,8 +42,13 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
   const [expandedObrasMobile, setExpandedObrasMobile] = useState<Record<string, boolean>>({});
 
-  // Lightbox de foto
-  const [lightboxFoto, setLightboxFoto] = useState<{ url: string; titulo?: string } | null>(null);
+  // Lightbox de foto com navegação entre imagens
+  const [lightboxState, setLightboxState] = useState<{
+    fotos: string[];
+    index: number;
+    titulo?: string;
+  } | null>(null);
+  const touchLightboxX = React.useRef<number | null>(null);
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -50,15 +57,25 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     titulo: string;
   } | null>(null);
 
-  // Fechar lightbox com Escape
+  // Teclado para navegar entre fotos e fechar lightbox
   useEffect(() => {
-    if (!lightboxFoto) return;
+    if (!lightboxState) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxFoto(null);
+      if (e.key === 'Escape') setLightboxState(null);
+      if (e.key === 'ArrowLeft') {
+        setLightboxState((prev) =>
+          prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+        );
+      }
+      if (e.key === 'ArrowRight') {
+        setLightboxState((prev) =>
+          prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+        );
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxFoto]);
+  }, [lightboxState]);
 
   const formatarData = (isoStr?: string) => {
     if (!isoStr) return '';
@@ -529,8 +546,22 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                             e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
                           }}
                         >
-                          {/* Galeria de Fotos da Nota */}
-                          <div style={{ position: 'relative', width: '100%', height: 180, background: '#f8f5f0', overflow: 'hidden' }}>
+                          {/* Imagem de Capa da Nota (sem passar para o lado fora do card) */}
+                          <div
+                            style={{
+                              position: 'relative',
+                              width: '100%',
+                              height: 180,
+                              background: '#f8f5f0',
+                              overflow: 'hidden',
+                              cursor: nota.fotos && nota.fotos.length > 0 ? 'pointer' : 'default',
+                            }}
+                            onClick={() => {
+                              if (nota.fotos && nota.fotos.length > 0) {
+                                setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
+                              }
+                            }}
+                          >
                             {nota.fotos && nota.fotos.length > 0 ? (
                               <img
                                 src={nota.fotos[0]}
@@ -539,9 +570,8 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                   width: '100%',
                                   height: '100%',
                                   objectFit: 'cover',
-                                  cursor: 'pointer',
+                                  display: 'block',
                                 }}
-                                onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
                               />
                             ) : (
                               <div
@@ -558,20 +588,23 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                               </div>
                             )}
 
-                            {/* Overlay de Quantidade de Fotos caso haja mais de 1 */}
+                            {/* Badge discreto indicando quantidade quando houver mais de 1 foto */}
                             {nota.fotos && nota.fotos.length > 1 && (
                               <span
                                 style={{
                                   position: 'absolute',
                                   bottom: 8,
                                   right: 8,
-                                  background: 'rgba(26, 19, 10, 0.78)',
+                                  background: 'rgba(26, 19, 10, 0.82)',
                                   color: '#ffffff',
                                   fontSize: '0.70rem',
                                   fontWeight: 700,
                                   padding: '3px 8px',
                                   borderRadius: 100,
-                                  backdropFilter: 'blur(3px)',
+                                  backdropFilter: 'blur(4px)',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                                  zIndex: 2,
+                                  pointerEvents: 'none',
                                 }}
                               >
                                 +{nota.fotos.length - 1} foto{nota.fotos.length - 1 > 1 ? 's' : ''}
@@ -582,7 +615,10 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                             {nota.fotos && nota.fotos.length > 0 && (
                               <button
                                 type="button"
-                                onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
+                                }}
                                 style={{
                                   position: 'absolute',
                                   top: 8,
@@ -598,6 +634,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'background 0.15s ease',
+                                  zIndex: 2,
                                 }}
                                 title="Visualizar foto ampliada"
                               >
@@ -608,13 +645,14 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                             {/* Botão de Excluir Nota */}
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setDeleteTarget({
                                   obraId: obra.id,
                                   notaId: nota.id,
                                   titulo: nota.titulo || `Nota #${idx + 1}`,
-                                })
-                              }
+                                });
+                              }}
                               style={{
                                 position: 'absolute',
                                 top: 8,
@@ -630,35 +668,13 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                 justifyContent: 'center',
                                 cursor: 'pointer',
                                 transition: 'background 0.15s ease',
+                                zIndex: 2,
                               }}
                               title="Excluir nota"
                             >
                               <Trash size={14} weight="bold" />
                             </button>
                           </div>
-
-                          {/* Miniaturas adicionais se houver mais fotos */}
-                          {nota.fotos && nota.fotos.length > 1 && (
-                            <div style={{ display: 'flex', gap: 6, padding: '8px 14px', background: 'var(--dark-coffee-50)', borderBottom: '1px solid var(--border-hairline)', overflowX: 'auto' }}>
-                              {nota.fotos.slice(1).map((fotoUrl, fIdx) => (
-                                <img
-                                  key={fIdx}
-                                  src={fotoUrl}
-                                  alt=""
-                                  style={{
-                                    width: 38,
-                                    height: 38,
-                                    borderRadius: 4,
-                                    objectFit: 'cover',
-                                    border: '1px solid var(--border-hairline)',
-                                    cursor: 'pointer',
-                                    flexShrink: 0,
-                                  }}
-                                  onClick={() => setLightboxFoto({ url: fotoUrl, titulo: nota.titulo })}
-                                />
-                              ))}
-                            </div>
-                          )}
 
                           {/* Detalhes da Nota */}
                           <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
@@ -883,8 +899,22 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
                               }}
                             >
-                              {/* Imagem da Nota */}
-                              <div style={{ position: 'relative', width: '100%', height: 160, background: '#f8f5f0', overflow: 'hidden' }}>
+                              {/* Imagem de Capa da Nota (sem passar para o lado fora do card) */}
+                              <div
+                                style={{
+                                  position: 'relative',
+                                  width: '100%',
+                                  height: 160,
+                                  background: '#f8f5f0',
+                                  overflow: 'hidden',
+                                  cursor: nota.fotos && nota.fotos.length > 0 ? 'pointer' : 'default',
+                                }}
+                                onClick={() => {
+                                  if (nota.fotos && nota.fotos.length > 0) {
+                                    setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
+                                  }
+                                }}
+                              >
                                 {nota.fotos && nota.fotos.length > 0 ? (
                                   <img
                                     src={nota.fotos[0]}
@@ -893,9 +923,8 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                       width: '100%',
                                       height: '100%',
                                       objectFit: 'cover',
-                                      cursor: 'pointer',
+                                      display: 'block',
                                     }}
-                                    onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
                                   />
                                 ) : (
                                   <div
@@ -912,29 +941,37 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                   </div>
                                 )}
 
+                                {/* Badge discreto indicando quantidade de fotos */}
                                 {nota.fotos && nota.fotos.length > 1 && (
                                   <span
                                     style={{
                                       position: 'absolute',
                                       bottom: 8,
                                       right: 8,
-                                      background: 'rgba(26, 19, 10, 0.78)',
+                                      background: 'rgba(26, 19, 10, 0.82)',
                                       color: '#ffffff',
                                       fontSize: '0.70rem',
                                       fontWeight: 700,
                                       padding: '3px 8px',
                                       borderRadius: 100,
-                                      backdropFilter: 'blur(3px)',
+                                      backdropFilter: 'blur(4px)',
+                                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                                      zIndex: 2,
+                                      pointerEvents: 'none',
                                     }}
                                   >
                                     +{nota.fotos.length - 1} foto{nota.fotos.length - 1 > 1 ? 's' : ''}
                                   </span>
                                 )}
 
+                                {/* Botão de Ampliação */}
                                 {nota.fotos && nota.fotos.length > 0 && (
                                   <button
                                     type="button"
-                                    onClick={() => setLightboxFoto({ url: nota.fotos[0], titulo: nota.titulo })}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
+                                    }}
                                     style={{
                                       position: 'absolute',
                                       top: 8,
@@ -949,6 +986,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       cursor: 'pointer',
+                                      zIndex: 2,
                                     }}
                                     title="Visualizar foto ampliada"
                                   >
@@ -958,13 +996,14 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
 
                                 <button
                                   type="button"
-                                  onClick={() =>
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setDeleteTarget({
                                       obraId: obra.id,
                                       notaId: nota.id,
                                       titulo: nota.titulo || `Nota #${idx + 1}`,
-                                    })
-                                  }
+                                    });
+                                  }}
                                   style={{
                                     position: 'absolute',
                                     top: 8,
@@ -979,6 +1018,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     cursor: 'pointer',
+                                    zIndex: 2,
                                   }}
                                   title="Excluir nota"
                                 >
@@ -1063,70 +1103,317 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
         variant="danger"
       />
 
-      {/* Lightbox em Tela Cheia */}
-      {lightboxFoto && (
+      {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
+      {lightboxState && (
         <div
-          className="modal-backdrop"
-          onClick={() => setLightboxFoto(null)}
-          style={{ zIndex: 10000, padding: 16 }}
+          onClick={() => setLightboxState(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.94)',
+            zIndex: 10000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            touchAction: 'pan-y',
+            userSelect: 'none',
+          }}
         >
+          {/* Cabeçalho do Lightbox */}
           <div
             style={{
-              position: 'relative',
-              maxWidth: '92vw',
-              maxHeight: '92vh',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              maxWidth: 960,
+              color: '#ffffff',
+              padding: '6px 4px',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: '#ffffff',
+                }}
+              >
+                {lightboxState.titulo || 'Visualização da Nota'}
+              </span>
+              {lightboxState.fotos.length > 1 && (
+                <span
+                  style={{
+                    fontSize: '0.76rem',
+                    background: 'rgba(255, 255, 255, 0.22)',
+                    padding: '2px 9px',
+                    borderRadius: 100,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    color: '#ffffff',
+                  }}
+                >
+                  {lightboxState.index + 1} / {lightboxState.fotos.length}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setLightboxState(null)}
               style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: '#ffffff',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                color: '#ffffff',
-                marginBottom: 10,
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0,
               }}
+              title="Fechar (Escape)"
             >
-              <span style={{ fontSize: '0.90rem', fontWeight: 600 }}>
-                {lightboxFoto.titulo || 'Visualização da Nota'}
-              </span>
+              <X size={20} weight="bold" />
+            </button>
+          </div>
+
+          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: 960,
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 0,
+              touchAction: 'pan-y',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              touchLightboxX.current = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
+              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
+              touchLightboxX.current = null;
+              if (diff > 35) {
+                // Arrasto para a esquerda -> próxima foto
+                setLightboxState((prev) =>
+                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                );
+              } else if (diff < -35) {
+                // Arrasto para a direita -> foto anterior
+                setLightboxState((prev) =>
+                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                );
+              }
+            }}
+          >
+            {/* Seta Lateral Esquerda */}
+            {lightboxState.fotos.length > 1 && (
               <button
                 type="button"
-                onClick={() => setLightboxFoto(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxState((prev) =>
+                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                  );
+                }}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  border: 'none',
-                  color: '#ffffff',
+                  position: 'absolute',
+                  left: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 44,
+                  height: 44,
                   borderRadius: '50%',
-                  width: 32,
-                  height: 32,
+                  background: 'rgba(26, 19, 10, 0.85)',
+                  color: '#ffffff',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
+                  zIndex: 10,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
                 }}
-                title="Fechar (Escape)"
+                title="Foto anterior"
+                aria-label="Foto anterior"
               >
-                <X size={18} weight="bold" />
+                <CaretLeft size={24} weight="bold" />
               </button>
-            </div>
+            )}
 
             <img
-              src={lightboxFoto.url}
+              src={lightboxState.fotos[lightboxState.index]}
               alt=""
+              draggable={false}
               style={{
                 maxWidth: '100%',
-                maxHeight: '84vh',
+                maxHeight: '100%',
                 objectFit: 'contain',
-                borderRadius: 'var(--radius-sm)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                borderRadius: '6px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                userSelect: 'none',
               }}
             />
+
+            {/* Seta Lateral Direita */}
+            {lightboxState.fotos.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxState((prev) =>
+                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                  );
+                }}
+                style={{
+                  position: 'absolute',
+                  right: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: 'rgba(26, 19, 10, 0.85)',
+                  color: '#ffffff',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                }}
+                title="Próxima foto"
+                aria-label="Próxima foto"
+              >
+                <CaretRight size={24} weight="bold" />
+              </button>
+            )}
           </div>
+
+          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
+          {lightboxState.fotos.length > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                maxWidth: 960,
+                padding: '6px 0',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxState((prev) =>
+                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                    )
+                  }
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 20,
+                    padding: '5px 14px',
+                    fontSize: '0.80rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <CaretLeft size={16} weight="bold" />
+                  <span>Anterior</span>
+                </button>
+
+                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
+                  {lightboxState.index + 1} de {lightboxState.fotos.length}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxState((prev) =>
+                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                    )
+                  }
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 20,
+                    padding: '5px 14px',
+                    fontSize: '0.80rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>Próxima</span>
+                  <CaretRight size={16} weight="bold" />
+                </button>
+              </div>
+
+              {/* Faixa de Miniaturas */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  overflowX: 'auto',
+                  maxWidth: '100%',
+                  padding: '4px',
+                  scrollbarWidth: 'none',
+                }}
+              >
+                {lightboxState.fotos.map((fUrl, fIdx) => (
+                  <img
+                    key={fIdx}
+                    src={fUrl}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 6,
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                      opacity: fIdx === lightboxState.index ? 1 : 0.55,
+                      flexShrink: 0,
+                      transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
+                      transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
+                    }}
+                    onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -463,26 +463,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               {/* Campo Senha com Toggle de Visibilidade */}
               <div className="form-group" style={{ margin: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <label className="form-label" style={{ margin: 0 }}>
-                    Senha
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsForgotModalOpen(true)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: '0.78rem',
-                      color: 'var(--primary-accent)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Esqueceu a senha?
-                  </button>
-                </div>
+                <label className="form-label" style={{ marginBottom: 4, display: 'block' }}>
+                  Senha
+                </label>
 
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <Lock
@@ -517,6 +500,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     title={showPassword ? 'Ocultar senha' : 'Ver senha'}
                   >
                     {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+
+                {/* Esqueceu a senha abaixo do campo de preencher senha */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotModalOpen(true)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      fontSize: '0.78rem',
+                      color: 'var(--primary-accent)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Esqueceu a senha?
                   </button>
                 </div>
               </div>

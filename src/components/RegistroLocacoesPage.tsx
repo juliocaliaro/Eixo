@@ -17,6 +17,8 @@ import {
   ArrowsClockwise,
   FloppyDisk,
   CircleNotch,
+  CaretLeft,
+  CaretRight,
 } from '@phosphor-icons/react';
 import { Obra, RegistroLocacao, PerfilUsuario } from '../types/obra';
 import { ModalRegistroLocacao, NovaLocacaoData } from './ModalRegistroLocacao';
@@ -40,13 +42,25 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
   perfilAtivo = 'construtor',
 }) => {
   const [filtroObraId, setFiltroObraId] = useState<string>('todas');
-  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativos' | 'vencidos' | 'devolvidos'>('todos');
+  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativos' | 'vencidos' | 'devolvidos'>('ativos');
   const [termoBusca, setTermoBusca] = useState<string>('');
   const [isModalLocacaoOpen, setIsModalLocacaoOpen] = useState(false);
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
 
-  // Lightbox de foto
-  const [lightboxFoto, setLightboxFoto] = useState<{ url: string; titulo?: string } | null>(null);
+  // Lightbox de foto com suporte a navegação
+  const [lightboxState, setLightboxState] = useState<{
+    fotos: string[];
+    index: number;
+    titulo?: string;
+  } | null>(null);
+  const touchLightboxX = React.useRef<number | null>(null);
+
+  // Confirmação de devolução em 2 etapas
+  const [devolverTarget, setDevolverTarget] = useState<{
+    obraId: string;
+    locacaoId: string;
+    itemLocado: string;
+  } | null>(null);
 
   // Prolongamento / Renovação inline de locação no card
   const [prolongandoLocacaoId, setProlongandoLocacaoId] = useState<string | null>(null);
@@ -60,15 +74,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     itemLocado: string;
   } | null>(null);
 
-  // Fechar lightbox com Escape
-  useEffect(() => {
-    if (!lightboxFoto) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxFoto(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxFoto]);
+
 
   // Coleta todas as locações de todas as obras ou da obra filtrada
   const todasLocacoes = useMemo(() => {
@@ -382,6 +388,14 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         : `"${locacaoExistente.itemLocado}" retornou para locações ativas.`,
       'info'
     );
+  };
+
+  // Confirmar devolução em 2 etapas
+  const handleConfirmDevolver = () => {
+    if (!devolverTarget) return;
+    const { obraId, locacaoId } = devolverTarget;
+    handleToggleStatus(obraId, locacaoId);
+    setDevolverTarget(null);
   };
 
   // Confirmar exclusão
@@ -842,11 +856,20 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                     : '1px solid var(--border-hairline)',
                 }}
               >
-                {/* 1. Mídia / Imagem no Topo com Badges Flutuantes */}
+                {/* 1. Mídia / Imagem no Topo (sem passar fotos do lado de fora do card) */}
                 <div
                   className="locacao-card-media"
-                  onClick={() => primeiraFoto && setLightboxFoto({ url: primeiraFoto, titulo: locacao.itemLocado })}
+                  onClick={() => {
+                    if (locacao.fotos && locacao.fotos.length > 0) {
+                      setLightboxState({
+                        fotos: locacao.fotos,
+                        index: 0,
+                        titulo: locacao.itemLocado,
+                      });
+                    }
+                  }}
                   title={primeiraFoto ? 'Clique para ampliar foto' : undefined}
+                  style={{ cursor: primeiraFoto ? 'pointer' : 'default', userSelect: 'none' }}
                 >
                   {primeiraFoto ? (
                     <>
@@ -891,6 +914,28 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                       <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                         Sem foto
                       </span>
+                    </div>
+                  )}
+
+                  {/* Indicador discreto caso haja mais de 1 foto */}
+                  {locacao.fotos && locacao.fotos.length > 1 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 6,
+                        left: 6,
+                        background: 'rgba(26, 19, 10, 0.82)',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: 100,
+                        backdropFilter: 'blur(3px)',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      +{locacao.fotos.length - 1} foto{locacao.fotos.length - 1 > 1 ? 's' : ''}
                     </div>
                   )}
 
@@ -1013,32 +1058,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                     )}
                   </div>
 
-                  {/* Fotos extras miniaturas (se houver mais de 1) */}
-                  {locacao.fotos && locacao.fotos.length > 1 && (
-                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                      {locacao.fotos.slice(1, 4).map((foto, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => setLightboxFoto({ url: foto, titulo: `${locacao.itemLocado} (Foto ${idx + 2})` })}
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                            border: '1px solid var(--border-hairline)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                      ))}
-                      {locacao.fotos.length > 4 && (
-                        <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                          +{locacao.fotos.length - 4}
-                        </span>
-                      )}
-                    </div>
-                  )}
+
                 </div>
 
                 {/* 3. Ações Rápidas (Devolver / Excluir) */}
@@ -1046,7 +1066,17 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                   <div className="locacao-card-footer">
                     <button
                       type="button"
-                      onClick={() => handleToggleStatus(obra.id, locacao.id)}
+                      onClick={() => {
+                        if (locacao.status === 'devolvido') {
+                          handleToggleStatus(obra.id, locacao.id);
+                        } else {
+                          setDevolverTarget({
+                            obraId: obra.id,
+                            locacaoId: locacao.id,
+                            itemLocado: locacao.itemLocado,
+                          });
+                        }
+                      }}
                       className="btn-secondary"
                       style={{
                         padding: '5px 8px',
@@ -1061,7 +1091,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                         flex: 1,
                         justifyContent: 'center',
                       }}
-                      title={locacao.status === 'devolvido' ? 'Reativar locação' : 'Marcar equipamento como devolvido'}
+                      title={locacao.status === 'devolvido' ? 'Reativar locação para a lista de ativos' : 'Confirmar devolução do equipamento'}
                     >
                       {locacao.status === 'devolvido' ? (
                         <>
@@ -1323,6 +1353,18 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
 
 
+      {/* Modal de Confirmação de Devolução em 2 Etapas */}
+      <ModalConfirm
+        isOpen={Boolean(devolverTarget)}
+        title="Confirmar Devolução do Equipamento"
+        message={`Deseja confirmar a devolução de "${devolverTarget?.itemLocado}"? O equipamento sairá da lista principal de ativos e será movido para o Histórico de Devolvidos.`}
+        confirmText="Sim, Devolver"
+        cancelText="Cancelar"
+        variant="warning"
+        onConfirm={handleConfirmDevolver}
+        onCancel={() => setDevolverTarget(null)}
+      />
+
       {/* Modal de Confirmação de Exclusão */}
       <ModalConfirm
         isOpen={Boolean(deleteTarget)}
@@ -1335,79 +1377,317 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Lightbox de Foto */}
-      {lightboxFoto && (
+      {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
+      {lightboxState && (
         <div
-          onClick={() => setLightboxFoto(null)}
+          onClick={() => setLightboxState(null)}
           style={{
             position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.88)',
+            backgroundColor: 'rgba(0, 0, 0, 0.94)',
             zIndex: 10000,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
+            justifyContent: 'space-between',
+            padding: '12px 14px',
+            touchAction: 'pan-y',
+            userSelect: 'none',
           }}
         >
+          {/* Cabeçalho do Lightbox */}
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
-              position: 'relative',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              maxWidth: 960,
+              color: '#ffffff',
+              padding: '6px 4px',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setLightboxFoto(null)}
-              style={{
-                position: 'absolute',
-                top: -40,
-                right: 0,
-                background: 'transparent',
-                border: 'none',
-                color: '#ffffff',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: '0.88rem',
-              }}
-            >
-              <span>Fechar</span>
-              <X size={20} weight="bold" />
-            </button>
-            <img
-              src={lightboxFoto.url}
-              alt={lightboxFoto.titulo || 'Foto ampliada'}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '82vh',
-                objectFit: 'contain',
-                borderRadius: '6px',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-              }}
-            />
-            {lightboxFoto.titulo && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
               <span
                 style={{
+                  fontSize: '0.92rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                   color: '#ffffff',
-                  marginTop: 10,
-                  fontSize: '0.9rem',
-                  fontWeight: 500,
                 }}
               >
-                {lightboxFoto.titulo}
+                {lightboxState.titulo || 'Visualização do Equipamento'}
               </span>
+              {lightboxState.fotos.length > 1 && (
+                <span
+                  style={{
+                    fontSize: '0.76rem',
+                    background: 'rgba(255, 255, 255, 0.22)',
+                    padding: '2px 9px',
+                    borderRadius: 100,
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    color: '#ffffff',
+                  }}
+                >
+                  {lightboxState.index + 1} / {lightboxState.fotos.length}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setLightboxState(null)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                color: '#ffffff',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+              title="Fechar (Escape)"
+            >
+              <X size={20} weight="bold" />
+            </button>
+          </div>
+
+          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: 960,
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 0,
+              touchAction: 'pan-y',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              touchLightboxX.current = e.touches[0].clientX;
+            }}
+            onTouchEnd={(e) => {
+              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
+              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
+              touchLightboxX.current = null;
+              if (diff > 35) {
+                // Arrasto para a esquerda -> próxima foto
+                setLightboxState((prev) =>
+                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                );
+              } else if (diff < -35) {
+                // Arrasto para a direita -> foto anterior
+                setLightboxState((prev) =>
+                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                );
+              }
+            }}
+          >
+            {/* Seta Lateral Esquerda */}
+            {lightboxState.fotos.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxState((prev) =>
+                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                  );
+                }}
+                style={{
+                  position: 'absolute',
+                  left: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: 'rgba(26, 19, 10, 0.85)',
+                  color: '#ffffff',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                }}
+                title="Foto anterior"
+                aria-label="Foto anterior"
+              >
+                <CaretLeft size={24} weight="bold" />
+              </button>
+            )}
+
+            <img
+              src={lightboxState.fotos[lightboxState.index]}
+              alt=""
+              draggable={false}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                borderRadius: '6px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                userSelect: 'none',
+              }}
+            />
+
+            {/* Seta Lateral Direita */}
+            {lightboxState.fotos.length > 1 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxState((prev) =>
+                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                  );
+                }}
+                style={{
+                  position: 'absolute',
+                  right: 6,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: 'rgba(26, 19, 10, 0.85)',
+                  color: '#ffffff',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                }}
+                title="Próxima foto"
+                aria-label="Próxima foto"
+              >
+                <CaretRight size={24} weight="bold" />
+              </button>
             )}
           </div>
+
+          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
+          {lightboxState.fotos.length > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                maxWidth: 960,
+                padding: '6px 0',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxState((prev) =>
+                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
+                    )
+                  }
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 20,
+                    padding: '5px 14px',
+                    fontSize: '0.80rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <CaretLeft size={16} weight="bold" />
+                  <span>Anterior</span>
+                </button>
+
+                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
+                  {lightboxState.index + 1} de {lightboxState.fotos.length}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxState((prev) =>
+                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
+                    )
+                  }
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.16)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: 20,
+                    padding: '5px 14px',
+                    fontSize: '0.80rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>Próxima</span>
+                  <CaretRight size={16} weight="bold" />
+                </button>
+              </div>
+
+              {/* Faixa de Miniaturas */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  overflowX: 'auto',
+                  maxWidth: '100%',
+                  padding: '4px',
+                  scrollbarWidth: 'none',
+                }}
+              >
+                {lightboxState.fotos.map((fUrl, fIdx) => (
+                  <img
+                    key={fIdx}
+                    src={fUrl}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 6,
+                      objectFit: 'cover',
+                      cursor: 'pointer',
+                      border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                      opacity: fIdx === lightboxState.index ? 1 : 0.55,
+                      flexShrink: 0,
+                      transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
+                      transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
+                    }}
+                    onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

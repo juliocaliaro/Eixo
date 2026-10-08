@@ -491,41 +491,14 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Função para exibir Toast notification
+  // Função para exibir Toast notification (silenciada globalmente: retira notificações na tela em qualquer atividade)
   const showToast = (
-    titulo: string,
-    descricao?: string,
-    tipo: ToastType = 'success'
+    _titulo: string,
+    _descricao?: string,
+    _tipo: ToastType = 'success'
   ) => {
-    // Regra: Durante qualquer registro ou preenchimento, nenhuma notificação pode subir no mobile
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
-      const activeEl = document.activeElement;
-      const isInputActive = Boolean(
-        activeEl &&
-        (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) ||
-          activeEl.getAttribute('contenteditable') === 'true' ||
-          activeEl.classList.contains('form-input') ||
-          activeEl.classList.contains('form-textarea'))
-      );
-      const isModalOpen = Boolean(
-        document.querySelector('.modal-backdrop, .modal-card, [role="dialog"], .modal-novo-anexo')
-      );
-
-      if (isInputActive || isModalOpen) {
-        // Bloquear completamente a notificação durante preenchimento ou registro no mobile
-        return;
-      }
-    }
-
-    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const newToast: ToastMessage = { id, titulo, descricao, tipo };
-
-    setToasts((prev) => [...prev, newToast]);
-
-    // Auto-dismiss após 4.2 segundos
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4200);
+    // Notificações em tela removidas conforme solicitado
+    return;
   };
 
   const handleDismissToast = (id: string) => {

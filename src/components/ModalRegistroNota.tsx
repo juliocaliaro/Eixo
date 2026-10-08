@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch, Images } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { storageApi } from '../services/api';
 import { generateUUID } from '../utils/uuid';
@@ -38,6 +38,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   const [erro, setErro] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar apenas quando o modal for aberto (evita limpar o formulário se obras atualizar em segundo plano)
   const prevIsOpenRef = useRef(false);
@@ -124,6 +125,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
       setErro('Erro ao processar imagem.');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -310,54 +312,109 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
               </div>
 
               {fotos.length === 0 ? (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: '1.5px dashed var(--border-hairline)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '24px 16px',
-                    textAlign: 'center',
-                    background: 'var(--dark-coffee-50)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
-                    color: 'var(--text-muted)',
-                    transition: 'border-color 0.15s, background 0.15s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary-accent)';
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                    e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                  }}
-                >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                  {/* Opção 1: Tirar Foto com a Câmera */}
                   <div
+                    onClick={() => cameraInputRef.current?.click()}
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '50%',
-                      background: '#ffffff',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      border: '1.5px dashed var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '20px 14px',
+                      textAlign: 'center',
+                      background: 'var(--dark-coffee-50)',
+                      cursor: 'pointer',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: 'var(--primary-accent)',
+                      gap: 8,
+                      color: 'var(--text-muted)',
+                      transition: 'border-color 0.15s, background 0.15s, transform 0.1s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary-accent)';
+                      e.currentTarget.style.background = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                      e.currentTarget.style.background = 'var(--dark-coffee-50)';
                     }}
                   >
-                    <Camera size={22} weight="bold" />
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-accent)',
+                      }}
+                    >
+                      <Camera size={22} weight="bold" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Tirar Foto
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                        Câmera do celular
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)', display: 'block' }}>
-                      Clique ou tire uma foto da nota
-                    </span>
-                    <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                      Formatos JPG, PNG ou captura direta no celular
-                    </span>
+
+                  {/* Opção 2: Escolher da Galeria / Arquivos */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: '1.5px dashed var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '20px 14px',
+                      textAlign: 'center',
+                      background: 'var(--dark-coffee-50)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      color: 'var(--text-muted)',
+                      transition: 'border-color 0.15s, background 0.15s, transform 0.1s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary-accent)';
+                      e.currentTarget.style.background = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                      e.currentTarget.style.background = 'var(--dark-coffee-50)';
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-accent)',
+                      }}
+                    >
+                      <Images size={22} weight="bold" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Galeria / Arquivo
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                        Selecionar do aparelho
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -406,6 +463,33 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                       </button>
                     </div>
                   ))}
+
+                  {/* Botão Tirar mais fotos com a câmera */}
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1.5px dashed var(--border-hairline)',
+                      background: 'var(--dark-coffee-50)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      gap: 4,
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    title="Tirar foto com a câmera"
+                  >
+                    <Camera size={18} weight="bold" />
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600 }}>+ Câmera</span>
+                  </button>
+
+                  {/* Botão Adicionar mais fotos da galeria */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -422,16 +506,27 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                       cursor: 'pointer',
                       color: 'var(--text-muted)',
                       gap: 4,
-                      transition: 'border-color 0.15s',
+                      transition: 'border-color 0.15s, background 0.15s',
                     }}
-                    title="Adicionar mais fotos"
+                    title="Adicionar fotos da galeria"
                   >
-                    <Plus size={18} />
-                    <span style={{ fontSize: '0.68rem', fontWeight: 600 }}>Mais foto</span>
+                    <Images size={18} weight="bold" />
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600 }}>+ Galeria</span>
                   </button>
                 </div>
               )}
 
+              {/* Input exclusivo para captura direta pela câmera */}
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={handleFilesChange}
+              />
+
+              {/* Input padrão para seleção múltipla de arquivos da galeria */}
               <input
                 ref={fileInputRef}
                 type="file"
