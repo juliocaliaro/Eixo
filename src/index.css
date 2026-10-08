@@ -652,6 +652,102 @@ input, textarea, select {
   border-radius: var(--radius-xs);
 }
 
+/* ========================================================
+   ANIMAÇÕES DE LOAD DA API (EIXO DESIGN SYSTEM)
+   ======================================================== */
+@keyframes spinAnimate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-animate {
+  animation: spinAnimate 0.8s linear infinite;
+  display: inline-block;
+  transform-origin: center;
+}
+
+@keyframes topLoaderSlide {
+  0% {
+    left: -40%;
+    width: 35%;
+  }
+  50% {
+    left: 25%;
+    width: 55%;
+  }
+  100% {
+    left: 100%;
+    width: 35%;
+  }
+}
+
+.eixo-top-loader-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(242, 66, 13, 0.12);
+  z-index: 999999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.eixo-top-loader-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--coral-glow-500, #f2420d),
+    #ff7a59,
+    var(--coral-glow-500, #f2420d)
+  );
+  box-shadow: 0 0 10px rgba(242, 66, 13, 0.75);
+  animation: topLoaderSlide 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--dark-coffee-100, #f1e7da) 25%,
+    var(--dark-coffee-50, #f8f3ed) 50%,
+    var(--dark-coffee-100, #f1e7da) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.navbar-sync-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--dark-coffee-100, #f1e7da);
+  border: 1px solid var(--border-hairline, #e2cfb6);
+  color: var(--dark-coffee-800, #49361d);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  animation: fadeIn 0.2s ease;
+}
+
 /* Checkbox Tátil com Micromotion de Bounce */
 .task-checkbox {
   appearance: none;

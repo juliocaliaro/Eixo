@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch } from '@phosphor-icons/react';
 import { Obra, TipoPeriodoLocacao } from '../types/obra';
 
 export interface NovaLocacaoData {
@@ -33,11 +33,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [fotos, setFotos] = useState<string[]>([]);
   const [erro, setErro] = useState<string>('');
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sincronizar ao abrir
+  // Sincronizar apenas quando o modal for aberto
+  const prevIsOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setItemLocado('');
       setFornecedor('');
@@ -46,7 +48,8 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setErro('');
       setIsProcessingPhotos(false);
     }
-  }, [isOpen, preselectedObraId, obras]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, preselectedObraId]);
 
   // Fechar com tecla Escape
   useEffect(() => {
@@ -146,14 +149,19 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
 
     const dataVencimento = calcularDataVencimento(periodo);
 
-    onSave({
-      obraId,
-      itemLocado: itemLocado.trim(),
-      periodo,
-      dataVencimento,
-      fotos,
-      fornecedor: fornecedor.trim() || undefined,
-    });
+    setIsSaving(true);
+    try {
+      onSave({
+        obraId,
+        itemLocado: itemLocado.trim(),
+        periodo,
+        dataVencimento,
+        fotos,
+        fornecedor: fornecedor.trim() || undefined,
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -641,6 +649,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
             <button
               type="submit"
               className="btn-primary"
+              disabled={isSaving || isProcessingPhotos}
               style={{
                 minHeight: 44,
                 padding: '10px 22px',
@@ -650,10 +659,21 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
+                opacity: isSaving || isProcessingPhotos ? 0.75 : 1,
+                cursor: isSaving || isProcessingPhotos ? 'not-allowed' : 'pointer',
               }}
             >
-              <FloppyDisk size={18} weight="bold" />
-              <span>Salvar Locação</span>
+              {isSaving || isProcessingPhotos ? (
+                <>
+                  <CircleNotch size={18} className="spin-animate" weight="bold" />
+                  <span>{isProcessingPhotos ? 'Processando fotos...' : 'Salvando Locação...'}</span>
+                </>
+              ) : (
+                <>
+                  <FloppyDisk size={18} weight="bold" />
+                  <span>Salvar Locação</span>
+                </>
+              )}
             </button>
           </div>
         </form>

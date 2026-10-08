@@ -16,11 +16,13 @@ import {
   ClockCounterClockwise,
   ArrowsClockwise,
   FloppyDisk,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { Obra, RegistroLocacao, PerfilUsuario } from '../types/obra';
 import { ModalRegistroLocacao, NovaLocacaoData } from './ModalRegistroLocacao';
 import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
+import { locacoesApi } from '../services/api';
 
 interface RegistroLocacoesPageProps {
   obras: Obra[];
@@ -49,6 +51,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
   // Prolongamento / Renovação inline de locação no card
   const [prolongandoLocacaoId, setProlongandoLocacaoId] = useState<string | null>(null);
   const [novaDataProlongada, setNovaDataProlongada] = useState<string>('');
+  const [isSavingProlongamento, setIsSavingProlongamento] = useState(false);
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -314,33 +317,38 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
-    const vencimentoOriginal = locacao.vencimentoOriginal || locacao.dataVencimento;
+    setIsSavingProlongamento(true);
+    try {
+      const vencimentoOriginal = locacao.vencimentoOriginal || locacao.dataVencimento;
 
-    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-      if (l.id === locacao.id) {
-        return {
-          ...l,
-          dataVencimento: novaDataProlongada.trim(),
-          vencimentoOriginal,
-          renovado: true,
-          renovadoEm: new Date().toISOString(),
-          status: 'ativo' as const, // reativa caso estivesse devolvido
-        };
-      }
-      return l;
-    });
+      const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
+        if (l.id === locacao.id) {
+          return {
+            ...l,
+            dataVencimento: novaDataProlongada.trim(),
+            vencimentoOriginal,
+            renovado: true,
+            renovadoEm: new Date().toISOString(),
+            status: 'ativo' as const, // reativa caso estivesse devolvido
+          };
+        }
+        return l;
+      });
 
-    onUpdateObra({
-      ...obraAlvo,
-      locacoes: updatedLocacoes,
-    });
-    setProlongandoLocacaoId(null);
+      onUpdateObra({
+        ...obraAlvo,
+        locacoes: updatedLocacoes,
+      });
+      setProlongandoLocacaoId(null);
 
-    showToast(
-      'Locação Prolongada!',
-      `O prazo de "${locacao.itemLocado}" foi estendido para ${formatarData(novaDataProlongada)}.`,
-      'success'
-    );
+      showToast(
+        'Locação Prolongada!',
+        `O prazo de "${locacao.itemLocado}" foi estendido para ${formatarData(novaDataProlongada)}.`,
+        'success'
+      );
+    } finally {
+      setIsSavingProlongamento(false);
+    }
   };
 
   // Alternar status da locação (ativo <-> devolvido)
@@ -383,6 +391,8 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
+    const locacaoAlvo = (obraAlvo.locacoes || []).find((l) => l.id === locacaoId);
+
     const updatedObra: Obra = {
       ...obraAlvo,
       locacoes: (obraAlvo.locacoes || []).filter((l) => l.id !== locacaoId),
@@ -390,6 +400,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
     onUpdateObra(updatedObra);
     setDeleteTarget(null);
+
+    // Remove do Supabase no servidor e do Storage
+    locacoesApi.delete(locacaoId, locacaoAlvo?.fotos);
 
     showToast('Locação Removida', `"${itemLocado}" foi excluído com sucesso.`, 'info');
   };
@@ -1262,6 +1275,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSalvarProlongamento(obra.id, locacao)}
+                        disabled={isSavingProlongamento}
                         className="btn-primary"
                         style={{
                           display: 'inline-flex',
@@ -1274,10 +1288,20 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           minHeight: 28,
                           fontWeight: 600,
                           marginTop: 2,
+                          opacity: isSavingProlongamento ? 0.75 : 1,
                         }}
                       >
-                        <FloppyDisk size={13} weight="bold" />
-                        <span>Salvar Prazo</span>
+                        {isSavingProlongamento ? (
+                          <>
+                            <CircleNotch size={13} className="spin-animate" weight="bold" />
+                            <span>Salvando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FloppyDisk size={13} weight="bold" />
+                            <span>Salvar Prazo</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   )}

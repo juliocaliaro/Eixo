@@ -13,6 +13,7 @@ import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
+import { projetosApi, storageApi } from '../services/api';
 
 const ModalPreviewRelatorio = React.lazy(() =>
   import('./ModalPreviewRelatorio').then((m) => ({ default: m.ModalPreviewRelatorio }))
@@ -380,6 +381,10 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleDeleteAnexoGeral = (anexoId: string) => {
+    const anexoAlvo = (obra.anexosGerais || []).find((a) => a.id === anexoId);
+    if (anexoAlvo && anexoAlvo.tipo === 'foto' && anexoAlvo.conteudo) {
+      storageApi.deleteFileFromUrl('evidencias-diario', anexoAlvo.conteudo);
+    }
     onUpdateObra({
       ...obra,
       anexosGerais: (obra.anexosGerais || []).filter((a) => a.id !== anexoId),
@@ -478,11 +483,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleDeleteProjeto = (projetoId: string) => {
+    const projAlvo = (obra.projetos || []).find((p) => p.id === projetoId);
     const updatedProjetos = (obra.projetos || []).filter((p) => p.id !== projetoId);
     onUpdateObra({
       ...obra,
       projetos: updatedProjetos,
     });
+    projetosApi.delete(projetoId, projAlvo?.url);
   };
 
   // --- Handler da Vistoria Final ---

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Warning, Trash } from '@phosphor-icons/react';
+import { Warning, Trash, CircleNotch } from '@phosphor-icons/react';
 
 interface ModalConfirmProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface ModalConfirmProps {
   variant?: 'danger' | 'warning' | 'info';
   onConfirm: () => void;
   onCancel: () => void;
+  isLoading?: boolean;
 }
 
 export const ModalConfirm: React.FC<ModalConfirmProps> = ({
@@ -21,6 +22,7 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
   variant = 'danger',
   onConfirm,
   onCancel,
+  isLoading = false,
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -90,13 +92,26 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
           <button
             type="button"
             onClick={onConfirm}
+            disabled={isLoading}
             className="btn-primary"
             style={{
               background: isDanger ? 'var(--coral-glow-600)' : 'var(--primary-accent)',
               borderColor: isDanger ? 'var(--coral-glow-700)' : 'transparent',
+              opacity: isLoading ? 0.75 : 1,
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
-            {confirmText}
+            {isLoading ? (
+              <>
+                <CircleNotch size={15} className="spin-animate" weight="bold" />
+                <span>Processando...</span>
+              </>
+            ) : (
+              confirmText
+            )}
           </button>
         </div>
       </div>

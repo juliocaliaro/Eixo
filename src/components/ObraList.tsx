@@ -12,6 +12,7 @@ import {
   Clock,
   Copy,
   Check,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
@@ -24,6 +25,7 @@ interface ObraListProps {
   onLoadDemo?: () => void;
   perfilAtivo?: PerfilUsuario;
   onOpenSettings?: () => void;
+  isLoading?: boolean;
 }
 
 export const ObraList: React.FC<ObraListProps> = ({
@@ -34,6 +36,7 @@ export const ObraList: React.FC<ObraListProps> = ({
   onLoadDemo,
   perfilAtivo = 'construtor',
   onOpenSettings,
+  isLoading = false,
 }) => {
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
   const [copiedObraId, setCopiedObraId] = useState<string | null>(null);
@@ -64,6 +67,108 @@ export const ObraList: React.FC<ObraListProps> = ({
       setCopiedObraId((prev) => (prev === obraId ? null : prev));
     }, 2000);
   };
+
+  // Skeleton Loading State durante consulta / hidratação da API
+  if (isLoading) {
+    return (
+      <div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 24,
+            paddingBottom: 16,
+            borderBottom: '1px solid var(--border-hairline)',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div
+                className="skeleton-shimmer"
+                style={{ width: 140, height: 26, borderRadius: 4 }}
+              />
+              <div
+                className="navbar-sync-badge"
+                style={{ background: 'var(--dark-coffee-50)' }}
+              >
+                <CircleNotch size={13} className="spin-animate" weight="bold" />
+                <span>Sincronizando com a nuvem...</span>
+              </div>
+            </div>
+            <div
+              className="skeleton-shimmer"
+              style={{ width: 240, height: 14, borderRadius: 4, marginTop: 8 }}
+            />
+          </div>
+        </div>
+
+        <div className="cardless-list">
+          {[1, 2, 3].map((idx) => (
+            <div
+              key={idx}
+              className="cardless-row"
+              style={{
+                pointerEvents: 'none',
+                opacity: 1 - (idx - 1) * 0.22,
+              }}
+            >
+              <div style={{ flex: 2.5, minWidth: 0, paddingRight: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    className="skeleton-shimmer"
+                    style={{ width: `${60 - idx * 5}%`, minWidth: 120, height: 20, borderRadius: 4 }}
+                  />
+                  <div
+                    className="skeleton-shimmer"
+                    style={{ width: 64, height: 18, borderRadius: 4 }}
+                  />
+                </div>
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: `${40 - idx * 4}%`, minWidth: 90, height: 14, borderRadius: 4, marginTop: 8 }}
+                />
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: `${55 - idx * 5}%`, minWidth: 110, height: 13, borderRadius: 4, marginTop: 6 }}
+                />
+              </div>
+
+              <div style={{ width: '130px', flexShrink: 0 }}>
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: 50, height: 12, borderRadius: 3 }}
+                />
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: 90, height: 16, borderRadius: 4, marginTop: 6 }}
+                />
+              </div>
+
+              <div style={{ width: '170px', flexShrink: 0 }}>
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: 80, height: 12, borderRadius: 3, marginBottom: 6 }}
+                />
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: '100%', height: 8, borderRadius: 4 }}
+                />
+              </div>
+
+              <div style={{ width: 40, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <div
+                  className="skeleton-shimmer"
+                  style={{ width: 28, height: 28, borderRadius: '50%' }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // Empty State com âncora visual fotográfica forte (conforme frontend-skill)
   if (obras.length === 0) {
     return (

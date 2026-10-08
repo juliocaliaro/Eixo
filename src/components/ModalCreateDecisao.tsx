@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera } from '@phosphor-icons/react';
+import { X, Camera, CircleNotch } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
 import { parseMoedaBR, formatarMoeda, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 import { generateUUID } from '../utils/uuid';
@@ -25,6 +25,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
   const [supressivo, setSupressivo] = useState<string>('');
   const [impactoPrazoDias, setImpactoPrazoDias] = useState<string>('');
   const [fotos, setFotos] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fechar com tecla Escape
@@ -121,16 +122,21 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
       fotos: fotos.length > 0 ? fotos : undefined,
     };
 
-    onSubmit(decisao);
-    onClose();
+    setIsSubmitting(true);
+    try {
+      onSubmit(decisao);
+      onClose();
 
-    // Resetar
-    setTitulo('');
-    setDescricao('');
-    setAditivo('');
-    setSupressivo('');
-    setImpactoPrazoDias('');
-    setFotos([]);
+      // Resetar
+      setTitulo('');
+      setDescricao('');
+      setAditivo('');
+      setSupressivo('');
+      setImpactoPrazoDias('');
+      setFotos([]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const numAditivo = parseMoedaBR(aditivo);
@@ -348,11 +354,25 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
             </button>
             <button
               type="submit"
-              disabled={!titulo.trim() || !descricao.trim()}
+              disabled={!titulo.trim() || !descricao.trim() || isSubmitting}
               className="btn-primary"
-              style={{ fontSize: '0.84rem' }}
+              style={{
+                fontSize: '0.84rem',
+                opacity: !titulo.trim() || !descricao.trim() || isSubmitting ? 0.65 : 1,
+                cursor: !titulo.trim() || !descricao.trim() || isSubmitting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
             >
-              Criar e Assinar
+              {isSubmitting ? (
+                <>
+                  <CircleNotch size={14} className="spin-animate" weight="bold" />
+                  <span>Criando e Assinando...</span>
+                </>
+              ) : (
+                <span>Criar e Assinar</span>
+              )}
             </button>
           </div>
         </form>

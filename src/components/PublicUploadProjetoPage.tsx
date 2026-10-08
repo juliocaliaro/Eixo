@@ -35,8 +35,8 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
   const [tipo, setTipo] = useState<TipoProjeto>('eletrico');
   const [tipoCustomizado, setTipoCustomizado] = useState('');
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [arquivoBase64, setArquivoBase64] = useState<string>('');
   const [titulo, setTitulo] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [versao, setVersao] = useState('');
   const [descricao, setDescricao] = useState('');
   const [erro, setErro] = useState('');
@@ -57,25 +57,16 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
     }
 
     setErro('');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setArquivo(file);
-      setArquivoBase64(result);
+    setArquivo(file);
 
-      if (!titulo.trim()) {
-        const nomeLimpo = file.name
-          .replace(/\.pdf$/i, '')
-          .replace(/[_-]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        setTitulo(nomeLimpo);
-      }
-    };
-    reader.onerror = () => {
-      setErro('Falha ao processar arquivo.');
-    };
-    reader.readAsDataURL(file);
+    if (!titulo.trim()) {
+      const nomeLimpo = file.name
+        .replace(/\.pdf$/i, '')
+        .replace(/[_-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      setTitulo(nomeLimpo);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +74,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
     if (file) handleFileProcess(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!remetenteNome.trim()) {
@@ -91,7 +82,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       return;
     }
 
-    if (!arquivo || !arquivoBase64) {
+    if (!arquivo) {
       setErro('Selecione um arquivo PDF.');
       return;
     }
@@ -106,24 +97,44 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       return;
     }
 
-    onUploadProjeto({
-      titulo: titulo.trim(),
-      tipo,
-      tipoCustomizado: tipo === 'outro' ? tipoCustomizado.trim() : undefined,
-      arquivoNome: arquivo.name,
-      tamanhoBytes: arquivo.size,
-      url: arquivoBase64,
-      versao: versao.trim() || undefined,
-      descricao: descricao.trim() || undefined,
-      remetenteNome: remetenteNome.trim(),
-    });
+    setIsUploading(true);
+    try {
+      const projId = generateUUID();
+      const sanitizedName = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${obra.id}/projetos/${projId}_${sanitizedName}`;
 
-    setSucesso(true);
+      let finalUrl = await storageApi.uploadFile('projetos-pdf', storagePath, arquivo);
+
+      if (!finalUrl) {
+        finalUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(arquivo);
+        });
+      }
+
+      onUploadProjeto({
+        titulo: titulo.trim(),
+        tipo,
+        tipoCustomizado: tipo === 'outro' ? tipoCustomizado.trim() : undefined,
+        arquivoNome: arquivo.name,
+        tamanhoBytes: arquivo.size,
+        url: finalUrl,
+        versao: versao.trim() || undefined,
+        descricao: descricao.trim() || undefined,
+        remetenteNome: remetenteNome.trim(),
+      });
+
+      setSucesso(true);
+    } catch (err: any) {
+      setErro(err?.message || 'Falha ao enviar arquivo.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleReset = () => {
     setArquivo(null);
-    setArquivoBase64('');
     setTitulo('');
     setVersao('');
     setDescricao('');
@@ -368,7 +379,6 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
                       type="button"
                       onClick={() => {
                         setArquivo(null);
-                        setArquivoBase64('');
                       }}
                       className="btn-icon"
                       title="Remover"
@@ -496,16 +506,26 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={!arquivo}
+                disabled={!arquivo || isUploading}
                 style={{
-                  opacity: !arquivo ? 0.6 : 1,
+                  opacity: !arquivo || isUploading ? 0.6 : 1,
+                  cursor: !arquivo || isUploading ? 'not-allowed' : 'pointer',
                   padding: '9px 18px',
                   fontSize: '0.88rem',
                   fontWeight: 600,
                 }}
               >
-                <Plus size={16} weight="bold" />
-                <span>Enviar Projeto</span>
+                {isUploading ? (
+                  <>
+                    <CircleNotch size={16} className="spin-animate" weight="bold" />
+                    <span>Enviando Projeto...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus size={16} weight="bold" />
+                    <span>Enviar Projeto</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

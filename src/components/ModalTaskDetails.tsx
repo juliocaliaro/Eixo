@@ -8,14 +8,17 @@ import {
   CheckCircle,
   Clock,
   ArrowsOut,
-  FolderOpen
+  FolderOpen,
+  CircleNotch,
 } from '@phosphor-icons/react';
+import { storageApi, evidenciasApi } from '../services/api';
 import { Tarefa } from '../types/obra';
 import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
 
 interface ModalTaskDetailsProps {
   isOpen: boolean;
   onClose: () => void;
+  obraId?: string;
   tarefa: Tarefa | null;
   etapaNome: string;
   etapaId: string;
@@ -26,12 +29,14 @@ interface ModalTaskDetailsProps {
 export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   isOpen,
   onClose,
+  obraId,
   tarefa,
   etapaNome,
   etapaId,
   onUpdateTaskMedia,
   isReadOnly = false,
 }) => {
+  const [isUploadingFoto, setIsUploadingFoto] = useState(false);
   const [activeTab, setActiveTab] = useState<'tudo' | 'fotos' | 'notas'>('tudo');
   const [novaNota, setNovaNota] = useState('');
   const [isAddingNota, setIsAddingNota] = useState(false);
@@ -79,25 +84,73 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processarImagemBlob = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1400;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.82);
+          } else {
+            resolve(file);
+          }
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0 && onUpdateTaskMedia) {
       const fileList = Array.from(files);
-      const readPromises = fileList.map((file) => {
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.readAsDataURL(file);
-        });
-      });
+      setIsUploadingFoto(true);
+      try {
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < fileList.length; i++) {
+          const file = fileList[i];
+          const blob = await processarImagemBlob(file);
+          const path = `${obraId || 'obra'}/diario/${tarefa.id}_${Date.now()}_${i}.jpg`;
+          const remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, blob, 'image/jpeg');
 
-      Promise.all(readPromises).then((novasImgs) => {
-        onUpdateTaskMedia(etapaId, tarefa.id, [...fotos, ...novasImgs], anotacoes);
-      });
+          if (remoteUrl) {
+            uploadedUrls.push(remoteUrl);
+          } else {
+            const fallback = await new Promise<string>((res) => {
+              const r = new FileReader();
+              r.onload = () => res(r.result as string);
+              r.readAsDataURL(blob);
+            });
+            uploadedUrls.push(fallback);
+          }
+        }
+        onUpdateTaskMedia(etapaId, tarefa.id, [...fotos, ...uploadedUrls], anotacoes);
+      } catch (err) {
+        console.error('Erro ao enviar fotos da tarefa:', err);
+      } finally {
+        setIsUploadingFoto(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleAddNota = (e: React.FormEvent) => {
@@ -109,12 +162,16 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
     setIsAddingNota(false);
   };
 
-  const handleDeleteFoto = (indexToDelete: number) => {
+  const handleDeleteFoto = async (indexToDelete: number) => {
     if (!onUpdateTaskMedia) return;
+    const fotoUrlToDelete = fotos[indexToDelete];
     const novasFotos = fotos.filter((_, idx) => idx !== indexToDelete);
     onUpdateTaskMedia(etapaId, tarefa.id, novasFotos, anotacoes);
-    if (lightboxFoto === fotos[indexToDelete]) {
+    if (lightboxFoto === fotoUrlToDelete) {
       setLightboxFoto(null);
+    }
+    if (fotoUrlToDelete) {
+      await evidenciasApi.deleteFoto(tarefa.id, fotoUrlToDelete);
     }
   };
 
@@ -305,12 +362,27 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingFoto}
                       className="btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                      style={{
+                        padding: '5px 10px',
+                        fontSize: '0.78rem',
+                        opacity: isUploadingFoto ? 0.7 : 1,
+                        cursor: isUploadingFoto ? 'not-allowed' : 'pointer',
+                      }}
                       title="Tirar foto ou anexar imagens"
                     >
-                      <Plus size={12} weight="bold" />
-                      <span>Adicionar Fotos</span>
+                      {isUploadingFoto ? (
+                        <>
+                          <CircleNotch size={12} className="spin-animate" weight="bold" />
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={12} weight="bold" />
+                          <span>Adicionar Fotos</span>
+                        </>
+                      )}
                     </button>
                   )}
                 </div>

@@ -5,6 +5,7 @@ import {
   Bell,
   BellRinging,
   PenNib,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { SandwichMenu, NotificacaoPendente } from './SandwichMenu';
@@ -31,6 +32,7 @@ interface NavbarProps {
   onOpenLogin?: () => void;
   activeTab?: string;
   onChangeTab?: (tab: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'compartilhar') => void;
+  isApiLoading?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -53,6 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLogin,
   activeTab,
   onChangeTab,
+  isApiLoading = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isConfigClienteOpen, setIsConfigClienteOpen] = useState(false);
@@ -151,6 +154,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Canto Superior Direito: Notificações + Ícone de Perfil de Usuário */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Indicador Discreto de Sincronização / API em Andamento */}
+          {isApiLoading && (
+            <div
+              className="navbar-sync-badge"
+              title="Sincronizando dados com o servidor em tempo real"
+              role="status"
+              aria-live="polite"
+            >
+              <CircleNotch size={13} className="spin-animate" weight="bold" />
+              <span>Sincronizando...</span>
+            </div>
+          )}
+
           {/* Sininho de Notificações de Decisões */}
           <div style={{ position: 'relative' }} ref={notifRef}>
             <button

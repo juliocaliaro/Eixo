@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
+import { storageApi } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 export interface NovaNotaData {
   obraId: string;
@@ -17,6 +19,11 @@ interface ModalRegistroNotaProps {
   onSave: (dados: NovaNotaData) => void;
 }
 
+interface FotoPreview {
+  blob: Blob;
+  previewUrl: string;
+}
+
 export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   isOpen,
   onClose,
@@ -27,20 +34,26 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
   const [titulo, setTitulo] = useState<string>('');
   const [observacoes, setObservacoes] = useState<string>('');
-  const [fotos, setFotos] = useState<string[]>([]);
+  const [fotos, setFotos] = useState<FotoPreview[]>([]);
   const [erro, setErro] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sincronizar ao abrir
+  // Sincronizar apenas quando o modal for aberto (evita limpar o formulário se obras atualizar em segundo plano)
+  const prevIsOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setTitulo('');
       setObservacoes('');
-      setFotos([]);
+      setFotos((prev) => {
+        prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+        return [];
+      });
       setErro('');
     }
-  }, [isOpen, preselectedObraId, obras]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, preselectedObraId]);
 
   // Fechar com tecla Escape
   useEffect(() => {
@@ -54,8 +67,8 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
 
   if (!isOpen) return null;
 
-  // Processamento e compressão leve de imagem base64
-  const processarArquivo = (file: File): Promise<string> => {
+  // Processamento e compressão de imagem para Blob binário (sem base64)
+  const processarArquivo = (file: File): Promise<Blob> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -78,12 +91,16 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.82));
+            canvas.toBlob(
+              (blob) => resolve(blob || file),
+              'image/jpeg',
+              0.82
+            );
           } else {
-            resolve(e.target?.result as string);
+            resolve(file);
           }
         };
-        img.onerror = () => resolve(e.target?.result as string);
+        img.onerror = () => resolve(file);
         img.src = e.target?.result as string;
       };
       reader.readAsDataURL(file);
@@ -96,8 +113,12 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
 
     try {
       const fileList = Array.from(files);
-      const novasFotos = await Promise.all(fileList.map((f) => processarArquivo(f)));
-      setFotos((prev) => [...prev, ...novasFotos]);
+      const novosBlobs = await Promise.all(fileList.map((f) => processarArquivo(f)));
+      const novosItens: FotoPreview[] = novosBlobs.map((blob) => ({
+        blob,
+        previewUrl: URL.createObjectURL(blob),
+      }));
+      setFotos((prev) => [...prev, ...novosItens]);
       if (erro) setErro('');
     } catch {
       setErro('Erro ao processar imagem.');
@@ -107,10 +128,16 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   };
 
   const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => prev.filter((_, i) => i !== index));
+    setFotos((prev) => {
+      const item = prev[index];
+      if (item?.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
 
@@ -124,14 +151,47 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
       return;
     }
 
-    onSave({
-      obraId,
-      fotos,
-      titulo: titulo.trim() ? titulo.trim() : undefined,
-      observacoes: observacoes.trim() ? observacoes.trim() : undefined,
-    });
+    setIsSaving(true);
+    try {
+      const notaId = generateUUID();
+      const urlsUpload: string[] = [];
 
-    onClose();
+      // Envia os arquivos binários diretamente para o Supabase Storage (sem base64)
+      for (let i = 0; i < fotos.length; i++) {
+        const item = fotos[i];
+        const path = `${obraId}/notas/${notaId}_${i}.jpg`;
+        const remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, 'image/jpeg');
+
+        if (remoteUrl) {
+          urlsUpload.push(remoteUrl);
+        } else {
+          // Fallback offline seguro se Supabase não estiver disponível
+          const fallback = await new Promise<string>((res) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.readAsDataURL(item.blob);
+          });
+          urlsUpload.push(fallback);
+        }
+      }
+
+      // Libera as referências da memória local do navegador
+      fotos.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+      setFotos([]);
+
+      onSave({
+        obraId,
+        fotos: urlsUpload,
+        titulo: titulo.trim() ? titulo.trim() : undefined,
+        observacoes: observacoes.trim() ? observacoes.trim() : undefined,
+      });
+
+      onClose();
+    } catch (err: any) {
+      setErro(err?.message || 'Falha ao salvar a nota fiscal.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -302,7 +362,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {fotos.map((fotoUrl, idx) => (
+                  {fotos.map((item, idx) => (
                     <div
                       key={idx}
                       style={{
@@ -316,7 +376,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                       }}
                     >
                       <img
-                        src={fotoUrl}
+                        src={item.previewUrl}
                         alt={`Nota ${idx + 1}`}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
@@ -417,9 +477,28 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
             <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '9px 18px', fontSize: '0.88rem' }}>
               Cancelar
             </button>
-            <button type="submit" className="btn-primary" style={{ padding: '9px 20px', fontSize: '0.88rem' }}>
-              <FloppyDisk size={16} weight="bold" />
-              <span>Salvar Nota</span>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isSaving}
+              style={{
+                padding: '9px 20px',
+                fontSize: '0.88rem',
+                opacity: isSaving ? 0.75 : 1,
+                cursor: isSaving ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSaving ? (
+                <>
+                  <CircleNotch size={16} className="spin-animate" weight="bold" />
+                  <span>Enviando arquivos...</span>
+                </>
+              ) : (
+                <>
+                  <FloppyDisk size={16} weight="bold" />
+                  <span>Salvar Nota</span>
+                </>
+              )}
             </button>
           </div>
         </form>

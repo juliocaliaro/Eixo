@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
-import { loadObrasFromStorage, loadTemplatesFromStorage } from './utils/storage';
+import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage } from './utils/storage';
 import { generateUUID } from './utils/uuid';
 import { obrasApi, templatesApi, authApi } from './services/api';
 import { Navbar } from './components/Navbar';
@@ -176,6 +176,12 @@ export const App: React.FC = () => {
     return null;
   });
 
+  // Refs de controle para evitar requisições redundantes e loops de sincronização
+  const isInitialMountRef = useRef(true);
+  const skipNextCloudSaveRef = useRef(false);
+  const initialSyncDoneRef = useRef(false);
+  const isUserMutationRef = useRef(false);
+
   // Verificar reset/limpeza inicial de dados via parâmetro de URL
   useEffect(() => {
     try {
@@ -310,9 +316,23 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // 1. Sincronização e Hidratação de Sessão Supabase Auth em Tempo Real
+  // 1. Sincronização e Hidratação de Sessão Supabase Auth em Tempo Real (com deduplicação de chamadas)
   useEffect(() => {
     let isMounted = true;
+
+    const syncUserObras = async (uid: string) => {
+      if (initialSyncDoneRef.current) return;
+      initialSyncDoneRef.current = true;
+      try {
+        const cloudObras = await obrasApi.list(uid);
+        if (isMounted && cloudObras && cloudObras.length > 0) {
+          skipNextCloudSaveRef.current = true;
+          setObras(cloudObras);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar obras na inicialização:', err);
+      }
+    };
 
     // Recupera sessão ativa no Supabase (seja no PC, celular ou outro navegador)
     authApi.getSession().then((session) => {
@@ -333,13 +353,9 @@ export const App: React.FC = () => {
           localStorage.setItem('eixo_auth_isLogged', 'true');
         } catch {}
 
-        obrasApi.list(u.id).then((cloudObras) => {
-          if (isMounted && cloudObras && cloudObras.length > 0) {
-            setObras(cloudObras);
-          }
-        });
+        syncUserObras(u.id);
       }
-    });
+    }).catch(() => {});
 
     // Inscreve-se para eventos de login, logout e renovação de token
     const subscription = authApi.onAuthStateChange(async (event, session) => {
@@ -363,12 +379,12 @@ export const App: React.FC = () => {
             if (meta.nome) localStorage.setItem('eixo_auth_userName', meta.nome);
           } catch {}
 
-          const cloudObras = await obrasApi.list(u.id);
-          if (isMounted && cloudObras) {
-            setObras(cloudObras);
+          if (!initialSyncDoneRef.current) {
+            syncUserObras(u.id);
           }
         }
       } else if (event === 'SIGNED_OUT') {
+        initialSyncDoneRef.current = false;
         setUserId(null);
         setIsLogged(false);
         setObras([]);
@@ -395,33 +411,62 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // 2. Sincronização entre Abas / Dispositivos ao focar ou retornar à janela
+  // 2. Sincronização entre Abas / Dispositivos ao alternar abas no navegador (sem acionar em caixas de diálogo do SO)
   useEffect(() => {
-    const handleSyncOnFocus = () => {
-      if (document.visibilityState === 'visible' && userId) {
-        obrasApi.list(userId).then((cloudObras) => {
-          if (cloudObras && cloudObras.length > 0) {
-            setObras(cloudObras);
-          }
-        });
+    let lastSyncTime = 0;
+    let isSyncing = false;
+
+    const handleVisibilityChange = async () => {
+      const now = Date.now();
+      // Throttle de 60s para evitar flood ao alternar abas
+      if (now - lastSyncTime < 60000 || isSyncing) return;
+      if (document.visibilityState !== 'visible' || !userId) return;
+
+      lastSyncTime = now;
+      isSyncing = true;
+      try {
+        const cloudObras = await obrasApi.list(userId);
+        if (cloudObras && cloudObras.length > 0) {
+          skipNextCloudSaveRef.current = true;
+          setObras(cloudObras);
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar em background ao focar aba:', err);
+      } finally {
+        isSyncing = false;
       }
     };
 
-    document.addEventListener('visibilitychange', handleSyncOnFocus);
-    window.addEventListener('focus', handleSyncOnFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleSyncOnFocus);
-      window.removeEventListener('focus', handleSyncOnFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [userId]);
 
-  // 3. Salvar no Supabase e no cache local isolado sempre que obras mudarem
+  // 3. Salvar no cache local imediato e persistir no Supabase com debounce apenas quando houver ação explícita do usuário
   useEffect(() => {
+    // 1. Mantém cache local atualizado imediatamente (rápido e offline-first)
     if (obras && obras.length > 0) {
-      obrasApi.saveAll(obras, userId || undefined);
+      saveObrasToStorage(obras, userId || undefined);
     }
-  }, [obras, userId]);
+
+    // 2. Se NÃO foi uma alteração disparada pelo usuário, não envia para a nuvem
+    if (!isUserMutationRef.current) {
+      return;
+    }
+
+    isUserMutationRef.current = false;
+
+    // 3. Persiste na nuvem com debounce para evitar flood enquanto o usuário altera itens
+    if (obras && obras.length > 0 && userId) {
+      const timer = setTimeout(() => {
+        obrasApi.saveAll(obras, userId);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [obras]);
 
   // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
   useEffect(() => {
@@ -561,6 +606,7 @@ export const App: React.FC = () => {
       anexosGerais: [],
     };
 
+    isUserMutationRef.current = true;
     const updated = [novaObra, ...obras];
     setObras(updated);
     setIsCreateObraOpen(false);
@@ -575,6 +621,7 @@ export const App: React.FC = () => {
 
   // Atualizar dados de uma obra existente
   const handleUpdateObra = (updatedObra: Obra) => {
+    isUserMutationRef.current = true;
     setObras((prev) => prev.map((o) => (o.id === updatedObra.id ? updatedObra : o)));
   };
 
@@ -659,10 +706,11 @@ export const App: React.FC = () => {
       }
     } catch {}
 
-    // Carrega dados da nuvem imediatamente para o usuário conectado
+    // Carrega dados da nuvem imediatamente para o usuário conectado com flag para evitar regravação
     if (userIdDigitado) {
       obrasApi.list(userIdDigitado).then((cloudObras) => {
         if (cloudObras && cloudObras.length > 0) {
+          skipNextCloudSaveRef.current = true;
           setObras(cloudObras);
         }
       });
@@ -847,6 +895,7 @@ export const App: React.FC = () => {
       ],
     };
 
+    isUserMutationRef.current = true;
     setObras([demoObra, ...obras]);
     handleSelectObra(demoObra.id);
     showToast('Obra de Exemplo Carregada!', 'Explore as etapas, arquivos, decisões e o diário.');
@@ -890,6 +939,7 @@ export const App: React.FC = () => {
       descricao: dados.descricao,
     };
 
+    isUserMutationRef.current = true;
     setObras((prev) =>
       prev.map((o) => {
         if (o.id === publicUploadObraId) {

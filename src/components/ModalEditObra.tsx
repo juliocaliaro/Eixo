@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar } from '@phosphor-icons/react';
+import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar, CircleNotch } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
 import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
@@ -30,6 +30,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   const [orcamentoInicial, setOrcamentoInicial] = useState<string>('');
   const [dataPrevista, setDataPrevista] = useState('');
   const [erro, setErro] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (obra) {
@@ -74,14 +75,19 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       return;
     }
 
-    onSave({
-      nome: nome.trim(),
-      empresaResponsavel: obra.empresaResponsavel,
-      cliente: cliente.trim(),
-      endereco: endereco.trim() || 'Endereço não informado',
-      dataPrevista: dataPrevista || obra.dataPrevista,
-      orcamentoInicial: valorNumerico,
-    });
+    setIsSubmitting(true);
+    try {
+      onSave({
+        nome: nome.trim(),
+        empresaResponsavel: obra.empresaResponsavel,
+        cliente: cliente.trim(),
+        endereco: endereco.trim() || 'Endereço não informado',
+        dataPrevista: dataPrevista || obra.dataPrevista,
+        orcamentoInicial: valorNumerico,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -205,9 +211,26 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
             <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" className="btn-primary">
-              <FloppyDisk size={18} weight="bold" />
-              <span>Salvar Alterações</span>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isSubmitting}
+              style={{
+                opacity: isSubmitting ? 0.75 : 1,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <CircleNotch size={18} className="spin-animate" weight="bold" />
+                  <span>Salvando Alterações...</span>
+                </>
+              ) : (
+                <>
+                  <FloppyDisk size={18} weight="bold" />
+                  <span>Salvar Alterações</span>
+                </>
+              )}
             </button>
           </div>
         </form>

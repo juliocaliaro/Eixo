@@ -23,7 +23,9 @@ import {
   Package,
   Receipt,
   CaretDown,
+  CircleNotch,
 } from '@phosphor-icons/react';
+import { storageApi } from '../services/api';
 import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial, RegistroNota } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { formatarMoeda } from '../utils/moeda';
@@ -114,6 +116,8 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novoConteudo, setNovoConteudo] = useState('');
   const [novaFotoPreview, setNovaFotoPreview] = useState<string | null>(null);
+  const [novaFotoArquivo, setNovaFotoArquivo] = useState<File | null>(null);
+  const [isSalvandoRegistro, setIsSalvandoRegistro] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Fechar popups de busca e filtro ao clicar fora
@@ -476,11 +480,11 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   }, [lancamentosFiltrados]);
 
   // Submissão do Modal de Novo Registro
-  const handleSalvarNovoRegistro = (e: React.FormEvent) => {
+  const handleSalvarNovoRegistro = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (novoTipo === 'foto' && !novaFotoPreview) {
+    if (novoTipo === 'foto' && (!novaFotoPreview || !novaFotoArquivo)) {
       setFormError('Selecione uma imagem para registrar.');
       return;
     }
@@ -489,44 +493,63 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       return;
     }
 
-    if (novoDestino === 'tarefa' && novaEtapaId && novaTarefaId && onUpdateTaskMedia) {
-      const etapa = obra.etapas.find((et) => et.id === novaEtapaId);
-      const tarefa = etapa?.tarefas.find((t) => t.id === novaTarefaId);
-      if (etapa && tarefa) {
-        const fotosAtuais = tarefa.fotos ? [...tarefa.fotos] : [];
-        const notasAtuais = tarefa.anotacoes ? [...tarefa.anotacoes] : [];
-
-        if (novoTipo === 'foto' && novaFotoPreview) {
-          fotosAtuais.push(novaFotoPreview);
-        } else if (novoTipo === 'anotacao' && novoConteudo.trim()) {
-          notasAtuais.push(novoConteudo.trim());
-        }
-
-        onUpdateTaskMedia(etapa.id, tarefa.id, fotosAtuais, notasAtuais);
+    setIsSalvandoRegistro(true);
+    try {
+      let fotoUrlFinal = novaFotoPreview;
+      if (novoTipo === 'foto' && novaFotoArquivo) {
+        const sanitizedName = novaFotoArquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${obra.id}/diario/${Date.now()}_${sanitizedName}`;
+        const remoteUrl = await storageApi.uploadFile('evidencias-diario', path, novaFotoArquivo);
+        fotoUrlFinal = remoteUrl || novaFotoPreview;
       }
-    } else if (onAddAnexoGeral) {
-      onAddAnexoGeral({
-        titulo: novoTitulo.trim() || (novoTipo === 'foto' ? 'Foto de Canteiro' : 'Anotação Técnica'),
-        tipo: novoTipo,
-        conteudo: novoTipo === 'foto' ? (novaFotoPreview as string) : novoConteudo.trim(),
-      });
-    }
 
-    setIsNovoRegistroOpen(false);
-    setNovoTitulo('');
-    setNovoConteudo('');
-    setNovaFotoPreview(null);
-    setFormError(null);
+      if (novoDestino === 'tarefa' && novaEtapaId && novaTarefaId && onUpdateTaskMedia) {
+        const etapa = obra.etapas.find((et) => et.id === novaEtapaId);
+        const tarefa = etapa?.tarefas.find((t) => t.id === novaTarefaId);
+        if (etapa && tarefa) {
+          const fotosAtuais = tarefa.fotos ? [...tarefa.fotos] : [];
+          const notasAtuais = tarefa.anotacoes ? [...tarefa.anotacoes] : [];
+
+          if (novoTipo === 'foto' && fotoUrlFinal) {
+            fotosAtuais.push(fotoUrlFinal);
+          } else if (novoTipo === 'anotacao' && novoConteudo.trim()) {
+            notasAtuais.push(novoConteudo.trim());
+          }
+
+          onUpdateTaskMedia(etapa.id, tarefa.id, fotosAtuais, notasAtuais);
+        }
+      } else if (onAddAnexoGeral) {
+        onAddAnexoGeral({
+          titulo: novoTitulo.trim() || (novoTipo === 'foto' ? 'Foto de Canteiro' : 'Anotação Técnica'),
+          tipo: novoTipo,
+          conteudo: novoTipo === 'foto' ? (fotoUrlFinal as string) : novoConteudo.trim(),
+        });
+      }
+
+      if (novaFotoPreview && novaFotoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(novaFotoPreview);
+      }
+      setIsNovoRegistroOpen(false);
+      setNovoTitulo('');
+      setNovoConteudo('');
+      setNovaFotoArquivo(null);
+      setNovaFotoPreview(null);
+      setFormError(null);
+    } catch (err: any) {
+      setFormError(err?.message || 'Falha ao salvar registro.');
+    } finally {
+      setIsSalvandoRegistro(false);
+    }
   };
 
   const handleFotoUploadChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNovaFotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      if (novaFotoPreview && novaFotoPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(novaFotoPreview);
+      }
+      setNovaFotoArquivo(file);
+      setNovaFotoPreview(URL.createObjectURL(file));
     }
   };
 
@@ -1679,7 +1702,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           MODAL: NOVO REGISTRO NO DIÁRIO (APENAS CONSTRUTOR)
          ======================================================== */}
       {isNovoRegistroOpen && perfilAtivo === 'construtor' && (
-        <div className="modal-backdrop" onClick={() => setIsNovoRegistroOpen(false)}>
+        <div className="modal-backdrop" onClick={() => {
+            if (novaFotoPreview && novaFotoPreview.startsWith('blob:')) URL.revokeObjectURL(novaFotoPreview);
+            setNovaFotoArquivo(null);
+            setNovaFotoPreview(null);
+            setIsNovoRegistroOpen(false);
+          }}>
           <div
             className="modal-card"
             style={{ maxWidth: 460 }}
@@ -1913,9 +1941,22 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                 <button
                   type="submit"
                   className="btn-primary"
-                  style={{ padding: '6px 16px', fontSize: '0.82rem' }}
+                  disabled={isSalvandoRegistro}
+                  style={{
+                    padding: '6px 16px',
+                    fontSize: '0.82rem',
+                    opacity: isSalvandoRegistro ? 0.7 : 1,
+                    cursor: isSalvandoRegistro ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  Salvar no Diário
+                  {isSalvandoRegistro ? (
+                    <>
+                      <CircleNotch size={14} className="spin-animate" weight="bold" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Salvar no Diário</span>
+                  )}
                 </button>
               </div>
             </form>

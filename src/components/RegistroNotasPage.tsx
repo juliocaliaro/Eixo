@@ -18,6 +18,7 @@ import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
 import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
+import { notasApi } from '../services/api';
 
 interface RegistroNotasPageProps {
   obras: Obra[];
@@ -118,6 +119,8 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
+    const notaAlvo = (obraAlvo.notas || []).find((n) => n.id === notaId);
+
     const updatedObra: Obra = {
       ...obraAlvo,
       notas: (obraAlvo.notas || []).filter((n) => n.id !== notaId),
@@ -126,7 +129,10 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     onUpdateObra(updatedObra);
     setDeleteTarget(null);
 
-    showToast('Nota Removida', 'A nota foi excluída com sucesso.', 'info');
+    // Remove do Supabase no servidor e do Storage
+    notasApi.delete(notaId, notaAlvo?.fotos);
+
+    showToast('Nota Removida', 'A nota e seus arquivos foram excluídos com sucesso.', 'info');
   };
 
   const toggleMobileObra = (obraId: string) => {

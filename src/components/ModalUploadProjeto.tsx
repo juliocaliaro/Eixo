@@ -4,14 +4,18 @@ import {
   FilePdf,
   UploadSimple,
   WarningCircle,
-  Plus
+  Plus,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
+import { storageApi } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 interface ModalUploadProjetoProps {
   isOpen: boolean;
   onClose: () => void;
+  obraId?: string;
   onUpload: (dados: {
     titulo: string;
     tipo: TipoProjeto;
@@ -27,10 +31,10 @@ interface ModalUploadProjetoProps {
 export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
   isOpen,
   onClose,
+  obraId,
   onUpload,
 }) => {
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [arquivoBase64, setArquivoBase64] = useState<string>('');
   const [titulo, setTitulo] = useState('');
   const [tipo, setTipo] = useState<TipoProjeto>('eletrico');
   const [tipoCustomizado, setTipoCustomizado] = useState('');
@@ -38,6 +42,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
   const [descricao, setDescricao] = useState('');
   const [erro, setErro] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,32 +64,22 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
       return;
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      setErro('Arquivo acima de 20MB.');
+    if (file.size > 25 * 1024 * 1024) {
+      setErro('Arquivo acima de 25MB.');
       return;
     }
 
     setErro('');
+    setArquivo(file);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setArquivo(file);
-      setArquivoBase64(result);
-
-      if (!titulo.trim()) {
-        const nomeLimpo = file.name
-          .replace(/\.pdf$/i, '')
-          .replace(/[_-]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-        setTitulo(nomeLimpo);
-      }
-    };
-    reader.onerror = () => {
-      setErro('Falha ao ler arquivo.');
-    };
-    reader.readAsDataURL(file);
+    if (!titulo.trim()) {
+      const nomeLimpo = file.name
+        .replace(/\.pdf$/i, '')
+        .replace(/[_-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      setTitulo(nomeLimpo);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,10 +87,10 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
     if (file) handleFileProcess(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!arquivo || !arquivoBase64) {
+    if (!arquivo) {
       setErro('Selecione um PDF.');
       return;
     }
@@ -110,23 +105,44 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
       return;
     }
 
-    onUpload({
-      titulo: titulo.trim(),
-      tipo,
-      tipoCustomizado: tipo === 'outro' ? tipoCustomizado.trim() : undefined,
-      arquivoNome: arquivo.name,
-      tamanhoBytes: arquivo.size,
-      url: arquivoBase64,
-      versao: versao.trim() || undefined,
-      descricao: descricao.trim() || undefined,
-    });
+    setIsUploading(true);
+    try {
+      const projId = generateUUID();
+      const sanitizedName = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${obraId || 'geral'}/projetos/${projId}_${sanitizedName}`;
 
-    handleClose();
+      let finalUrl = await storageApi.uploadFile('projetos-pdf', storagePath, arquivo);
+
+      if (!finalUrl) {
+        // Fallback se upload direto falhar/offline
+        finalUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(arquivo);
+        });
+      }
+
+      onUpload({
+        titulo: titulo.trim(),
+        tipo,
+        tipoCustomizado: tipo === 'outro' ? tipoCustomizado.trim() : undefined,
+        arquivoNome: arquivo.name,
+        tamanhoBytes: arquivo.size,
+        url: finalUrl,
+        versao: versao.trim() || undefined,
+        descricao: descricao.trim() || undefined,
+      });
+
+      handleClose();
+    } catch (err: any) {
+      setErro(err?.message || 'Falha ao enviar arquivo.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleClose = () => {
     setArquivo(null);
-    setArquivoBase64('');
     setTitulo('');
     setTipo('eletrico');
     setTipoCustomizado('');
@@ -254,7 +270,6 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
                     type="button"
                     onClick={() => {
                       setArquivo(null);
-                      setArquivoBase64('');
                     }}
                     className="btn-icon"
                     title="Remover"
@@ -373,11 +388,23 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
             <button
               type="submit"
               className="btn-primary"
-              disabled={!arquivo}
-              style={{ opacity: !arquivo ? 0.6 : 1 }}
+              disabled={!arquivo || isUploading}
+              style={{
+                opacity: !arquivo || isUploading ? 0.65 : 1,
+                cursor: !arquivo || isUploading ? 'not-allowed' : 'pointer',
+              }}
             >
-              <Plus size={16} weight="bold" />
-              <span>Anexar PDF</span>
+              {isUploading ? (
+                <>
+                  <CircleNotch size={16} className="spin-animate" weight="bold" />
+                  <span>Anexando PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={16} weight="bold" />
+                  <span>Anexar PDF</span>
+                </>
+              )}
             </button>
           </div>
         </form>

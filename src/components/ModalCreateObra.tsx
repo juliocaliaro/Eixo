@@ -7,6 +7,7 @@ import {
   WarningCircle,
   Plus,
   CurrencyDollar,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
 import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
@@ -35,6 +36,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
   const [dataPrevista, setDataPrevista] = useState('');
   const [orcamentoInicial, setOrcamentoInicial] = useState('');
   const [erro, setErro] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fechar com tecla Escape
   useEffect(() => {
@@ -92,16 +94,21 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
         ? localStorage.getItem('eixo_empresa_cadastrada') || undefined
         : undefined;
 
-    onSubmit({
-      nome: nome.trim(),
-      cliente: cliente.trim(),
-      endereco: endereco.trim() || 'Endereço não informado',
-      dataPrevista: dataPrevista || '',
-      empresaResponsavel: savedEmpresa,
-      orcamentoInicial: valorNumerico,
-    });
+    setIsSubmitting(true);
+    try {
+      onSubmit({
+        nome: nome.trim(),
+        cliente: cliente.trim(),
+        endereco: endereco.trim() || 'Endereço não informado',
+        dataPrevista: dataPrevista || '',
+        empresaResponsavel: savedEmpresa,
+        orcamentoInicial: valorNumerico,
+      });
 
-    handleClose();
+      handleClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -267,9 +274,26 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
             <button type="button" onClick={handleClose} className="btn-secondary">
               Cancelar
             </button>
-            <button type="submit" className="btn-primary">
-              <Plus size={16} weight="bold" />
-              <span>Criar Obra</span>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isSubmitting}
+              style={{
+                opacity: isSubmitting ? 0.75 : 1,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <CircleNotch size={16} className="spin-animate" weight="bold" />
+                  <span>Criando Obra...</span>
+                </>
+              ) : (
+                <>
+                  <Plus size={16} weight="bold" />
+                  <span>Criar Obra</span>
+                </>
+              )}
             </button>
           </div>
         </form>
