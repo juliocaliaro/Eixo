@@ -249,8 +249,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       fotos: dados.fotos,
       fornecedor: dados.fornecedor,
       status: 'ativo',
-      renovado: Boolean(dados.renovado),
-      renovadoEm: dados.renovado ? new Date().toISOString() : undefined,
+      renovado: false,
       criadoEm: new Date().toISOString(),
     };
 
@@ -267,6 +266,50 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       `O equipamento "${dados.itemLocado}" foi vinculado à obra "${obraAlvo.nome}".`,
       'success'
     );
+  };
+
+  // Abrir modal de renovação
+  const handleOpenRenovacaoModal = (obraId: string, locacao: RegistroLocacao) => {
+    const base = locacao.dataVencimento
+      ? new Date(locacao.dataVencimento.split('T')[0])
+      : new Date();
+    base.setDate(base.getDate() + 30);
+    setNovaDataRenovacao(base.toISOString().split('T')[0]);
+    setRenovacaoTarget({ obraId, locacao });
+  };
+
+  // Alternar estado de renovação
+  const handleToggleRenovado = (obraId: string, locacao: RegistroLocacao) => {
+    const obraAlvo = obras.find((o) => o.id === obraId);
+    if (!obraAlvo) return;
+
+    if (locacao.renovado) {
+      const dataRestaurada = locacao.vencimentoOriginal || locacao.dataVencimento;
+      const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
+        if (l.id === locacao.id) {
+          return {
+            ...l,
+            renovado: false,
+            renovadoEm: undefined,
+            dataVencimento: dataRestaurada,
+          };
+        }
+        return l;
+      });
+
+      onUpdateObra({
+        ...obraAlvo,
+        locacoes: updatedLocacoes,
+      });
+
+      showToast(
+        'Renovação Desfeita',
+        `A locação de "${locacao.itemLocado}" retornou para o vencimento original (${formatarData(dataRestaurada)}).`,
+        'info'
+      );
+    } else {
+      handleOpenRenovacaoModal(obraId, locacao);
+    }
   };
 
   // Confirmar renovação com nova data de vencimento
@@ -984,36 +1027,6 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                         flexWrap: 'wrap',
                       }}
                     >
-                      {/* Botão de Renovar Locação após o vencimento */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const base = locacao.dataVencimento
-                            ? new Date(locacao.dataVencimento.split('T')[0])
-                            : new Date();
-                          base.setDate(base.getDate() + 30);
-                          setNovaDataRenovacao(base.toISOString().split('T')[0]);
-                          setRenovacaoTarget({ obraId: obra.id, locacao });
-                        }}
-                        className="btn-secondary"
-                        style={{
-                          padding: '6px 12px',
-                          minHeight: 36,
-                          fontSize: '0.82rem',
-                          borderRadius: '6px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontWeight: 600,
-                          color: 'var(--coral-glow-500, #e05a47)',
-                          borderColor: 'var(--coral-glow-500, #e05a47)',
-                        }}
-                        title="Renovar locação e estender a data de vencimento programado"
-                      >
-                        <ArrowsClockwise size={15} weight="bold" />
-                        <span>Renovar</span>
-                      </button>
-
                       {/* Botão de Marcar Devolvido / Reativar */}
                       <button
                         type="button"
@@ -1083,6 +1096,94 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                         <Trash size={16} />
                       </button>
                     </div>
+                  )}
+                </div>
+
+                {/* Opção de Renovação: no registro já criado */}
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
+                    border: locacao.renovado ? '1px solid var(--coral-glow-500, #e05a47)' : '1px dashed var(--border-hairline)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 10,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      flex: '1 1 280px',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(locacao.renovado)}
+                      disabled={perfilAtivo !== 'construtor'}
+                      onChange={() => {
+                        if (locacao.renovado) {
+                          handleToggleRenovado(obra.id, locacao);
+                        } else {
+                          handleOpenRenovacaoModal(obra.id, locacao);
+                        }
+                      }}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        accentColor: 'var(--coral-glow-500, #e05a47)',
+                        cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span
+                        style={{
+                          fontSize: '0.86rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        Renovei a locação após o vencimento programado
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          color: 'var(--text-muted)',
+                          marginTop: 2,
+                        }}
+                      >
+                        Marque se este equipamento teve o contrato estendido além do prazo inicial
+                      </span>
+                    </div>
+                  </label>
+
+                  {locacao.renovado && perfilAtivo === 'construtor' && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRenovacaoModal(obra.id, locacao)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: 'var(--coral-glow-500, #e05a47)',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Alterar data estendida
+                    </button>
                   )}
                 </div>
               </div>

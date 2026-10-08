@@ -538,9 +538,12 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - **Upload de foto**: foto do maquinário, ferramenta ou comprovante/recibo com compressão inteligente via `<canvas>` e upload para bucket de armazenamento.
   - **O que foi locado**: campo de texto livre obrigatório para descrição detalhada (ex: *Andaime Fachadeiro 12m*, *Betoneira 400L*).
   - **Disposição Lado a Lado**: `Fornecedor / Locadora` e `Data de Vencimento` dispostos em 2 colunas horizontais harmoniosas, otimizando o fluxo visual.
-  - **Remoção de Campos Desnecessários ("Menos é mais")**: Campos de valor em R$ e observações foram removidos da criação para acelerar o registro operacional no canteiro.
-  - **Input Clicável de Renovação**: Campo interativo para sinalizar `Renovei a locação após o vencimento programado` diretamente no cadastro ou na edição.
-- **Painel Executivo e Mecânica de Renovação (`RegistroLocacoesPage.tsx`)**:
+  - **Remoção de Campos Desnecessários ("Menos é mais")**: Campos de valor em R$ e observações foram removidos da criação para acelerar o registro operacional no canteiro. O formulário de criação foca estritamente nos dados de entrada da locação.
+- **Painel Executivo e Mecânica de Renovação no Registro Criado (`RegistroLocacoesPage.tsx`)**:
+  - **Input Clicável de Renovação no Registro já Criado**: Cada cartão de locação possui o checkbox interativo:
+    - `"Renovei a locação após o vencimento programado"`
+    - `"Marque se este equipamento teve o contrato estendido além do prazo inicial"`
+  - Ao marcar a opção, abre-se o modal de definição da nova data de vencimento com atalhos rápidos (+7d, +15d, +30d, +60d), preservando o registro do vencimento original e exibindo badge azul `Renovado`. Se desmarcado, reverte com segurança para o prazo original.
   - Indicadores rápidos no topo: *Total de Locações*, *Ativos no Canteiro*, *Vencidos / Próximos* e *Devolvidos*.
   - Filtros dinâmicos por Obra (seletor), Busca textual livre e Abas de status (*Todos*, *Ativos*, *Vencidos / Próximos*, *Devolvidos*).
   - **Fluxo Interativo de Renovação**: Botão dedicado `[ Renovar ]` em cada card, permitindo ao construtor definir nova data de vencimento com atalhos rápidos (+7d, +15d, +30d, +60d), preservando o histórico do vencimento original e exibindo badge visual azul `Renovado`.

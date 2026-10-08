@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Calendar, BuildingApartment, Storefront, ArrowsClockwise } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Calendar, BuildingApartment, Storefront } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 
 export interface NovaLocacaoData {
@@ -8,7 +8,6 @@ export interface NovaLocacaoData {
   dataVencimento: string;
   fotos: string[];
   fornecedor?: string;
-  renovado?: boolean;
 }
 
 interface ModalRegistroLocacaoProps {
@@ -30,7 +29,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [itemLocado, setItemLocado] = useState<string>('');
   const [fornecedor, setFornecedor] = useState<string>('');
   const [dataVencimento, setDataVencimento] = useState<string>('');
-  const [renovado, setRenovado] = useState<boolean>(false);
   const [fotos, setFotos] = useState<string[]>([]);
   const [erro, setErro] = useState<string>('');
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
@@ -47,7 +45,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       d.setDate(d.getDate() + 30);
       const defaultData = d.toISOString().split('T')[0];
       setDataVencimento(defaultData);
-      setRenovado(false);
       setFotos([]);
       setErro('');
       setIsProcessingPhotos(false);
@@ -147,7 +144,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       dataVencimento: dataVencimento.trim(),
       fotos,
       fornecedor: fornecedor.trim() || undefined,
-      renovado,
     });
   };
 
@@ -453,59 +449,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               </div>
             </div>
 
-            {/* 4. Input clicável: "Renovei a locação após o vencimento programado" */}
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 14px',
-                borderRadius: '8px',
-                border: renovado ? '1px solid var(--coral-glow-500, #e05a47)' : '1px solid var(--border-hairline)',
-                backgroundColor: renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#ffffff',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={renovado}
-                onChange={(e) => setRenovado(e.target.checked)}
-                style={{
-                  width: 18,
-                  height: 18,
-                  accentColor: 'var(--coral-glow-500, #e05a47)',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span
-                  style={{
-                    fontSize: '0.88rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <ArrowsClockwise size={15} weight={renovado ? 'bold' : 'regular'} color={renovado ? 'var(--coral-glow-500, #e05a47)' : 'currentColor'} />
-                  <span>Renovei a locação após o vencimento programado</span>
-                </span>
-                <span
-                  style={{
-                    fontSize: '0.76rem',
-                    color: 'var(--text-muted)',
-                    marginTop: 2,
-                  }}
-                >
-                  Marque se este equipamento teve o contrato estendido além do prazo inicial
-                </span>
-              </div>
-            </label>
-
-            {/* 5. Upload de Foto do Equipamento / Comprovante */}
+            {/* 4. Upload de Foto do Equipamento / Comprovante */}
             <div>
               <label
                 style={{
