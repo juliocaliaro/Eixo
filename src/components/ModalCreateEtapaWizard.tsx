@@ -14,6 +14,7 @@ import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 import { PresetEtapa, PresetTipoObra } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { loadTemplatesFromStorage } from '../utils/storage';
+import { generateUUID } from '../utils/uuid';
 
 interface ModalCreateEtapaWizardProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
     setTarefasSelecionadas((prev) => [
       ...prev,
       {
-        id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: generateUUID(),
         nome: novaTarefaTexto.trim(),
         checked: true,
       },

@@ -121,6 +121,8 @@ export interface Obra {
   projetos?: ProjetoPDF[];
   materiais?: RegistroMaterial[];
   notas?: RegistroNota[];
+  construtorId?: string;
+  clienteId?: string;
 }
 
 export interface AnexoItem {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
 import { loadObrasFromStorage, loadTemplatesFromStorage } from './utils/storage';
+import { generateUUID } from './utils/uuid';
 import { obrasApi, templatesApi, authApi } from './services/api';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
@@ -21,7 +22,22 @@ const RegistroNotasPage = React.lazy(() =>
 );
 
 export const App: React.FC = () => {
-  const [obras, setObras] = useState<Obra[]>(() => loadObrasFromStorage());
+  const [userId, setUserId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('eixo_auth_userId') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [obras, setObras] = useState<Obra[]>(() => {
+    try {
+      const storedId = localStorage.getItem('eixo_auth_userId') || undefined;
+      return loadObrasFromStorage(storedId);
+    } catch {
+      return loadObrasFromStorage();
+    }
+  });
   const [templates, setTemplates] = useState<PresetTipoObra[]>(() => loadTemplatesFromStorage());
   const [currentObraId, setCurrentObraId] = useState<string | null>(() => {
     try {
@@ -44,7 +60,7 @@ export const App: React.FC = () => {
     }
   });
 
-  // Gerenciamento de Estado de Autenticação (Fake Login & Local State)
+  // Gerenciamento de Estado de Autenticação (Sincronizado com Supabase Auth & Local Cache)
   const [isLogged, setIsLogged] = useState<boolean>(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -281,28 +297,118 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Carregar dados remotos da API / Supabase se configurado
+  // 1. Sincronização e Hidratação de Sessão Supabase Auth em Tempo Real
   useEffect(() => {
     let isMounted = true;
-    obrasApi.list().then((loadedObras) => {
-      if (isMounted && loadedObras && loadedObras.length > 0) {
-        setObras(loadedObras);
+
+    // Recupera sessão ativa no Supabase (seja no PC, celular ou outro navegador)
+    authApi.getSession().then((session) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        const u = session.user;
+        const meta = u.user_metadata || {};
+        setUserId(u.id);
+        setIsLogged(true);
+        if (u.email) setUserEmail(u.email);
+        if (meta.nome) setUserName(meta.nome);
+        if (meta.empresa) setUserEmpresa(meta.empresa);
+        if (meta.role === 'cliente') setRole('Cliente');
+        else if (meta.role === 'construtor') setRole('Construtor');
+
+        try {
+          localStorage.setItem('eixo_auth_userId', u.id);
+          localStorage.setItem('eixo_auth_isLogged', 'true');
+        } catch {}
+
+        obrasApi.list(u.id).then((cloudObras) => {
+          if (isMounted && cloudObras && cloudObras.length > 0) {
+            setObras(cloudObras);
+          }
+        });
       }
     });
+
+    // Inscreve-se para eventos de login, logout e renovação de token
+    const subscription = authApi.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user) {
+          const u = session.user;
+          const meta = u.user_metadata || {};
+          setUserId(u.id);
+          setIsLogged(true);
+          if (u.email) setUserEmail(u.email);
+          if (meta.nome) setUserName(meta.nome);
+          if (meta.empresa) setUserEmpresa(meta.empresa);
+          if (meta.role === 'cliente') setRole('Cliente');
+          else if (meta.role === 'construtor') setRole('Construtor');
+
+          try {
+            localStorage.setItem('eixo_auth_userId', u.id);
+            localStorage.setItem('eixo_auth_isLogged', 'true');
+            if (u.email) localStorage.setItem('eixo_auth_userEmail', u.email);
+            if (meta.nome) localStorage.setItem('eixo_auth_userName', meta.nome);
+          } catch {}
+
+          const cloudObras = await obrasApi.list(u.id);
+          if (isMounted && cloudObras) {
+            setObras(cloudObras);
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUserId(null);
+        setIsLogged(false);
+        setObras([]);
+        setCurrentObraId(null);
+        try {
+          localStorage.removeItem('eixo_auth_userId');
+          localStorage.setItem('eixo_auth_isLogged', 'false');
+        } catch {}
+      }
+    });
+
+    // Carrega templates cadastrados
     templatesApi.list().then((loadedTemplates) => {
       if (isMounted && loadedTemplates && loadedTemplates.length > 0) {
         setTemplates(loadedTemplates);
       }
     });
+
     return () => {
       isMounted = false;
+      if (subscription && typeof (subscription as any).unsubscribe === 'function') {
+        (subscription as any).unsubscribe();
+      }
     };
   }, []);
 
-  // Salvar no repositório / Supabase sempre que obras mudarem
+  // 2. Sincronização entre Abas / Dispositivos ao focar ou retornar à janela
   useEffect(() => {
-    obrasApi.saveAll(obras);
-  }, [obras]);
+    const handleSyncOnFocus = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        obrasApi.list(userId).then((cloudObras) => {
+          if (cloudObras && cloudObras.length > 0) {
+            setObras(cloudObras);
+          }
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncOnFocus);
+    window.addEventListener('focus', handleSyncOnFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleSyncOnFocus);
+      window.removeEventListener('focus', handleSyncOnFocus);
+    };
+  }, [userId]);
+
+  // 3. Salvar no Supabase e no cache local isolado sempre que obras mudarem
+  useEffect(() => {
+    if (obras && obras.length > 0) {
+      obrasApi.saveAll(obras, userId || undefined);
+    }
+  }, [obras, userId]);
 
   // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
   useEffect(() => {
@@ -426,7 +532,7 @@ export const App: React.FC = () => {
     }
 
     const novaObra: Obra = {
-      id: `obra_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
       nome: dados.nome,
       cliente: dados.cliente,
       endereco: dados.endereco,
@@ -434,6 +540,7 @@ export const App: React.FC = () => {
       empresaResponsavel: dados.empresaResponsavel,
       orcamentoInicial: dados.orcamentoInicial,
       criadaEm: new Date().toISOString(),
+      construtorId: userId || undefined,
       etapas: [],
       anexosGerais: [],
     };
@@ -474,7 +581,7 @@ export const App: React.FC = () => {
     if (!obraAlvo) return;
 
     const novoRegistro: RegistroNota = {
-      id: `nota_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       obraId: dados.obraId,
       fotos: dados.fotos,
       titulo: dados.titulo,
@@ -503,16 +610,17 @@ export const App: React.FC = () => {
     }
   };
 
-  // Simulação de Autenticação (Fake Login & Cadastro)
+  // Autenticação Persistente & Sincronização de Conta
   const handleLogin = (
     selectedRole: UserRole,
     emailDigitado?: string,
     nomeDigitado?: string,
-    empresaDigitada?: string
+    empresaDigitada?: string,
+    userIdDigitado?: string
   ) => {
     setIsLogged(true);
     setRole(selectedRole);
-    setCurrentObraId(null); // Redireciona para a Home
+    setCurrentObraId(null);
     setIsConfigOpen(false);
     const emailToSet = emailDigitado || (selectedRole === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
     const nomeToSet = nomeDigitado || (selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes');
@@ -521,7 +629,11 @@ export const App: React.FC = () => {
     if (empresaDigitada) {
       setUserEmpresa(empresaDigitada);
     }
+    if (userIdDigitado) {
+      setUserId(userIdDigitado);
+    }
     try {
+      if (userIdDigitado) localStorage.setItem('eixo_auth_userId', userIdDigitado);
       localStorage.setItem('eixo_auth_isLogged', 'true');
       localStorage.setItem('eixo_auth_role', selectedRole);
       localStorage.setItem('eixo_auth_userEmail', emailToSet);
@@ -530,6 +642,16 @@ export const App: React.FC = () => {
         localStorage.setItem('eixo_empresa_cadastrada', empresaDigitada);
       }
     } catch {}
+
+    // Carrega dados da nuvem imediatamente para o usuário conectado
+    if (userIdDigitado) {
+      obrasApi.list(userIdDigitado).then((cloudObras) => {
+        if (cloudObras && cloudObras.length > 0) {
+          setObras(cloudObras);
+        }
+      });
+    }
+
     showToast(
       nomeDigitado ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!',
       `Bem-vindo ao Eixo, ${nomeToSet} (${selectedRole}).`,
@@ -537,21 +659,25 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleLogout = () => {
-    authApi.signOut();
+  const handleLogout = async () => {
+    await authApi.signOut();
+    setUserId(null);
     setIsLogged(false);
+    setObras([]);
     setCurrentObraId(null);
     setIsConfigOpen(false);
     try {
+      localStorage.removeItem('eixo_auth_userId');
       localStorage.setItem('eixo_auth_isLogged', 'false');
     } catch {}
     showToast('Sessão encerrada', 'Você saiu do sistema.', 'info');
   };
 
-  // Carregar Obra de Demonstração (atende o exemplo exato: 2 etapas com 2 tarefas cada = 25% por tarefa)
+  // Carregar Obra de Demonstração com IDs UUID válidos
   const handleLoadDemo = () => {
+    const demoObraId = generateUUID();
     const demoObra: Obra = {
-      id: `obra_demo_${Date.now()}`,
+      id: demoObraId,
       nome: 'Reforma Apto 402 - Jardins',
       empresaResponsavel: 'Albuquerque Engenharia & Reformas',
       cliente: 'Dra. Carolina Mendes',
@@ -559,14 +685,15 @@ export const App: React.FC = () => {
       dataPrevista: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       orcamentoInicial: 185000,
       criadaEm: new Date().toISOString(),
+      construtorId: userId || undefined,
       etapas: [
         {
-          id: 'etapa_demo_1',
+          id: generateUUID(),
           nome: 'Isolamento e Preparação',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
-              id: 'task_demo_1',
+              id: generateUUID(),
               nome: 'Proteção de elevadores e áreas comuns.',
               concluida: true,
               concluidaEm: new Date().toISOString(),
@@ -576,24 +703,24 @@ export const App: React.FC = () => {
               anotacoes: ['Piso do elevador forrado com plástico bolha e chapas de eucatex.'],
             },
             {
-              id: 'task_demo_2',
+              id: generateUUID(),
               nome: 'Proteção do piso existente (se for mantido).',
               concluida: false,
             },
           ],
         },
         {
-          id: 'etapa_demo_2',
+          id: generateUUID(),
           nome: 'Demolição',
           tipoOrigem: 'Reforma',
           tarefas: [
             {
-              id: 'task_demo_3',
+              id: generateUUID(),
               nome: 'Demolição de alvenarias, pisos e revestimentos.',
               concluida: false,
             },
             {
-              id: 'task_demo_4',
+              id: generateUUID(),
               nome: 'Ensacamento e descarte de entulho.',
               concluida: false,
             },
@@ -603,7 +730,7 @@ export const App: React.FC = () => {
       anexosGerais: [],
       decisoes: [
         {
-          id: 'decisao_demo_1',
+          id: generateUUID(),
           titulo: 'Aprovação do Porcelanato Acetinado 90x90 (Sala e Cozinha)',
           descricao: 'Confirmada a escolha do modelo Portobello Bianco di Lucca 90x90 retificado com junta de 1,5mm e acabamento acetinado para área social.',
           categoria: 'acabamento',
@@ -628,7 +755,7 @@ export const App: React.FC = () => {
           ],
         },
         {
-          id: 'decisao_demo_2',
+          id: generateUUID(),
           titulo: 'Definição da Cor da Parede de Destaque da Varanda',
           descricao: 'Cliente solicitou aplicação da tinta Suvinil cor "Toque de Luz" fosco na parede dos fundos da varanda gourmet, em vez do acabamento padrão.',
           categoria: 'acabamento',
@@ -650,7 +777,7 @@ export const App: React.FC = () => {
       ],
       projetos: [
         {
-          id: 'proj_demo_1',
+          id: generateUUID(),
           titulo: 'Planta de Demolição e Fechamentos em Alvenaria',
           tipo: 'demolicao',
           arquivoNome: 'Prancha_01_Demolicao_Layout_R02.pdf',
@@ -663,7 +790,7 @@ export const App: React.FC = () => {
           url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
         },
         {
-          id: 'proj_demo_2',
+          id: generateUUID(),
           titulo: 'Diagrama Unifilar e Pontos de Iluminação / Força',
           tipo: 'eletrico',
           arquivoNome: 'Projeto_Eletrico_Executivo_Final.pdf',
@@ -676,7 +803,7 @@ export const App: React.FC = () => {
           url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
         },
         {
-          id: 'proj_demo_3',
+          id: generateUUID(),
           titulo: 'Prumada Hidráulica e Isométrico dos Banheiros',
           tipo: 'hidraulico',
           arquivoNome: 'Projeto_Hidraulico_Apto402_R01.pdf',
@@ -692,8 +819,8 @@ export const App: React.FC = () => {
       punchList: [],
       notas: [
         {
-          id: 'nota_demo_1',
-          obraId: `obra_demo_${Date.now()}`,
+          id: generateUUID(),
+          obraId: demoObraId,
           titulo: 'NF 48.912 - Depósito São Paulo',
           observacoes: 'Entrega de cimento e areia lavada conferida no canteiro.',
           fotos: [
@@ -712,6 +839,7 @@ export const App: React.FC = () => {
   // Excluir obra
   const handleDeleteObra = (obraId: string) => {
     setObras((prev) => prev.filter((o) => o.id !== obraId));
+    obrasApi.delete(obraId);
     if (currentObraId === obraId) {
       handleBackToObras();
     }
@@ -732,7 +860,7 @@ export const App: React.FC = () => {
     if (!publicUploadObraId) return;
 
     const novoProjeto: ProjetoPDF = {
-      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       titulo: dados.titulo,
       tipo: dados.tipo,
       tipoCustomizado: dados.tipoCustomizado,

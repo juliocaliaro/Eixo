@@ -17,6 +17,7 @@ import {
 import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
 import { ModalConfirm } from './ModalConfirm';
+import { generateUUID } from '../utils/uuid';
 
 interface RegistroNotasPageProps {
   obras: Obra[];
@@ -88,7 +89,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     if (!obraAlvo) return;
 
     const novaNota: RegistroNota = {
-      id: `nota_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       obraId: dados.obraId,
       fotos: dados.fotos,
       titulo: dados.titulo,

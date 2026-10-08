@@ -15,6 +15,11 @@ import {
   saveTemplatesToStorage,
 } from '../utils/storage';
 import {
+  ensureUUID,
+  sanitizeObraUUIDs,
+  isValidUUID,
+} from '../utils/uuid';
+import {
   mapObraFromDb,
   mapEtapaFromDb,
   mapTarefaFromDb,
@@ -34,24 +39,47 @@ import {
 } from './dbTypes';
 
 // ==============================================================================
-// 1. OBRAS API
+// 1. OBRAS API (MULTI-DEVICE PERSISTENCE & USER SCOPING)
 // ==============================================================================
 
 export const obrasApi = {
-  async list(): Promise<Obra[]> {
+  async list(userId?: string): Promise<Obra[]> {
     if (!isSupabaseConfigured() || !supabase) {
-      return loadObrasFromStorage();
+      return loadObrasFromStorage(userId);
     }
 
     try {
-      const { data: obrasData, error: obrasError } = await supabase
-        .from('obras')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Determina o ID do usuário ativo (passado ou da sessão do Supabase)
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        targetUserId = sessionData?.session?.user?.id;
+      }
+
+      let query = supabase.from('obras').select('*').order('created_at', { ascending: false });
+
+      // Se temos o usuário autenticado, filtra estritamente por suas obras
+      if (targetUserId) {
+        query = query.or(`construtor_id.eq.${targetUserId},cliente_id.eq.${targetUserId}`);
+      }
+
+      const { data: obrasData, error: obrasError } = await query;
 
       if (obrasError || !obrasData) {
         console.warn('Erro ao carregar obras do Supabase, usando fallback local:', obrasError);
-        return loadObrasFromStorage();
+        return loadObrasFromStorage(targetUserId);
+      }
+
+      // Se o Supabase retornou vazio e o usuário possui obras salvas no cache local,
+      // realiza a sincronização automática e migração transparente para o Supabase!
+      if (obrasData.length === 0 && targetUserId) {
+        const localObras = loadObrasFromStorage(targetUserId);
+        if (localObras && localObras.length > 0) {
+          console.info('Migrando obras locais para o Supabase sob o usuário:', targetUserId);
+          const sanitizadas = localObras.map((o) => sanitizeObraUUIDs(o, targetUserId));
+          await this.saveAll(sanitizadas, targetUserId);
+          return sanitizadas;
+        }
       }
 
       const obrasCompletas: Obra[] = await Promise.all(
@@ -125,7 +153,7 @@ export const obrasApi = {
             .from('punch_list_items')
             .select('*')
             .eq('obra_id', row.id)
-            .order('created_at', { ascending: true });
+            .order('ordem', { ascending: true });
 
           const punchMapeado = (punchData || []).map((p: PunchListItemRow) => mapPunchItemFromDb(p));
 
@@ -140,29 +168,44 @@ export const obrasApi = {
         })
       );
 
+      // Atualiza o cache local com os dados mais recentes da nuvem
+      saveObrasToStorage(obrasCompletas, targetUserId);
       return obrasCompletas;
     } catch (err) {
       console.error('Falha de rede Supabase em obrasApi.list:', err);
-      return loadObrasFromStorage();
+      return loadObrasFromStorage(userId);
     }
   },
 
-  async saveAll(obras: Obra[]): Promise<void> {
-    // Mantém sincronização local segura
-    saveObrasToStorage(obras);
+  async saveAll(obras: Obra[], userId?: string): Promise<void> {
+    // 1. Sanitiza todas as obras garantindo conformidade estrita com UUIDs
+    let targetUserId = userId;
+    if (!targetUserId && isSupabaseConfigured() && supabase) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      targetUserId = sessionData?.session?.user?.id;
+    }
 
-    if (!isSupabaseConfigured() || !supabase) {
+    const sanitizadas = obras.map((o) => sanitizeObraUUIDs(o, targetUserId));
+
+    // Mantém sincronização com o cache local seguro por usuário
+    saveObrasToStorage(sanitizadas, targetUserId);
+
+    if (!isSupabaseConfigured() || !supabase || !targetUserId) {
       return;
     }
 
-    // Quando o Supabase estiver configurado, sincroniza todas as tabelas e buckets
+    // 2. Sincroniza todas as tabelas e relacionamentos com o Supabase
     try {
-      for (const obra of obras) {
-        // 1. Obra principal
+      for (const obra of sanitizadas) {
+        const construtorFinal = obra.construtorId || targetUserId;
+
+        // 1. Obra principal (inclui construtor_id para satisfazer RLS)
         await supabase.from('obras').upsert({
           id: obra.id,
           nome: obra.nome,
           cliente_nome: obra.cliente,
+          cliente_id: obra.clienteId || null,
+          construtor_id: construtorFinal,
           endereco: obra.endereco,
           data_prevista: obra.dataPrevista,
           orcamento_inicial: obra.orcamentoInicial || 0,
@@ -170,7 +213,7 @@ export const obrasApi = {
           updated_at: new Date().toISOString(),
         });
 
-        // 2. Registro de Notas (com upload automático de fotos para o bucket registro-notas)
+        // 2. Registro de Notas (upload automático de fotos)
         if (obra.notas && obra.notas.length > 0) {
           for (const nota of obra.notas) {
             const fotosProcessadas: string[] = [];
@@ -193,6 +236,7 @@ export const obrasApi = {
               id: nota.id,
               obra_id: obra.id,
               titulo: nota.titulo || null,
+              valor: nota.valor || null,
               observacoes: nota.observacoes || null,
               fotos: fotosProcessadas,
               created_at: nota.criadoEm || new Date().toISOString(),
@@ -200,7 +244,7 @@ export const obrasApi = {
           }
         }
 
-        // 3. Projetos PDF (com upload automático de PDF para o bucket projetos-pdf)
+        // 3. Projetos PDF (upload automático de arquivos)
         if (obra.projetos && obra.projetos.length > 0) {
           for (const proj of obra.projetos) {
             let urlRemota = proj.url;
@@ -241,6 +285,8 @@ export const obrasApi = {
               nome: etapa.nome,
               tipo_origem: etapa.tipoOrigem || null,
               ordem: eIdx + 1,
+              status: etapa.concluida ? 'concluido' : 'pendente',
+              concluida: Boolean(etapa.concluida),
               concluida_em: etapa.concluidaEm || null,
             });
 
@@ -251,12 +297,13 @@ export const obrasApi = {
                   id: tarefa.id,
                   etapa_id: etapa.id,
                   nome: tarefa.nome,
-                  concluida: tarefa.concluida,
+                  status: tarefa.concluida ? 'concluido' : 'pendente',
+                  concluida: Boolean(tarefa.concluida),
                   ordem: tIdx + 1,
                   concluida_em: tarefa.concluidaEm || null,
                 });
 
-                // Evidências da Tarefa (Fotos para evidencias-diario)
+                // Evidências da Tarefa: Fotos para evidencias-diario
                 if (tarefa.fotos && tarefa.fotos.length > 0) {
                   for (let fIdx = 0; fIdx < tarefa.fotos.length; fIdx++) {
                     let fotoUrl = tarefa.fotos[fIdx];
@@ -268,6 +315,29 @@ export const obrasApi = {
                       );
                       tarefa.fotos[fIdx] = fotoUrl;
                     }
+                    try {
+                      await supabase.from('tarefa_evidencias').upsert({
+                        id: ensureUUID(`${tarefa.id}_foto_${fIdx}`),
+                        tarefa_id: tarefa.id,
+                        tipo: 'foto',
+                        conteudo: fotoUrl,
+                      });
+                    } catch {}
+                  }
+                }
+
+                // Evidências da Tarefa: Anotações
+                if (tarefa.anotacoes && tarefa.anotacoes.length > 0) {
+                  for (let aIdx = 0; aIdx < tarefa.anotacoes.length; aIdx++) {
+                    const anotacao = tarefa.anotacoes[aIdx];
+                    try {
+                      await supabase.from('tarefa_evidencias').upsert({
+                        id: ensureUUID(`${tarefa.id}_anotacao_${aIdx}`),
+                        tarefa_id: tarefa.id,
+                        tipo: 'anotacao',
+                        conteudo: anotacao,
+                      });
+                    } catch {}
                   }
                 }
               }
@@ -283,16 +353,74 @@ export const obrasApi = {
               id: p.id,
               obra_id: obra.id,
               ambiente: p.ambiente || 'Geral',
-              descricao: p.item,
-              resolvido: p.concluido,
+              item: p.item,
+              concluido: Boolean(p.concluido),
               ordem: pIdx + 1,
               concluido_em: p.concluidoEm || null,
             });
           }
         }
+
+        // 6. Decisões
+        if (obra.decisoes && obra.decisoes.length > 0) {
+          for (const d of obra.decisoes) {
+            await supabase.from('decisoes').upsert({
+              id: d.id,
+              obra_id: obra.id,
+              titulo: d.titulo,
+              descricao: d.descricao,
+              categoria: d.categoria || 'outro',
+              tipo_impacto: d.tipoImpactoFinanceiro || 'nenhum',
+              valor_aditivo: d.valorAditivo || 0,
+              valor_supressivo: d.valorSupressivo || 0,
+              impacto_financeiro: d.impactoFinanceiro || 0,
+              impacto_prazo_dias: d.impactoPrazoDias || 0,
+              status: d.status,
+              criada_por: d.criadaPor,
+              criador_nome: d.criadorNome,
+              fotos: d.fotos || [],
+              updated_at: new Date().toISOString(),
+            });
+
+            if (d.assinaturaCriador) {
+              await supabase.from('decisao_assinaturas').upsert({
+                id: ensureUUID(`${d.id}_criador`),
+                decisao_id: d.id,
+                papel: 'criador',
+                autor_perfil: d.assinaturaCriador.autor,
+                nome_signatario: d.assinaturaCriador.nomeSignatario,
+                assinado_em: d.assinaturaCriador.assinadoEm,
+              });
+            }
+
+            if (d.assinaturaContraparte) {
+              await supabase.from('decisao_assinaturas').upsert({
+                id: ensureUUID(`${d.id}_contraparte`),
+                decisao_id: d.id,
+                papel: 'contraparte',
+                autor_perfil: d.assinaturaContraparte.autor,
+                nome_signatario: d.assinaturaContraparte.nomeSignatario,
+                comentario: d.assinaturaContraparte.comentario || null,
+                assinado_em: d.assinaturaContraparte.assinadoEm,
+              });
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('Erro ao sincronizar obras completas com Supabase:', err);
+    }
+  },
+
+  async delete(obraId: string): Promise<void> {
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      const { error } = await supabase.from('obras').delete().eq('id', obraId);
+      if (error) {
+        console.warn('Erro ao excluir obra no Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Falha ao excluir obra:', err);
     }
   },
 };
@@ -306,32 +434,28 @@ export const decisoesApi = {
     if (!isSupabaseConfigured() || !supabase) return;
 
     try {
-      const { data: newDecisao, error } = await supabase
-        .from('decisoes')
-        .insert({
-          id: decisao.id,
-          obra_id: obraId,
-          titulo: decisao.titulo,
-          descricao: decisao.descricao,
-          categoria: decisao.categoria || 'outro',
-          tipo_impacto: decisao.tipoImpactoFinanceiro || 'nenhum',
-          valor_aditivo: decisao.valorAditivo || 0,
-          valor_supressivo: decisao.valorSupressivo || 0,
-          impacto_financeiro: decisao.impactoFinanceiro || 0,
-          impacto_prazo_dias: decisao.impactoPrazoDias || 0,
-          status: decisao.status,
-          criada_por: decisao.criadaPor,
-          criador_nome: decisao.criadorNome,
-          fotos: decisao.fotos || [],
-        })
-        .select()
-        .single();
+      const { error } = await supabase.from('decisoes').insert({
+        id: decisao.id,
+        obra_id: obraId,
+        titulo: decisao.titulo,
+        descricao: decisao.descricao,
+        categoria: decisao.categoria || 'outro',
+        tipo_impacto: decisao.tipoImpactoFinanceiro || 'nenhum',
+        valor_aditivo: decisao.valorAditivo || 0,
+        valor_supressivo: decisao.valorSupressivo || 0,
+        impacto_financeiro: decisao.impactoFinanceiro || 0,
+        impacto_prazo_dias: decisao.impactoPrazoDias || 0,
+        status: decisao.status,
+        criada_por: decisao.criadaPor,
+        criador_nome: decisao.criadorNome,
+        fotos: decisao.fotos || [],
+      });
 
       if (error) throw error;
 
-      // Grava assinatura do proponente
       if (decisao.assinaturaCriador) {
         await supabase.from('decisao_assinaturas').insert({
+          id: ensureUUID(`${decisao.id}_criador`),
           decisao_id: decisao.id,
           papel: 'criador',
           autor_perfil: decisao.assinaturaCriador.autor,
@@ -348,14 +472,13 @@ export const decisoesApi = {
     if (!isSupabaseConfigured() || !supabase) return;
 
     try {
-      // 1. Atualiza status para aprovada
       await supabase
         .from('decisoes')
         .update({ status: 'aprovada', updated_at: new Date().toISOString() })
         .eq('id', decisaoId);
 
-      // 2. Insere assinatura da contraparte
       await supabase.from('decisao_assinaturas').insert({
+        id: ensureUUID(`${decisaoId}_contraparte`),
         decisao_id: decisaoId,
         papel: 'contraparte',
         autor_perfil: assinatura.autor,
@@ -407,7 +530,7 @@ export const storageApi = {
 
   async uploadDataUrl(bucket: string, path: string, dataUrl: string): Promise<string> {
     if (!isSupabaseConfigured() || !supabase) return dataUrl;
-    if (!dataUrl.startsWith('data:')) return dataUrl; // Já é uma URL pública
+    if (!dataUrl.startsWith('data:')) return dataUrl;
 
     try {
       const parsed = this.dataUrlToBlob(dataUrl);
@@ -422,14 +545,12 @@ export const storageApi = {
       });
 
       if (error) {
-        console.warn(`Erro no upload para o bucket ${bucket}:`, error);
         return dataUrl;
       }
 
       const { data } = supabase.storage.from(bucket).getPublicUrl(fullPath);
       return data.publicUrl || dataUrl;
     } catch (err) {
-      console.warn(`Erro ao converter e enviar dataUrl para ${bucket}:`, err);
       return dataUrl;
     }
   },
@@ -454,7 +575,7 @@ export const storageApi = {
 };
 
 // ==============================================================================
-// 4. AUTENTICAÇÃO REAL COM SUPABASE AUTH
+// 4. AUTENTICAÇÃO REAL COM SUPABASE AUTH & CONTROLE DE SESSÃO
 // ==============================================================================
 
 export const authApi = {
@@ -464,9 +585,9 @@ export const authApi = {
     nome: string;
     role: 'Construtor' | 'Cliente';
     empresa?: string;
-  }): Promise<{ user: any; error: string | null }> {
+  }): Promise<{ user: any; session: any; error: string | null }> {
     if (!isSupabaseConfigured() || !supabase) {
-      return { user: { email: params.email }, error: null };
+      return { user: { id: ensureUUID(), email: params.email }, session: null, error: null };
     }
 
     try {
@@ -483,7 +604,7 @@ export const authApi = {
       });
 
       if (error) {
-        return { user: null, error: error.message };
+        return { user: null, session: null, error: error.message };
       }
 
       if (data.user) {
@@ -501,15 +622,15 @@ export const authApi = {
         }
       }
 
-      return { user: data.user, error: null };
+      return { user: data.user, session: data.session, error: null };
     } catch (err: any) {
-      return { user: null, error: err?.message || 'Falha na comunicação com o servidor de autenticação.' };
+      return { user: null, session: null, error: err?.message || 'Falha na comunicação com o servidor de autenticação.' };
     }
   },
 
-  async signIn(email: string, password: string): Promise<{ user: any; error: string | null }> {
+  async signIn(email: string, password: string): Promise<{ user: any; session: any; error: string | null }> {
     if (!isSupabaseConfigured() || !supabase) {
-      return { user: { email }, error: null };
+      return { user: { id: ensureUUID(), email }, session: null, error: null };
     }
 
     try {
@@ -519,12 +640,12 @@ export const authApi = {
       });
 
       if (error) {
-        return { user: null, error: error.message };
+        return { user: null, session: null, error: error.message };
       }
 
-      return { user: data.user, error: null };
+      return { user: data.user, session: data.session, error: null };
     } catch (err: any) {
-      return { user: null, error: err?.message || 'Falha ao autenticar usuário.' };
+      return { user: null, session: null, error: err?.message || 'Falha ao autenticar usuário.' };
     }
   },
 
@@ -553,11 +674,11 @@ export const authApi = {
     }
   },
 
-  async getProfile(userId: string): Promise<any> {
+  async getSession(): Promise<any> {
     if (!isSupabaseConfigured() || !supabase) return null;
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      return data;
+      const { data } = await supabase.auth.getSession();
+      return data.session || null;
     } catch {
       return null;
     }
@@ -571,6 +692,26 @@ export const authApi = {
     } catch {
       return null;
     }
+  },
+
+  async getProfile(userId: string): Promise<any> {
+    if (!isSupabaseConfigured() || !supabase) return null;
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    if (!isSupabaseConfigured() || !supabase) {
+      return { unsubscribe: () => {} };
+    }
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      callback(event, session);
+    });
+    return data.subscription;
   },
 };
 

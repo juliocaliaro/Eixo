@@ -1,14 +1,25 @@
 import { Obra, PresetTipoObra } from '../types/obra';
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 
-const STORAGE_KEY = 'diario_obras_app_data_v1';
+const LEGACY_STORAGE_KEY = 'diario_obras_app_data_v1';
 const TEMPLATES_STORAGE_KEY = 'eixo_templates_preset_v3';
 const OLD_TEMPLATES_KEY_V2 = 'eixo_templates_preset_v2';
 const OLD_TEMPLATES_KEY_V1 = 'eixo_templates_preset_v1';
 
-export const loadObrasFromStorage = (): Obra[] => {
+const getUserStorageKey = (userId?: string): string => {
+  return userId ? `eixo_obras_${userId}` : LEGACY_STORAGE_KEY;
+};
+
+export const loadObrasFromStorage = (userId?: string): Obra[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getUserStorageKey(userId);
+    let raw = localStorage.getItem(key);
+
+    // Se a chave do usuário estiver vazia e tivermos userId, tenta migrar dados da chave legado
+    if (!raw && userId) {
+      raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    }
+
     if (!raw) return [];
     const parsed: Obra[] = JSON.parse(raw);
     let modified = false;
@@ -26,7 +37,7 @@ export const loadObrasFromStorage = (): Obra[] => {
       }
     });
     if (modified) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      localStorage.setItem(key, JSON.stringify(parsed));
     }
     return parsed;
   } catch (error) {
@@ -35,11 +46,25 @@ export const loadObrasFromStorage = (): Obra[] => {
   }
 };
 
-export const saveObrasToStorage = (obras: Obra[]): void => {
+export const saveObrasToStorage = (obras: Obra[], userId?: string): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(obras));
+    const key = getUserStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(obras));
+    // Se estiver sem userId (guest/offline), salva na chave legado
+    if (!userId) {
+      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(obras));
+    }
   } catch (error) {
     console.error('Erro ao salvar obras no localStorage:', error);
+  }
+};
+
+export const clearObrasFromStorage = (userId?: string): void => {
+  try {
+    const key = getUserStorageKey(userId);
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error('Erro ao limpar obras do localStorage:', error);
   }
 };
 

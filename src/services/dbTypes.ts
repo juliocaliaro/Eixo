@@ -150,6 +150,8 @@ export const mapObraFromDb = (
     criadaEm: row.created_at,
     empresaResponsavel: row.empresa_responsavel || undefined,
     orcamentoInicial: Number(row.orcamento_inicial) || 0,
+    construtorId: row.construtor_id || undefined,
+    clienteId: row.cliente_id || undefined,
     etapas,
     decisoes,
     projetos,

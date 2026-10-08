@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
 import { parseMoedaBR, formatarMoeda, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
+import { generateUUID } from '../utils/uuid';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
@@ -100,7 +101,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     }
 
     const decisao: Decisao = {
-      id: `decisao_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       titulo: titulo.trim(),
       descricao: descricao.trim(),
       impactoFinanceiro: impactoFinanceiroCalculado,

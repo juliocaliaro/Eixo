@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint, PencilSimple } from '@phosphor-icons/react';
 import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
+import { generateUUID } from '../utils/uuid';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
 import { VistoriaPunchList } from './VistoriaPunchList';
@@ -119,11 +120,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   ) => {
     if (perfilAtivo === 'cliente') return;
     const novaEtapa: Etapa = {
-      id: `etapa_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: generateUUID(),
       nome: novaEtapaData.nome,
       tipoOrigem: novaEtapaData.tipoOrigem,
-      tarefas: novaEtapaData.tarefas.map((t, idx) => ({
-        id: `task_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+      tarefas: novaEtapaData.tarefas.map((t) => ({
+        id: generateUUID(),
         nome: t.nome,
         concluida: false,
       })),
@@ -275,7 +276,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 
   const handleAddTaskToEtapa = (etapaId: string, taskNome: string, insertAtIndex?: number) => {
     const novaTarefa: Tarefa = {
-      id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       nome: taskNome,
       concluida: false,
     };
@@ -455,7 +456,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     descricao?: string;
   }) => {
     const novoProjeto: ProjetoPDF = {
-      id: `proj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       titulo: dados.titulo,
       tipo: dados.tipo,
       tipoCustomizado: dados.tipoCustomizado,

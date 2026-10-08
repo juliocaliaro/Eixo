@@ -277,6 +277,31 @@ CREATE POLICY "Construtor gerencia tarefas"
         )
     );
 
+-- Políticas de Evidências da Tarefa (Fotos e Anotações)
+CREATE POLICY "Ver evidencias da tarefa"
+    ON public.tarefa_evidencias FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.tarefas t
+            JOIN public.etapas e ON e.id = t.etapa_id
+            JOIN public.obras o ON o.id = e.obra_id
+            WHERE t.id = tarefa_evidencias.tarefa_id
+            AND (o.construtor_id = auth.uid() OR o.cliente_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Construtor gerencia evidencias"
+    ON public.tarefa_evidencias FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.tarefas t
+            JOIN public.etapas e ON e.id = t.etapa_id
+            JOIN public.obras o ON o.id = e.obra_id
+            WHERE t.id = tarefa_evidencias.tarefa_id
+            AND o.construtor_id = auth.uid()
+        )
+    );
+
 -- Políticas de Decisões (Bilateral: Cliente E Construtor podem interagir ativamente)
 CREATE POLICY "Ver decisões da obra"
     ON public.decisoes FOR SELECT

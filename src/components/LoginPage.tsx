@@ -23,7 +23,7 @@ import { authApi } from '../services/api';
 export type UserRole = 'Construtor' | 'Cliente';
 
 interface LoginPageProps {
-  onLogin: (role: UserRole, email?: string, nome?: string, empresa?: string) => void;
+  onLogin: (role: UserRole, email?: string, nome?: string, empresa?: string, userId?: string) => void;
   initialRole?: UserRole;
   initialMode?: 'login' | 'cadastro';
 }
@@ -134,8 +134,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const roleFromDb: UserRole = meta.role === 'cliente' ? 'Cliente' : 'Construtor';
       const nomeFromDb = meta.nome || undefined;
       const empresaFromDb = meta.empresa || undefined;
+      const userIdFromDb = res.user?.id || undefined;
 
-      onLogin(roleFromDb || selectedRole, email.trim(), nomeFromDb, empresaFromDb);
+      onLogin(roleFromDb || selectedRole, email.trim(), nomeFromDb, empresaFromDb, userIdFromDb);
     } catch {
       onLogin(selectedRole, email.trim());
     } finally {
@@ -216,7 +217,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         selectedRole,
         emailCadastro.trim(),
         nomeCadastro.trim(),
-        selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined
+        selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined,
+        res.user?.id || undefined
       );
     } catch (err: any) {
       setErro(err?.message || 'Erro ao registrar conta no servidor.');

@@ -7,6 +7,7 @@ import {
 } from '@phosphor-icons/react';
 import { PunchListItem, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
+import { generateUUID } from '../utils/uuid';
 
 interface VistoriaPunchListProps {
   punchList: PunchListItem[];
@@ -55,7 +56,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
     if (!novoItemTexto.trim()) return;
 
     const novo: PunchListItem = {
-      id: `punch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       item: novoItemTexto.trim(),
       ambiente: novoItemAmbiente.trim() || 'Geral',
       concluido: false,
