@@ -2727,5 +2727,146 @@ input, textarea, select {
   }
 }
 
+/* ==============================================================================
+   MÓDULO DE REGISTRO DE LOCAÇÕES (RESPONSIVO E ASSIMÉTRICO)
+   ============================================================================== */
+.locacoes-page-container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .locacoes-page-container {
+    padding: 16px 12px 70px;
+  }
+}
+
+.locacoes-kpis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 769px) {
+  .locacoes-kpis-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+}
+
+.locacoes-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .locacoes-cards-grid {
+    gap: 8px;
+  }
+}
+
+@media (min-width: 900px) {
+  .locacoes-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+.locacao-card {
+  background-color: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--border-hairline);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  position: relative;
+}
+
+.locacao-card:hover {
+  border-color: var(--dark-coffee-400);
+  box-shadow: 0 4px 14px rgba(37, 27, 14, 0.06);
+}
+
+.locacao-card-media {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--dark-coffee-50);
+  border-bottom: 1px solid var(--border-hairline);
+  cursor: pointer;
+}
+
+.locacao-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.locacao-card:hover .locacao-card-img {
+  transform: scale(1.03);
+}
+
+.locacao-card-badge-status {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+}
+
+.locacao-card-badge-periodo {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+}
+
+.locacao-card-content {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.locacao-card-title {
+  font-size: 0.90rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.locacao-card-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.locacao-card-footer {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background-color: #ffffff;
+}
+
 
 

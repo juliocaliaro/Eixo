@@ -403,65 +403,36 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         width: '100%',
       }}
     >
-      {/* Barra de Topo Executiva */}
+      {/* 1. Barra de Ações Superior (Voltar e Nova Locação em cima) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 16,
-          marginBottom: 24,
+          gap: 12,
+          marginBottom: 16,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 14px',
-              minHeight: 40,
-              fontSize: '0.88rem',
-              borderRadius: '6px',
-              fontWeight: 600,
-            }}
-            title="Voltar para a página anterior"
-          >
-            <ArrowLeft size={16} weight="bold" />
-            <span>Voltar</span>
-          </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="btn-secondary"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 14px',
+            minHeight: 40,
+            fontSize: '0.88rem',
+            borderRadius: '6px',
+            fontWeight: 600,
+          }}
+          title="Voltar para a página anterior"
+        >
+          <ArrowLeft size={16} weight="bold" />
+          <span>Voltar</span>
+        </button>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h1
-                style={{
-                  fontSize: '1.45rem',
-                  fontWeight: 700,
-                  color: 'var(--text-main)',
-                  margin: 0,
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                Registro de Locação
-              </h1>
-            </div>
-            <p
-              style={{
-                fontSize: '0.84rem',
-                color: 'var(--text-muted)',
-                margin: '2px 0 0 0',
-              }}
-            >
-              Rastreamento de maquinários, ferramentas e equipamentos locados por obra
-            </p>
-          </div>
-        </div>
-
-        {/* Botão de Criação */}
         {perfilAtivo === 'construtor' && (
           <button
             type="button"
@@ -471,9 +442,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              padding: '10px 18px',
-              minHeight: 44,
-              fontSize: '0.9rem',
+              padding: '9px 16px',
+              minHeight: 40,
+              fontSize: '0.88rem',
               borderRadius: '6px',
               fontWeight: 600,
             }}
@@ -484,130 +455,178 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         )}
       </div>
 
-      {/* KPI Cards / Indicadores Rápidos */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-          marginBottom: 20,
-        }}
-      >
+      {/* 2. Título de Texto do Registro */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: '8px',
+              background: 'var(--pitch-black-50, #f6f3eb)',
+              color: 'var(--coral-glow-500, #e05a47)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Wrench size={22} weight="bold" />
+          </div>
+          <div>
+            <h1
+              style={{
+                fontSize: '1.42rem',
+                fontWeight: 700,
+                color: 'var(--text-main)',
+                margin: 0,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+              }}
+            >
+              Registro de Locação
+            </h1>
+            <p
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
+                margin: '3px 0 0 0',
+              }}
+            >
+              Rastreamento de maquinários, ferramentas e prazos de devolução por obra
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Contadores Rápidos (2 por Linha Alinhados) */}
+      <div className="locacoes-kpis-grid">
         <div
           style={{
-            padding: '14px 16px',
+            padding: '12px 14px',
             backgroundColor: '#ffffff',
             borderRadius: '8px',
             border: '1px solid var(--border-hairline)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 4,
+            gap: 2,
           }}
         >
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Total de Locações
           </span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-main)' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-main)' }}>
             {kpis.total}
           </span>
         </div>
 
         <div
           style={{
-            padding: '14px 16px',
+            padding: '12px 14px',
             backgroundColor: '#ffffff',
             borderRadius: '8px',
             border: '1px solid var(--border-hairline)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 4,
+            gap: 2,
           }}
         >
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Ativos no Canteiro
           </span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--coral-glow-500, #e05a47)' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--coral-glow-500, #e05a47)' }}>
             {kpis.ativos}
           </span>
         </div>
 
         <div
           style={{
-            padding: '14px 16px',
+            padding: '12px 14px',
             backgroundColor: '#ffffff',
             borderRadius: '8px',
             border: '1px solid var(--border-hairline)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 4,
+            gap: 2,
           }}
         >
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Vencidos / Atenção
           </span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, color: kpis.vencidos > 0 ? '#b91c1c' : 'var(--text-main)' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: kpis.vencidos > 0 ? '#b91c1c' : 'var(--text-main)' }}>
             {kpis.vencidos}
           </span>
         </div>
 
         <div
           style={{
-            padding: '14px 16px',
+            padding: '12px 14px',
             backgroundColor: '#ffffff',
             borderRadius: '8px',
             border: '1px solid var(--border-hairline)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 4,
+            gap: 2,
           }}
         >
-          <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
             Devolvidos
           </span>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, color: '#15803d' }}>
+          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#15803d' }}>
             {kpis.devolvidos}
           </span>
         </div>
       </div>
 
-      {/* Barra de Filtros e Busca */}
+      {/* 4. Card Organizado: Seleção de Obra, Busca e Filtros de Status */}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
           backgroundColor: '#ffffff',
-          padding: '16px 20px',
-          borderRadius: '8px',
+          padding: '14px 16px',
+          borderRadius: '10px',
           border: '1px solid var(--border-hairline)',
           marginBottom: 20,
+          boxShadow: 'var(--shadow-subtle)',
         }}
       >
+        {/* Linha 1: Seleção de Obra e Busca */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 10,
           }}
         >
           {/* Seletor de Obra */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 260, flex: '1 1 280px' }}>
-            <BuildingApartment size={18} color="var(--text-muted)" />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              border: '1px solid var(--border-hairline)',
+              borderRadius: '7px',
+              padding: '0 10px',
+              backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
+              height: 40,
+            }}
+          >
+            <BuildingApartment size={18} color="var(--coral-glow-500, #e05a47)" style={{ flexShrink: 0 }} />
             <select
               value={filtroObraId}
               onChange={(e) => setFiltroObraId(e.target.value)}
               className="form-select"
               style={{
                 width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-hairline)',
-                fontSize: '0.88rem',
-                backgroundColor: '#ffffff',
+                border: 'none',
+                backgroundColor: 'transparent',
+                fontSize: '0.86rem',
                 color: 'var(--text-main)',
+                fontWeight: 600,
                 outline: 'none',
+                cursor: 'pointer',
               }}
             >
               <option value="todas">Todas as Obras ({obras.length})</option>
@@ -619,30 +638,29 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
             </select>
           </div>
 
-          {/* Campo de Busca Livre */}
+          {/* Campo de Busca */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               border: '1px solid var(--border-hairline)',
-              borderRadius: '6px',
-              padding: '8px 12px',
+              borderRadius: '7px',
+              padding: '0 10px',
               backgroundColor: '#ffffff',
-              minWidth: 240,
-              flex: '1 1 240px',
+              height: 40,
             }}
           >
-            <MagnifyingGlass size={16} color="var(--text-muted)" />
+            <MagnifyingGlass size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
             <input
               type="text"
               value={termoBusca}
               onChange={(e) => setTermoBusca(e.target.value)}
-              placeholder="Buscar item, locadora, obra..."
+              placeholder="Buscar equipamento, locadora..."
               style={{
                 border: 'none',
                 outline: 'none',
-                fontSize: '0.88rem',
+                fontSize: '0.86rem',
                 width: '100%',
                 backgroundColor: 'transparent',
                 color: 'var(--text-main)',
@@ -657,31 +675,37 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                   background: 'transparent',
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
-                  padding: 0,
+                  padding: 2,
                   display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
+                title="Limpar busca"
               >
-                <X size={14} />
+                <X size={14} weight="bold" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Abas Rápidas de Status */}
+        {/* Linha 2: Chips de Status com Rolagem Suave */}
         <div
           style={{
             display: 'flex',
-            gap: 8,
+            alignItems: 'center',
+            gap: 6,
             overflowX: 'auto',
-            paddingTop: 4,
+            paddingTop: 8,
+            borderTop: '1px solid var(--border-hairline)',
+            scrollbarWidth: 'none',
           }}
         >
           {(
             [
-              { id: 'todos', label: 'Todos' },
-              { id: 'ativos', label: 'Ativos' },
-              { id: 'vencidos', label: 'Vencidos / Próximos' },
-              { id: 'devolvidos', label: 'Devolvidos' },
+              { id: 'todos', label: 'Todos', count: kpis.total },
+              { id: 'ativos', label: 'Ativos', count: kpis.ativos },
+              { id: 'vencidos', label: 'Vencidos / Atenção', count: kpis.vencidos },
+              { id: 'devolvidos', label: 'Devolvidos', count: kpis.devolvidos },
             ] as const
           ).map((tab) => {
             const isActive = filtroStatus === tab.id;
@@ -691,19 +715,35 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                 type="button"
                 onClick={() => setFiltroStatus(tab.id)}
                 style={{
-                  padding: '6px 14px',
+                  padding: '5px 10px',
                   borderRadius: '20px',
                   border: isActive ? '1px solid var(--coral-glow-500, #e05a47)' : '1px solid var(--border-hairline)',
                   backgroundColor: isActive ? 'var(--dark-coffee-50, #fcfaf8)' : '#ffffff',
                   color: isActive ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-muted)',
-                  fontWeight: isActive ? 600 : 500,
-                  fontSize: '0.82rem',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '0.78rem',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                   transition: 'all 0.15s ease',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexShrink: 0,
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <span
+                  style={{
+                    fontSize: '0.70rem',
+                    padding: '1px 5px',
+                    borderRadius: '10px',
+                    backgroundColor: isActive ? 'var(--coral-glow-500, #e05a47)' : 'var(--dark-coffee-100, #f1e7da)',
+                    color: isActive ? '#ffffff' : 'var(--text-muted)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {tab.count}
+                </span>
               </button>
             );
           })}
@@ -771,13 +811,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
           )}
         </div>
       ) : (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
+        <div className="locacoes-cards-grid">
           {locacoesFiltradas.map(({ locacao, obra }) => {
             const statusInfo = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
             const primeiraFoto = (locacao.fotos && locacao.fotos.length > 0) ? locacao.fotos[0] : null;
@@ -785,353 +819,290 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
             return (
               <div
                 key={locacao.id}
+                className="locacao-card"
                 style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-hairline)',
-                  padding: '16px 20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                  transition: 'border-color 0.15s ease',
-                  opacity: locacao.status === 'devolvido' ? 0.8 : 1,
+                  opacity: locacao.status === 'devolvido' ? 0.78 : 1,
+                  borderLeft: statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje'
+                    ? '3px solid #b91c1c'
+                    : locacao.status === 'devolvido'
+                    ? '3px solid #15803d'
+                    : '1px solid var(--border-hairline)',
                 }}
               >
-                {/* Linha Principal: Foto + Informações + Ações */}
+                {/* 1. Mídia / Imagem no Topo com Badges Flutuantes */}
                 <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 16,
-                  }}
+                  className="locacao-card-media"
+                  onClick={() => primeiraFoto && setLightboxFoto({ url: primeiraFoto, titulo: locacao.itemLocado })}
+                  title={primeiraFoto ? 'Clique para ampliar foto' : undefined}
                 >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: '1 1 300px' }}>
-                    {/* Foto do Equipamento ou Placeholder */}
-                    {primeiraFoto ? (
-                      <div
-                        onClick={() => setLightboxFoto({ url: primeiraFoto, titulo: locacao.itemLocado })}
-                        style={{
-                          width: 68,
-                          height: 68,
-                          borderRadius: '6px',
-                          overflow: 'hidden',
-                          border: '1px solid var(--border-hairline)',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          position: 'relative',
-                          backgroundColor: '#f1f1f1',
-                        }}
-                        title="Clique para ampliar foto"
-                      >
-                        <img
-                          src={primeiraFoto}
-                          alt={locacao.itemLocado}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                        <div
-                          style={{
-                            position: 'absolute',
-                            right: 4,
-                            bottom: 4,
-                            backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                            borderRadius: '4px',
-                            padding: '2px 4px',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <ArrowsOut size={11} weight="bold" />
-                        </div>
-                      </div>
-                    ) : (
+                  {primeiraFoto ? (
+                    <>
+                      <img
+                        src={primeiraFoto}
+                        alt={locacao.itemLocado}
+                        className="locacao-card-img"
+                      />
                       <div
                         style={{
-                          width: 68,
-                          height: 68,
-                          borderRadius: '6px',
-                          backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                          border: '1px solid var(--border-hairline)',
+                          position: 'absolute',
+                          bottom: 6,
+                          right: 6,
+                          backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                          borderRadius: '4px',
+                          padding: '2px 5px',
+                          color: '#ffffff',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--text-muted)',
-                          flexShrink: 0,
+                          fontSize: '0.68rem',
+                          zIndex: 2,
                         }}
                       >
-                        <Wrench size={24} />
+                        <ArrowsOut size={11} weight="bold" />
                       </div>
-                    )}
-
-                    {/* Descrição do Item, Obra e Tags */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                        <h4
-                          style={{
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            color: 'var(--text-main)',
-                            margin: 0,
-                            textDecoration: locacao.status === 'devolvido' ? 'line-through' : 'none',
-                          }}
-                        >
-                          {locacao.itemLocado}
-                        </h4>
-
-                        {/* Badge de Vencimento */}
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.74rem',
-                            fontWeight: 600,
-                            backgroundColor: statusInfo.badgeBg,
-                            color: statusInfo.badgeColor,
-                            border: `1px solid ${statusInfo.badgeBorder}`,
-                          }}
-                        >
-                          {statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje' ? (
-                            <Warning size={13} weight="fill" />
-                          ) : statusInfo.tipo === 'devolvido' ? (
-                            <CheckCircle size={13} weight="fill" />
-                          ) : (
-                            <Clock size={13} />
-                          )}
-                          <span>{statusInfo.label}</span>
-                        </span>
-
-                        {/* Badge de Período (Diária, Semanal, Quinzenal, Mensal) */}
-                        {locacao.periodo && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.74rem',
-                              fontWeight: 600,
-                              backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                              color: 'var(--text-main)',
-                              border: '1px solid var(--border-hairline)',
-                            }}
-                          >
-                            <Clock size={13} />
-                            <span>
-                              {locacao.periodo === 'diaria'
-                                ? 'Diária'
-                                : locacao.periodo === 'semanal'
-                                ? 'Semanal'
-                                : locacao.periodo === 'quinzenal'
-                                ? 'Quinzenal'
-                                : 'Mensal'}
-                            </span>
-                          </span>
-                        )}
-
-                        {/* Badge de Renovação (se renovado após vencimento) */}
-                        {locacao.renovado && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              padding: '3px 8px',
-                              borderRadius: '4px',
-                              fontSize: '0.74rem',
-                              fontWeight: 600,
-                              backgroundColor: '#eff6ff',
-                              color: '#1d4ed8',
-                              border: '1px solid #bfdbfe',
-                            }}
-                            title={
-                              locacao.vencimentoOriginal
-                                ? `Vencimento programado anterior: ${formatarData(locacao.vencimentoOriginal)}`
-                                : 'Locação renovada'
-                            }
-                          >
-                            <ArrowsClockwise size={13} weight="bold" />
-                            <span>Renovado</span>
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Obra Vinculada e Fornecedor */}
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                            color: 'var(--text-muted)',
-                            backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                          }}
-                        >
-                          <BuildingApartment size={13} />
-                          <span>{obra.nome}</span>
-                        </span>
-
-                        {locacao.fornecedor && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              fontSize: '0.78rem',
-                              color: 'var(--text-muted)',
-                            }}
-                          >
-                            <Storefront size={13} />
-                            <span>{locacao.fornecedor}</span>
-                          </span>
-                        )}
-
-                        {locacao.vencimentoOriginal && (
-                          <span
-                            style={{
-                              fontSize: '0.76rem',
-                              color: 'var(--text-muted)',
-                              fontStyle: 'italic',
-                            }}
-                          >
-                            (Vencimento inicial: {formatarData(locacao.vencimentoOriginal)})
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Galeria de Fotos Secundárias */}
-                      {locacao.fotos && locacao.fotos.length > 1 && (
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                          {locacao.fotos.slice(1).map((foto, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => setLightboxFoto({ url: foto, titulo: `${locacao.itemLocado} (Foto ${idx + 2})` })}
-                              style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                border: '1px solid var(--border-hairline)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Ações Rápidas à Direita */}
-                  {perfilAtivo === 'construtor' && (
+                    </>
+                  ) : (
                     <div
                       style={{
+                        width: '100%',
+                        height: '100%',
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
-                        gap: 8,
-                        alignSelf: 'center',
-                        flexWrap: 'wrap',
+                        justifyContent: 'center',
+                        gap: 4,
+                        background: 'linear-gradient(135deg, var(--pitch-black-50, #f6f3eb) 0%, var(--dark-coffee-50, #f8f3ed) 100%)',
+                        color: 'var(--text-muted)',
                       }}
                     >
-                      {/* Botão de Marcar Devolvido / Reativar */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(obra.id, locacao.id)}
-                        className="btn-secondary"
+                      <Wrench size={26} weight="duotone" />
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        Sem foto
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Badge de Status de Vencimento Sobreposto */}
+                  <div className="locacao-card-badge-status">
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 3,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        backgroundColor: statusInfo.badgeBg,
+                        color: statusInfo.badgeColor,
+                        border: `1px solid ${statusInfo.badgeBorder}`,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                      }}
+                    >
+                      {statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje' ? (
+                        <Warning size={11} weight="fill" />
+                      ) : statusInfo.tipo === 'devolvido' ? (
+                        <CheckCircle size={11} weight="fill" />
+                      ) : (
+                        <Clock size={11} />
+                      )}
+                      <span>{statusInfo.label}</span>
+                    </span>
+                  </div>
+
+                  {/* Badge de Período Sobreposto */}
+                  {locacao.periodo && (
+                    <div className="locacao-card-badge-periodo">
+                      <span
                         style={{
-                          padding: '6px 12px',
-                          minHeight: 36,
-                          fontSize: '0.82rem',
-                          borderRadius: '6px',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          fontWeight: 600,
-                          color: locacao.status === 'devolvido' ? 'var(--text-muted)' : '#15803d',
-                        }}
-                        title={locacao.status === 'devolvido' ? 'Reativar locação' : 'Marcar equipamento como devolvido'}
-                      >
-                        {locacao.status === 'devolvido' ? (
-                          <>
-                            <ClockCounterClockwise size={15} />
-                            <span>Reativar</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle size={15} weight="bold" />
-                            <span>Devolver</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Botão Excluir */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDeleteTarget({
-                            obraId: obra.id,
-                            locacaoId: locacao.id,
-                            itemLocado: locacao.itemLocado,
-                          })
-                        }
-                        className="btn-icon"
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: '6px',
+                          gap: 3,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          color: 'var(--text-main)',
                           border: '1px solid var(--border-hairline)',
-                          background: '#ffffff',
-                          color: 'var(--text-muted)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'color 0.15s ease, border-color 0.15s ease',
-                        }}
-                        title="Excluir registro de locação"
-                        aria-label="Excluir locação"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#b91c1c';
-                          e.currentTarget.style.borderColor = '#fca5a5';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = 'var(--text-muted)';
-                          e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
                         }}
                       >
-                        <Trash size={16} />
-                      </button>
+                        <span>
+                          {locacao.periodo === 'diaria'
+                            ? 'Diária'
+                            : locacao.periodo === 'semanal'
+                            ? 'Semanal'
+                            : locacao.periodo === 'quinzenal'
+                            ? 'Quinzenal'
+                            : 'Mensal'}
+                        </span>
+                      </span>
                     </div>
                   )}
                 </div>
 
-                {/* Opção de Renovação / Prolongamento: no card já criado */}
+                {/* 2. Conteúdo e Metadados do Card */}
+                <div className="locacao-card-content">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
+                    <h4
+                      className="locacao-card-title"
+                      style={{
+                        textDecoration: locacao.status === 'devolvido' ? 'line-through' : 'none',
+                      }}
+                      title={locacao.itemLocado}
+                    >
+                      {locacao.itemLocado}
+                    </h4>
+
+                    {locacao.renovado && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          backgroundColor: '#eff6ff',
+                          color: '#1d4ed8',
+                          border: '1px solid #bfdbfe',
+                          flexShrink: 0,
+                        }}
+                        title={
+                          locacao.vencimentoOriginal
+                            ? `Vencimento inicial: ${formatarData(locacao.vencimentoOriginal)}`
+                            : 'Locação renovada'
+                        }
+                      >
+                        <ArrowsClockwise size={11} weight="bold" />
+                        <span>Renovado</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Informações de Obra e Fornecedor */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+                    <div className="locacao-card-meta">
+                      <BuildingApartment size={13} color="var(--coral-glow-500, #e05a47)" style={{ flexShrink: 0 }} />
+                      <span style={{ fontWeight: 600 }}>{obra.nome}</span>
+                    </div>
+                    {locacao.fornecedor && (
+                      <div className="locacao-card-meta">
+                        <Storefront size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        <span>{locacao.fornecedor}</span>
+                      </div>
+                    )}
+                    {locacao.vencimentoOriginal && (
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 1 }}>
+                        Início: {formatarData(locacao.vencimentoOriginal)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Fotos extras miniaturas (se houver mais de 1) */}
+                  {locacao.fotos && locacao.fotos.length > 1 && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                      {locacao.fotos.slice(1, 4).map((foto, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setLightboxFoto({ url: foto, titulo: `${locacao.itemLocado} (Foto ${idx + 2})` })}
+                          style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            border: '1px solid var(--border-hairline)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <img src={foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ))}
+                      {locacao.fotos.length > 4 && (
+                        <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                          +{locacao.fotos.length - 4}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Ações Rápidas (Devolver / Excluir) */}
+                {perfilAtivo === 'construtor' && (
+                  <div className="locacao-card-footer">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(obra.id, locacao.id)}
+                      className="btn-secondary"
+                      style={{
+                        padding: '5px 8px',
+                        minHeight: 30,
+                        fontSize: '0.74rem',
+                        borderRadius: '5px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontWeight: 600,
+                        color: locacao.status === 'devolvido' ? 'var(--text-muted)' : '#15803d',
+                        flex: 1,
+                        justifyContent: 'center',
+                      }}
+                      title={locacao.status === 'devolvido' ? 'Reativar locação' : 'Marcar equipamento como devolvido'}
+                    >
+                      {locacao.status === 'devolvido' ? (
+                        <>
+                          <ClockCounterClockwise size={13} />
+                          <span>Reativar</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={13} weight="bold" />
+                          <span>Devolver</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDeleteTarget({
+                          obraId: obra.id,
+                          locacaoId: locacao.id,
+                          itemLocado: locacao.itemLocado,
+                        })
+                      }
+                      className="btn-icon"
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: '5px',
+                        border: '1px solid var(--border-hairline)',
+                        background: '#ffffff',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                      title="Excluir locação"
+                      aria-label="Excluir locação"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. Bloco de Renovação / Prolongamento no Card */}
                 <div
                   style={{
-                    padding: '12px 14px',
-                    borderRadius: '8px',
+                    padding: '8px 10px',
+                    borderTop: '1px solid var(--border-hairline)',
                     backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
-                    border: locacao.renovado
-                      ? '1px solid var(--coral-glow-500, #e05a47)'
-                      : '1px dashed var(--border-hairline)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 12,
-                    transition: 'all 0.15s ease',
+                    gap: 8,
                   }}
                 >
                   <div
@@ -1139,18 +1110,18 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 10,
+                      gap: 6,
                     }}
                   >
                     <label
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 10,
+                        gap: 6,
                         cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
                         userSelect: 'none',
-                        flex: '1 1 280px',
+                        flex: 1,
+                        minWidth: 0,
                       }}
                     >
                       <input
@@ -1165,34 +1136,27 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           }
                         }}
                         style={{
-                          width: 18,
-                          height: 18,
+                          width: 15,
+                          height: 15,
                           accentColor: 'var(--coral-glow-500, #e05a47)',
                           cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
                           flexShrink: 0,
                         }}
                       />
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span
-                          style={{
-                            fontSize: '0.86rem',
-                            fontWeight: 600,
-                            color: 'var(--text-main)',
-                            lineHeight: 1.25,
-                          }}
-                        >
-                          Renovei a locação após o vencimento programado
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.74rem',
-                            color: 'var(--text-muted)',
-                            marginTop: 2,
-                          }}
-                        >
-                          Marque se este equipamento teve o contrato estendido além do prazo inicial
-                        </span>
-                      </div>
+                      <span
+                        style={{
+                          fontSize: '0.74rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          lineHeight: 1.15,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title="Renovei a locação após o vencimento programado"
+                      >
+                        {locacao.renovado ? 'Renovado' : 'Renovar'}
+                      </span>
                     </label>
 
                     {perfilAtivo === 'construtor' && (
@@ -1209,140 +1173,112 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          padding: '6px 12px',
-                          minHeight: 34,
-                          fontSize: '0.8rem',
-                          borderRadius: '6px',
+                          gap: 4,
+                          padding: '3px 7px',
+                          minHeight: 26,
+                          fontSize: '0.72rem',
+                          borderRadius: '4px',
                           fontWeight: 600,
                           color: locacao.renovado ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-main)',
+                          flexShrink: 0,
                         }}
-                        title={locacao.renovado ? 'Alterar nova data estendida' : 'Prolongar prazo de vencimento'}
                       >
-                        <ArrowsClockwise size={15} weight="bold" />
-                        <span>
-                          {locacao.renovado
-                            ? (prolongandoLocacaoId === locacao.id ? 'Fechar Edição' : 'Prolongar Mais / Alterar Data')
-                            : (prolongandoLocacaoId === locacao.id ? 'Cancelar' : 'Prolongar')}
-                        </span>
+                        <ArrowsClockwise size={12} weight="bold" />
+                        <span>{prolongandoLocacaoId === locacao.id ? 'Fechar' : 'Prolongar'}</span>
                       </button>
                     )}
                   </div>
 
-                  {/* Painel Inline de Prolongamento / Nova Data de Vencimento */}
+                  {/* Painel Inline de Prolongamento */}
                   {prolongandoLocacaoId === locacao.id && perfilAtivo === 'construtor' && (
                     <div
                       style={{
                         borderTop: '1px solid var(--border-hairline)',
-                        paddingTop: 12,
+                        paddingTop: 8,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 12,
+                        gap: 8,
                         backgroundColor: '#ffffff',
-                        padding: '12px 14px',
+                        padding: '8px 10px',
                         borderRadius: '6px',
                         border: '1px solid var(--border-hairline)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                          {locacao.renovado ? 'Alterar prazo estendido:' : 'Definir novo vencimento da locação:'}
-                        </span>
-                        {locacao.dataVencimento && (
-                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                            Vencimento atual: <strong>{formatarData(locacao.dataVencimento)}</strong>
-                          </span>
-                        )}
-                      </div>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        Nova data de vencimento:
+                      </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <div style={{ flex: '1 1 200px' }}>
-                          <input
-                            type="date"
-                            value={novaDataProlongada}
-                            onChange={(e) => setNovaDataProlongada(e.target.value)}
-                            className="form-input"
-                            style={{
-                              width: '100%',
-                              padding: '8px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border-hairline)',
-                              fontSize: '0.88rem',
-                              outline: 'none',
+                      <input
+                        type="date"
+                        value={novaDataProlongada}
+                        onChange={(e) => setNovaDataProlongada(e.target.value)}
+                        className="form-input"
+                        style={{
+                          width: '100%',
+                          padding: '6px 8px',
+                          borderRadius: '5px',
+                          border: '1px solid var(--border-hairline)',
+                          fontSize: '0.78rem',
+                          outline: 'none',
+                        }}
+                        required
+                      />
+
+                      {/* Atalhos Rápidos por Período */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                        {[
+                          { dias: 1, label: '+1d (Diária)' },
+                          { dias: 7, label: '+7d (Semanal)' },
+                          { dias: 15, label: '+15d (Quinzenal)' },
+                          { dias: 30, label: '+30d (Mensal)' },
+                        ].map((btn) => (
+                          <button
+                            key={btn.dias}
+                            type="button"
+                            onClick={() => {
+                              const base = locacao.dataVencimento
+                                ? new Date(locacao.dataVencimento.split('T')[0])
+                                : new Date();
+                              base.setDate(base.getDate() + btn.dias);
+                              setNovaDataProlongada(base.toISOString().split('T')[0]);
                             }}
-                            required
-                          />
-                        </div>
-
-                        {/* Atalhos Rápidos por Período */}
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          {[
-                            { dias: 1, label: '+1 dia (Diária)' },
-                            { dias: 7, label: '+7 dias (Semanal)' },
-                            { dias: 15, label: '+15 dias (Quinzenal)' },
-                            { dias: 30, label: '+30 dias (Mensal)' },
-                          ].map((btn) => (
-                            <button
-                              key={btn.dias}
-                              type="button"
-                              onClick={() => {
-                                const base = locacao.dataVencimento
-                                  ? new Date(locacao.dataVencimento.split('T')[0])
-                                  : new Date();
-                                base.setDate(base.getDate() + btn.dias);
-                                setNovaDataProlongada(base.toISOString().split('T')[0]);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                borderRadius: '4px',
-                                border: '1px solid var(--border-hairline)',
-                                backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                                color: 'var(--text-main)',
-                                fontSize: '0.76rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {btn.label}
-                            </button>
-                          ))}
-                        </div>
+                            style={{
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-hairline)',
+                              backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
+                              color: 'var(--text-main)',
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
                       </div>
 
-                      {/* Ações de Salvar / Cancelar */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-                        <button
-                          type="button"
-                          onClick={() => setProlongandoLocacaoId(null)}
-                          className="btn-secondary"
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.82rem',
-                            borderRadius: '6px',
-                            minHeight: 34,
-                          }}
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSalvarProlongamento(obra.id, locacao)}
-                          className="btn-primary"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '6px 14px',
-                            fontSize: '0.82rem',
-                            borderRadius: '6px',
-                            minHeight: 34,
-                            fontWeight: 600,
-                          }}
-                        >
-                          <FloppyDisk size={15} weight="bold" />
-                          <span>Confirmar Prolongamento</span>
-                        </button>
-                      </div>
+                      {/* Botão de Salvar */}
+                      <button
+                        type="button"
+                        onClick={() => handleSalvarProlongamento(obra.id, locacao)}
+                        className="btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 5,
+                          padding: '6px 10px',
+                          fontSize: '0.74rem',
+                          borderRadius: '5px',
+                          minHeight: 28,
+                          fontWeight: 600,
+                          marginTop: 2,
+                        }}
+                      >
+                        <FloppyDisk size={13} weight="bold" />
+                        <span>Salvar Prazo</span>
+                      </button>
                     </div>
                   )}
                 </div>
