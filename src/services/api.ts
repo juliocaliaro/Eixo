@@ -449,6 +449,7 @@ export const obrasApi = {
                 id: loc.id,
                 obra_id: obra.id,
                 item_locado: loc.itemLocado,
+                periodo: loc.periodo || null,
                 data_vencimento: loc.dataVencimento,
                 fotos: fotosProcessadas,
                 fornecedor: loc.fornecedor || null,

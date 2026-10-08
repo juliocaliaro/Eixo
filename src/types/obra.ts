@@ -105,10 +105,13 @@ export interface RegistroNota {
   criadoEm: string;
 }
 
+export type TipoPeriodoLocacao = 'diaria' | 'semanal' | 'quinzenal' | 'mensal';
+
 export interface RegistroLocacao {
   id: string;
   obraId: string;
   itemLocado: string; // Descrição livre do que foi locado
+  periodo?: TipoPeriodoLocacao; // Diária, Semanal, Quinzenal ou Mensal
   dataVencimento: string; // Data de vencimento/devolução (YYYY-MM-DD)
   fotos: string[]; // Upload de fotos do equipamento/comprovante
   fornecedor?: string; // Nome da locadora ou fornecedor (opcional)

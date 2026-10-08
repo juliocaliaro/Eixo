@@ -242,6 +242,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       id: generateUUID(),
       obraId: dados.obraId,
       itemLocado: dados.itemLocado,
+      periodo: dados.periodo,
       dataVencimento: dados.dataVencimento,
       fotos: dados.fotos,
       fornecedor: dados.fornecedor,
@@ -908,6 +909,35 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           <span>{statusInfo.label}</span>
                         </span>
 
+                        {/* Badge de Período (Diária, Semanal, Quinzenal, Mensal) */}
+                        {locacao.periodo && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                              backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
+                              color: 'var(--text-main)',
+                              border: '1px solid var(--border-hairline)',
+                            }}
+                          >
+                            <Clock size={13} />
+                            <span>
+                              {locacao.periodo === 'diaria'
+                                ? 'Diária'
+                                : locacao.periodo === 'semanal'
+                                ? 'Semanal'
+                                : locacao.periodo === 'quinzenal'
+                                ? 'Quinzenal'
+                                : 'Mensal'}
+                            </span>
+                          </span>
+                        )}
+
                         {/* Badge de Renovação (se renovado após vencimento) */}
                         {locacao.renovado && (
                           <span
@@ -1244,13 +1274,13 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           />
                         </div>
 
-                        {/* Atalhos Rápidos */}
+                        {/* Atalhos Rápidos por Período */}
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           {[
-                            { dias: 7, label: '+7 dias' },
-                            { dias: 15, label: '+15 dias' },
-                            { dias: 30, label: '+30 dias' },
-                            { dias: 60, label: '+60 dias' },
+                            { dias: 1, label: '+1 dia (Diária)' },
+                            { dias: 7, label: '+7 dias (Semanal)' },
+                            { dias: 15, label: '+15 dias (Quinzenal)' },
+                            { dias: 30, label: '+30 dias (Mensal)' },
                           ].map((btn) => (
                             <button
                               key={btn.dias}

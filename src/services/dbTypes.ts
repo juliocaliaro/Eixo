@@ -134,6 +134,7 @@ export interface RegistroLocacaoRow {
   id: string;
   obra_id: string;
   item_locado: string;
+  periodo?: string | null;
   data_vencimento: string;
   fotos: string[];
   fornecedor?: string | null;
@@ -305,6 +306,7 @@ export const mapLocacaoFromDb = (row: RegistroLocacaoRow): RegistroLocacao => {
     id: row.id,
     obraId: row.obra_id,
     itemLocado: row.item_locado,
+    periodo: (row.periodo as any) || undefined,
     dataVencimento: row.data_vencimento,
     fotos: Array.isArray(row.fotos) ? row.fotos : [],
     fornecedor: row.fornecedor || undefined,

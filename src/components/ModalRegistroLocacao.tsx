@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Calendar, BuildingApartment, Storefront } from '@phosphor-icons/react';
-import { Obra } from '../types/obra';
+import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront } from '@phosphor-icons/react';
+import { Obra, TipoPeriodoLocacao } from '../types/obra';
 
 export interface NovaLocacaoData {
   obraId: string;
   itemLocado: string;
+  periodo: TipoPeriodoLocacao;
   dataVencimento: string;
   fotos: string[];
   fornecedor?: string;
@@ -28,7 +29,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
   const [itemLocado, setItemLocado] = useState<string>('');
   const [fornecedor, setFornecedor] = useState<string>('');
-  const [dataVencimento, setDataVencimento] = useState<string>('');
+  const [periodo, setPeriodo] = useState<TipoPeriodoLocacao | ''>('');
   const [fotos, setFotos] = useState<string[]>([]);
   const [erro, setErro] = useState<string>('');
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
@@ -40,11 +41,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setItemLocado('');
       setFornecedor('');
-      // Sugere vencimento daqui a 30 dias por padrão
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      const defaultData = d.toISOString().split('T')[0];
-      setDataVencimento(defaultData);
+      setPeriodo('');
       setFotos([]);
       setErro('');
       setIsProcessingPhotos(false);
@@ -120,6 +117,15 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     setFotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const calcularDataVencimento = (p: TipoPeriodoLocacao): string => {
+    const d = new Date();
+    if (p === 'diaria') d.setDate(d.getDate() + 1);
+    else if (p === 'semanal') d.setDate(d.getDate() + 7);
+    else if (p === 'quinzenal') d.setDate(d.getDate() + 15);
+    else if (p === 'mensal') d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -133,15 +139,18 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       return;
     }
 
-    if (!dataVencimento.trim()) {
-      setErro('Informe a data de vencimento da locação.');
+    if (!periodo) {
+      setErro('Selecione o período da locação (Diária, Semanal, Quinzenal ou Mensal).');
       return;
     }
+
+    const dataVencimento = calcularDataVencimento(periodo);
 
     onSave({
       obraId,
       itemLocado: itemLocado.trim(),
-      dataVencimento: dataVencimento.trim(),
+      periodo,
+      dataVencimento,
       fotos,
       fornecedor: fornecedor.trim() || undefined,
     });
@@ -412,7 +421,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                 />
               </div>
 
-              {/* Data de Vencimento / Devolução */}
+              {/* Período da Locação (Diária, Semanal, Quinzenal, Mensal) */}
               <div>
                 <label
                   style={{
@@ -425,27 +434,34 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     marginBottom: 6,
                   }}
                 >
-                  <Calendar size={16} />
-                  <span>Data de Vencimento *</span>
+                  <Clock size={16} />
+                  <span>Período da Locação *</span>
                 </label>
-                <input
-                  type="date"
-                  value={dataVencimento}
+                <select
+                  value={periodo}
                   onChange={(e) => {
-                    setDataVencimento(e.target.value);
+                    setPeriodo(e.target.value as TipoPeriodoLocacao);
                     setErro('');
                   }}
-                  className="form-input"
+                  className="form-select"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
                     borderRadius: '6px',
                     border: '1px solid var(--border-hairline)',
                     fontSize: '0.92rem',
+                    backgroundColor: '#ffffff',
+                    color: 'var(--text-main)',
                     outline: 'none',
                   }}
                   required
-                />
+                >
+                  <option value="">Selecione o período...</option>
+                  <option value="diaria">Diária</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="quinzenal">Quinzenal</option>
+                  <option value="mensal">Mensal</option>
+                </select>
               </div>
             </div>
 
