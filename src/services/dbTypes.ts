@@ -140,6 +140,9 @@ export interface RegistroLocacaoRow {
   valor?: number | null;
   observacoes?: string | null;
   status?: string | null;
+  renovado?: boolean | null;
+  renovado_em?: string | null;
+  vencimento_original?: string | null;
   created_at: string;
 }
 
@@ -308,6 +311,9 @@ export const mapLocacaoFromDb = (row: RegistroLocacaoRow): RegistroLocacao => {
     valor: row.valor ? Number(row.valor) : undefined,
     observacoes: row.observacoes || undefined,
     status: (row.status as any) || 'ativo',
+    renovado: Boolean(row.renovado),
+    renovadoEm: row.renovado_em || undefined,
+    vencimentoOriginal: row.vencimento_original || undefined,
     criadoEm: row.created_at,
   };
 };

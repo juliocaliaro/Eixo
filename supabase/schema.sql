@@ -211,6 +211,9 @@ CREATE TABLE IF NOT EXISTS public.registro_locacoes (
     valor NUMERIC(12,2),
     observacoes TEXT,
     status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'devolvido')),
+    renovado BOOLEAN DEFAULT false,
+    renovado_em TIMESTAMPTZ,
+    vencimento_original DATE,
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

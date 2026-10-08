@@ -115,6 +115,9 @@ export interface RegistroLocacao {
   valor?: number; // Custo do aluguel/diária (opcional)
   observacoes?: string; // Detalhes ou notas técnicas (opcional)
   status?: 'ativo' | 'devolvido'; // Status da locação
+  renovado?: boolean; // Se a locação foi renovada após o vencimento
+  renovadoEm?: string; // Data em que a renovação foi registrada
+  vencimentoOriginal?: string; // Data de vencimento antes da renovação
   criadoEm: string;
 }
 

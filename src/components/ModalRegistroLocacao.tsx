@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Calendar, BuildingApartment } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Calendar, BuildingApartment, Storefront, ArrowsClockwise } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
-import { parseMoedaBR, formatarMoeda } from '../utils/moeda';
 
 export interface NovaLocacaoData {
   obraId: string;
@@ -9,8 +8,7 @@ export interface NovaLocacaoData {
   dataVencimento: string;
   fotos: string[];
   fornecedor?: string;
-  valor?: number;
-  observacoes?: string;
+  renovado?: boolean;
 }
 
 interface ModalRegistroLocacaoProps {
@@ -30,10 +28,9 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
 }) => {
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
   const [itemLocado, setItemLocado] = useState<string>('');
-  const [dataVencimento, setDataVencimento] = useState<string>('');
   const [fornecedor, setFornecedor] = useState<string>('');
-  const [valorStr, setValorStr] = useState<string>('');
-  const [observacoes, setObservacoes] = useState<string>('');
+  const [dataVencimento, setDataVencimento] = useState<string>('');
+  const [renovado, setRenovado] = useState<boolean>(false);
   const [fotos, setFotos] = useState<string[]>([]);
   const [erro, setErro] = useState<string>('');
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
@@ -44,14 +41,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     if (isOpen) {
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setItemLocado('');
-      // Sugere vencimento daqui a 30 dias por padrão caso queira
+      setFornecedor('');
+      // Sugere vencimento daqui a 30 dias por padrão
       const d = new Date();
       d.setDate(d.getDate() + 30);
       const defaultData = d.toISOString().split('T')[0];
       setDataVencimento(defaultData);
-      setFornecedor('');
-      setValorStr('');
-      setObservacoes('');
+      setRenovado(false);
       setFotos([]);
       setErro('');
       setIsProcessingPhotos(false);
@@ -145,16 +141,13 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       return;
     }
 
-    const valorNumerico = valorStr ? parseMoedaBR(valorStr) : undefined;
-
     onSave({
       obraId,
       itemLocado: itemLocado.trim(),
       dataVencimento: dataVencimento.trim(),
       fotos,
       fornecedor: fornecedor.trim() || undefined,
-      valor: valorNumerico && valorNumerico > 0 ? valorNumerico : undefined,
-      observacoes: observacoes.trim() || undefined,
+      renovado,
     });
   };
 
@@ -382,53 +375,137 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               />
             </div>
 
-            {/* 3. Data de Vencimento / Devolução (Obrigatório) */}
-            <div>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  marginBottom: 6,
-                }}
-              >
-                <Calendar size={16} />
-                <span>Data de Vencimento / Devolução *</span>
-              </label>
-              <input
-                type="date"
-                value={dataVencimento}
-                onChange={(e) => {
-                  setDataVencimento(e.target.value);
-                  setErro('');
-                }}
-                className="form-input"
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-hairline)',
-                  fontSize: '0.92rem',
-                  outline: 'none',
-                }}
-                required
-              />
-              <span
-                style={{
-                  fontSize: '0.76rem',
-                  color: 'var(--text-muted)',
-                  marginTop: 4,
-                  display: 'block',
-                }}
-              >
-                Data limite para renovação ou devolução do equipamento sem multas
-              </span>
+            {/* 3. Fornecedor / Locadora E Data de Vencimento lado a lado */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 14,
+              }}
+            >
+              {/* Fornecedor / Locadora */}
+              <div>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    marginBottom: 6,
+                  }}
+                >
+                  <Storefront size={16} />
+                  <span>Fornecedor / Locadora</span>
+                </label>
+                <input
+                  type="text"
+                  value={fornecedor}
+                  onChange={(e) => setFornecedor(e.target.value)}
+                  placeholder="Ex: LocaMais, Casa do Construtor..."
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-hairline)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              {/* Data de Vencimento / Devolução */}
+              <div>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    marginBottom: 6,
+                  }}
+                >
+                  <Calendar size={16} />
+                  <span>Data de Vencimento *</span>
+                </label>
+                <input
+                  type="date"
+                  value={dataVencimento}
+                  onChange={(e) => {
+                    setDataVencimento(e.target.value);
+                    setErro('');
+                  }}
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-hairline)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                  }}
+                  required
+                />
+              </div>
             </div>
 
-            {/* 4. Upload de Foto do Equipamento / Comprovante */}
+            {/* 4. Input clicável: "Renovei a locação após o vencimento programado" */}
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: renovado ? '1px solid var(--coral-glow-500, #e05a47)' : '1px solid var(--border-hairline)',
+                backgroundColor: renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#ffffff',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={renovado}
+                onChange={(e) => setRenovado(e.target.checked)}
+                style={{
+                  width: 18,
+                  height: 18,
+                  accentColor: 'var(--coral-glow-500, #e05a47)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span
+                  style={{
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <ArrowsClockwise size={15} weight={renovado ? 'bold' : 'regular'} color={renovado ? 'var(--coral-glow-500, #e05a47)' : 'currentColor'} />
+                  <span>Renovei a locação após o vencimento programado</span>
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.76rem',
+                    color: 'var(--text-muted)',
+                    marginTop: 2,
+                  }}
+                >
+                  Marque se este equipamento teve o contrato estendido além do prazo inicial
+                </span>
+              </div>
+            </label>
+
+            {/* 5. Upload de Foto do Equipamento / Comprovante */}
             <div>
               <label
                 style={{
@@ -571,115 +648,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Linha com 2 colunas: Fornecedor e Valor */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 12,
-              }}
-            >
-              {/* Fornecedor / Locadora */}
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  Fornecedor / Locadora
-                </label>
-                <input
-                  type="text"
-                  value={fornecedor}
-                  onChange={(e) => setFornecedor(e.target.value)}
-                  placeholder="Ex: LocaMais, Casa do Construtor..."
-                  className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-
-              {/* Valor do Aluguel (R$) */}
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  Valor da Locação (R$)
-                </label>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={valorStr}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    if (!raw) {
-                      setValorStr('');
-                      return;
-                    }
-                    const num = parseInt(raw, 10) / 100;
-                    setValorStr(formatarMoeda(num));
-                  }}
-                  placeholder="R$ 0,00"
-                  className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                    outline: 'none',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Observações / Notas Adicionais */}
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  marginBottom: 6,
-                }}
-              >
-                Observações do Contrato / Devolução
-              </label>
-              <textarea
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Ex: Contrato nº 4891, retirar na filial norte, chave do operador inclusa..."
-                rows={2}
-                className="form-textarea"
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-hairline)',
-                  fontSize: '0.92rem',
-                  outline: 'none',
-                  resize: 'vertical',
-                }}
-              />
             </div>
           </div>
 

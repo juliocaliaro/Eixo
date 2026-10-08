@@ -455,6 +455,9 @@ export const obrasApi = {
                 valor: loc.valor || null,
                 observacoes: loc.observacoes || null,
                 status: loc.status || 'ativo',
+                renovado: loc.renovado || false,
+                renovado_em: loc.renovadoEm || null,
+                vencimento_original: loc.vencimentoOriginal || null,
                 created_at: loc.criadoEm || new Date().toISOString(),
               });
             } catch (locErr) {
