@@ -105,6 +105,19 @@ export interface RegistroNota {
   criadoEm: string;
 }
 
+export interface RegistroLocacao {
+  id: string;
+  obraId: string;
+  itemLocado: string; // Descrição livre do que foi locado
+  dataVencimento: string; // Data de vencimento/devolução (YYYY-MM-DD)
+  fotos: string[]; // Upload de fotos do equipamento/comprovante
+  fornecedor?: string; // Nome da locadora ou fornecedor (opcional)
+  valor?: number; // Custo do aluguel/diária (opcional)
+  observacoes?: string; // Detalhes ou notas técnicas (opcional)
+  status?: 'ativo' | 'devolvido'; // Status da locação
+  criadoEm: string;
+}
+
 export interface Obra {
   id: string;
   nome: string;
@@ -121,6 +134,7 @@ export interface Obra {
   projetos?: ProjetoPDF[];
   materiais?: RegistroMaterial[];
   notas?: RegistroNota[];
+  locacoes?: RegistroLocacao[];
   construtorId?: string;
   clienteId?: string;
 }

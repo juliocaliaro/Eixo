@@ -5,6 +5,7 @@ import {
   Decisao,
   ProjetoPDF,
   RegistroNota,
+  RegistroLocacao,
   PunchListItem,
   StatusCronograma,
   StatusDecisao,
@@ -129,6 +130,19 @@ export interface PunchListItemRow {
   created_at: string;
 }
 
+export interface RegistroLocacaoRow {
+  id: string;
+  obra_id: string;
+  item_locado: string;
+  data_vencimento: string;
+  fotos: string[];
+  fornecedor?: string | null;
+  valor?: number | null;
+  observacoes?: string | null;
+  status?: string | null;
+  created_at: string;
+}
+
 // ==============================================================================
 // DATA MAPPERS (CONVERSÃO DE TIPOS BANCO <-> APLICAÇÃO)
 // ==============================================================================
@@ -139,7 +153,8 @@ export const mapObraFromDb = (
   decisoes: Decisao[] = [],
   projetos: ProjetoPDF[] = [],
   notas: RegistroNota[] = [],
-  punchList: PunchListItem[] = []
+  punchList: PunchListItem[] = [],
+  locacoes: RegistroLocacao[] = []
 ): Obra => {
   return {
     id: row.id,
@@ -157,6 +172,7 @@ export const mapObraFromDb = (
     projetos,
     notas,
     punchList,
+    locacoes,
   };
 };
 
@@ -278,5 +294,20 @@ export const mapPunchItemFromDb = (row: PunchListItemRow): PunchListItem => {
     ambiente: row.ambiente || 'Geral',
     concluido: row.concluido,
     concluidoEm: row.concluido_em || undefined,
+  };
+};
+
+export const mapLocacaoFromDb = (row: RegistroLocacaoRow): RegistroLocacao => {
+  return {
+    id: row.id,
+    obraId: row.obra_id,
+    itemLocado: row.item_locado,
+    dataVencimento: row.data_vencimento,
+    fotos: Array.isArray(row.fotos) ? row.fotos : [],
+    fornecedor: row.fornecedor || undefined,
+    valor: row.valor ? Number(row.valor) : undefined,
+    observacoes: row.observacoes || undefined,
+    status: (row.status as any) || 'ativo',
+    criadoEm: row.created_at,
   };
 };

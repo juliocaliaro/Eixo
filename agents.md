@@ -527,5 +527,32 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Construtor possui permissões plenas de gerenciamento (`CRUD`) nas suas obras, etapas, tarefas, projetos e notas.
   - Cliente possui permissão de leitura (`SELECT`) nas obras associadas e permissão ativa exclusiva (`INSERT` / `UPDATE`) na tabela `decisoes` e `decisao_assinaturas`.
 
+---
+
+## 24. Módulo de Registro de Locação (Equipamentos & Maquinários)
+
+- **Acesso pelo Menu Principal (`SandwichMenu.tsx`)**:
+  - Item "Registro de Locação" integrado no menu lateral da aplicação, com acesso direto e fechamento automático ao navegar.
+  - Sincronização em tempo real de URL via parâmetro `?view=locacoes`, garantindo que atualizar a página (F5) mantenha a visualização aberta.
+- **Formulário de Cadastro (`ModalRegistroLocacao.tsx`)**:
+  - **Upload de foto**: foto do maquinário, ferramenta ou comprovante/recibo com compressão inteligente via `<canvas>` e upload para bucket de armazenamento.
+  - **O que foi locado**: campo de texto livre obrigatório para descrição detalhada (ex: *Andaime Fachadeiro 12m*, *Betoneira 400L*).
+  - **Data de vencimento**: campo de data obrigatório para controle de prazos de devolução ou renovação sem multas.
+  - **Obra vinculada**: seletor dropdown obrigatório vinculando o item diretamente à obra selecionada.
+  - Campos adicionais opcionais: fornecedor/locadora, valor do aluguel em R$ com formatação monetária brasileira e observações contratuais.
+- **Painel Executivo e KPIs (`RegistroLocacoesPage.tsx`)**:
+  - Indicadores rápidos no topo: *Total de Locações*, *Ativos no Canteiro*, *Vencidos / Próximos* e *Devolvidos*.
+  - Filtros dinâmicos por Obra (seletor), Busca textual livre e Abas de status (*Todos*, *Ativos*, *Vencidos / Próximos*, *Devolvidos*).
+  - Badges inteligentes de vencimento calculados em tempo real:
+    - Vencido há X dias (alerta vermelho).
+    - Vence Hoje (alerta âmbar).
+    - Vence em X dias (aviso preventivo nos últimos 3 dias).
+    - No prazo / Em dia com data formatada (DD/MM/AAAA).
+  - Ações rápidas de devolução/reativação em 1 clique e exclusão com `ModalConfirm`.
+  - Visualização ampliada de fotos via Lightbox de alta definição com suporte à tecla Escape.
+- **Persistência e Isolamento por Usuário**:
+  - Tabela `public.registro_locacoes` criada no PostgreSQL com chaves estrangeiras, índices e políticas de Row Level Security (RLS).
+  - Sincronização bidirecional na nuvem (`obrasApi.saveAll`, `obrasApi.list`, `locacoesApi`) e cache local isolado por ID do usuário autenticado.
+
 
 

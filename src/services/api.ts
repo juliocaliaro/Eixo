@@ -4,6 +4,7 @@ import {
   Decisao,
   ProjetoPDF,
   RegistroNota,
+  RegistroLocacao,
   AssinaturaDecisao,
   PerfilUsuario,
   PresetTipoObra,
@@ -27,6 +28,7 @@ import {
   mapProjetoFromDb,
   mapNotaFromDb,
   mapPunchItemFromDb,
+  mapLocacaoFromDb,
   ObraRow,
   EtapaRow,
   TarefaRow,
@@ -36,6 +38,7 @@ import {
   ProjetoPdfRow,
   RegistroNotaRow,
   PunchListItemRow,
+  RegistroLocacaoRow,
 } from './dbTypes';
 
 // ==============================================================================
@@ -157,13 +160,28 @@ export const obrasApi = {
 
           const punchMapeado = (punchData || []).map((p: PunchListItemRow) => mapPunchItemFromDb(p));
 
+          // 6. Registro de Locações
+          let locacoesMapeadas: RegistroLocacao[] = [];
+          try {
+            const { data: locacoesData } = await supabase!
+              .from('registro_locacoes')
+              .select('*')
+              .eq('obra_id', row.id)
+              .order('data_vencimento', { ascending: true });
+
+            locacoesMapeadas = (locacoesData || []).map((l: RegistroLocacaoRow) => mapLocacaoFromDb(l));
+          } catch {
+            // Se a tabela ainda não foi criada no banco, mantém seguro
+          }
+
           return mapObraFromDb(
             row,
             etapasMapeadas,
             decisoesMapeadas,
             projetosMapeados,
             notasMapeadas,
-            punchMapeado
+            punchMapeado,
+            locacoesMapeadas
           );
         })
       );
@@ -406,6 +424,44 @@ export const obrasApi = {
             }
           }
         }
+
+        // 7. Registro de Locações
+        if (obra.locacoes && obra.locacoes.length > 0) {
+          for (const loc of obra.locacoes) {
+            const fotosProcessadas: string[] = [];
+            for (let i = 0; i < (loc.fotos || []).length; i++) {
+              const foto = loc.fotos[i];
+              if (foto.startsWith('data:')) {
+                const urlRemota = await storageApi.uploadDataUrl(
+                  'registro-notas',
+                  `${obra.id}/locacoes/${loc.id}_${i}`,
+                  foto
+                );
+                fotosProcessadas.push(urlRemota);
+              } else {
+                fotosProcessadas.push(foto);
+              }
+            }
+            loc.fotos = fotosProcessadas;
+
+            try {
+              await supabase.from('registro_locacoes').upsert({
+                id: loc.id,
+                obra_id: obra.id,
+                item_locado: loc.itemLocado,
+                data_vencimento: loc.dataVencimento,
+                fotos: fotosProcessadas,
+                fornecedor: loc.fornecedor || null,
+                valor: loc.valor || null,
+                observacoes: loc.observacoes || null,
+                status: loc.status || 'ativo',
+                created_at: loc.criadoEm || new Date().toISOString(),
+              });
+            } catch (locErr) {
+              // Graceful se tabela ainda não criada
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn('Erro ao sincronizar obras completas com Supabase:', err);
@@ -501,6 +557,37 @@ export const decisoesApi = {
         .eq('id', decisaoId);
     } catch (err) {
       console.error('Erro ao recusar decisão no Supabase:', err);
+    }
+  },
+};
+
+export const locacoesApi = {
+  async delete(locacaoId: string): Promise<void> {
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('registro_locacoes').delete().eq('id', locacaoId);
+    } catch (err) {
+      console.warn('Erro ao excluir registro de locação no Supabase:', err);
+    }
+  },
+
+  async updateStatus(locacaoId: string, status: 'ativo' | 'devolvido'): Promise<void> {
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('registro_locacoes').update({ status }).eq('id', locacaoId);
+    } catch (err) {
+      console.warn('Erro ao atualizar status da locação no Supabase:', err);
+    }
+  },
+};
+
+export const notasApi = {
+  async delete(notaId: string): Promise<void> {
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      await supabase.from('registro_notas').delete().eq('id', notaId);
+    } catch (err) {
+      console.warn('Erro ao excluir nota no Supabase:', err);
     }
   },
 };

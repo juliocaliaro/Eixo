@@ -20,6 +20,9 @@ const PublicUploadProjetoPage = React.lazy(() =>
 const RegistroNotasPage = React.lazy(() =>
   import('./components/RegistroNotasPage').then((m) => ({ default: m.RegistroNotasPage }))
 );
+const RegistroLocacoesPage = React.lazy(() =>
+  import('./components/RegistroLocacoesPage').then((m) => ({ default: m.RegistroLocacoesPage }))
+);
 
 export const App: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(() => {
@@ -55,6 +58,14 @@ export const App: React.FC = () => {
     try {
       const params = new URLSearchParams(window.location.search);
       return params.get('view') === 'notas';
+    } catch {
+      return false;
+    }
+  });
+  const [isRegistroLocacoesPageOpen, setIsRegistroLocacoesPageOpen] = useState<boolean>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') === 'locacoes';
     } catch {
       return false;
     }
@@ -222,6 +233,8 @@ export const App: React.FC = () => {
 
       if (isRegistroNotasPageOpen) {
         url.searchParams.set('view', 'notas');
+      } else if (isRegistroLocacoesPageOpen) {
+        url.searchParams.set('view', 'locacoes');
       } else {
         url.searchParams.delete('view');
       }
@@ -230,7 +243,7 @@ export const App: React.FC = () => {
         window.history.replaceState({}, '', url.toString());
       }
     } catch {}
-  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId, isRegistroNotasPageOpen]);
+  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId, isRegistroNotasPageOpen, isRegistroLocacoesPageOpen]);
 
   // -------------------------------------------------------
   // visualViewport: mantém --vvh sempre igual à altura real
@@ -483,6 +496,8 @@ export const App: React.FC = () => {
   // Navegação para dentro de uma obra
   const handleSelectObra = (id: string) => {
     setIsConfigOpen(false);
+    setIsRegistroNotasPageOpen(false);
+    setIsRegistroLocacoesPageOpen(false);
     setCurrentObraId(id);
     try {
       const url = new URL(window.location.href);
@@ -507,6 +522,7 @@ export const App: React.FC = () => {
     setCurrentObraId(null);
     setIsConfigOpen(false);
     setIsRegistroNotasPageOpen(false);
+    setIsRegistroLocacoesPageOpen(false);
     try {
       const url = new URL(window.location.href);
       url.searchParams.delete('obra');
@@ -974,7 +990,13 @@ export const App: React.FC = () => {
         onOpenCreateObra={() => setIsCreateObraOpen(true)}
         onOpenRegistroNota={() => {
           setIsConfigOpen(false);
+          setIsRegistroLocacoesPageOpen(false);
           setIsRegistroNotasPageOpen(true);
+        }}
+        onOpenRegistroLocacao={() => {
+          setIsConfigOpen(false);
+          setIsRegistroNotasPageOpen(false);
+          setIsRegistroLocacoesPageOpen(true);
         }}
         userName={userName}
         userEmail={userEmail}
@@ -1003,6 +1025,16 @@ export const App: React.FC = () => {
               obras={obras}
               onUpdateObra={handleUpdateObra}
               onBack={() => setIsRegistroNotasPageOpen(false)}
+              showToast={showToast}
+              perfilAtivo={perfilAtivo}
+            />
+          </React.Suspense>
+        ) : isRegistroLocacoesPageOpen ? (
+          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de locação...</div>}>
+            <RegistroLocacoesPage
+              obras={obras}
+              onUpdateObra={handleUpdateObra}
+              onBack={() => setIsRegistroLocacoesPageOpen(false)}
               showToast={showToast}
               perfilAtivo={perfilAtivo}
             />

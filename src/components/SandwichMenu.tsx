@@ -28,6 +28,8 @@ export interface SandwichMenuProps {
   onOpenCreateObra?: () => void;
   // Registro de Notas
   onOpenRegistroNota?: () => void;
+  // Registro de Locação
+  onOpenRegistroLocacao?: () => void;
   // Configurações de Modelos
   onOpenSettings?: () => void;
   // Navegação
@@ -50,6 +52,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
   onNavigateToDecisao,
   onOpenCreateObra,
   onOpenRegistroNota,
+  onOpenRegistroLocacao,
   onOpenSettings,
   onBackToObras,
   perfilAtivo,
@@ -244,6 +247,38 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <span>Registro de notas</span>
+            </button>
+          )}
+
+          {/* 3. Registro de locação */}
+          {onOpenRegistroLocacao && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenRegistroLocacao();
+              }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                minHeight: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: 'none',
+                borderBottom: '1px solid var(--border-hairline)',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '0.94rem',
+                fontWeight: 600,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span>Registro de Locação</span>
             </button>
           )}
         </div>

@@ -3,7 +3,7 @@
  * Garante que todas as entidades possuam identificadores válidos no formato UUID v4.
  */
 
-import { Obra, Etapa, Tarefa, Decisao, ProjetoPDF, RegistroNota, PunchListItem } from '../types/obra';
+import { Obra, Etapa, Tarefa, Decisao, ProjetoPDF, RegistroNota, PunchListItem, RegistroLocacao } from '../types/obra';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -115,6 +115,15 @@ export function sanitizeObraUUIDs(obra: Obra, userId?: string): Obra {
     };
   });
 
+  // Locações
+  const locacoesSanitizadas: RegistroLocacao[] = (obra.locacoes || []).map((loc) => {
+    return {
+      ...loc,
+      id: getOrAssignUUID(loc.id),
+      obraId: newObraId,
+    };
+  });
+
   return {
     ...obra,
     id: newObraId,
@@ -124,5 +133,6 @@ export function sanitizeObraUUIDs(obra: Obra, userId?: string): Obra {
     projetos: projetosSanitizados,
     notas: notasSanitizadas,
     punchList: punchSanitizado,
+    locacoes: locacoesSanitizadas,
   };
 }

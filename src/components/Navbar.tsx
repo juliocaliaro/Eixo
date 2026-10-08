@@ -22,6 +22,7 @@ interface NavbarProps {
   onLogout?: () => void;
   onOpenCreateObra?: () => void;
   onOpenRegistroNota?: () => void;
+  onOpenRegistroLocacao?: () => void;
   userName?: string;
   userEmail?: string;
   userEmpresa?: string;
@@ -43,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenCreateObra,
   onOpenRegistroNota,
+  onOpenRegistroLocacao,
   userName = '',
   userEmail = '',
   userEmpresa = '',
@@ -330,6 +332,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         onNavigateToDecisao={onNavigateToDecisao}
         onOpenCreateObra={onOpenCreateObra}
         onOpenRegistroNota={onOpenRegistroNota}
+        onOpenRegistroLocacao={onOpenRegistroLocacao}
         onOpenSettings={onOpenSettings}
         onBackToObras={onBackToObras}
         perfilAtivo={perfilAtivo}

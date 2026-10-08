@@ -200,6 +200,22 @@ CREATE TABLE IF NOT EXISTS public.modelos_etapas_templates (
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 13. Tabela de Registro de Locações de Equipamentos e Maquinários
+CREATE TABLE IF NOT EXISTS public.registro_locacoes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    obra_id UUID NOT NULL REFERENCES public.obras(id) ON DELETE CASCADE,
+    item_locado TEXT NOT NULL,
+    data_vencimento DATE NOT NULL,
+    fotos JSONB DEFAULT '[]'::jsonb NOT NULL,
+    fornecedor VARCHAR(255),
+    valor NUMERIC(12,2),
+    observacoes TEXT,
+    status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'devolvido')),
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_locacoes_obra ON public.registro_locacoes(obra_id);
+
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) - CONTROLE DE ACESSO CONSTRUTOR VS CLIENTE
 -- ==============================================================================
@@ -213,6 +229,7 @@ ALTER TABLE public.decisoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.decisao_assinaturas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.projetos_pdf ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.registro_notas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registro_locacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.punch_list_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.modelos_etapas_templates ENABLE ROW LEVEL SECURITY;
 
@@ -408,6 +425,27 @@ CREATE POLICY "Construtor gerencia vistoria final"
         EXISTS (
             SELECT 1 FROM public.obras o
             WHERE o.id = punch_list_items.obra_id
+            AND o.construtor_id = auth.uid()
+        )
+    );
+
+-- Políticas de Registro de Locações
+CREATE POLICY "Ver registro de locações"
+    ON public.registro_locacoes FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.obras o
+            WHERE o.id = registro_locacoes.obra_id
+            AND (o.construtor_id = auth.uid() OR o.cliente_id = auth.uid())
+        )
+    );
+
+CREATE POLICY "Construtor gerencia locações"
+    ON public.registro_locacoes FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.obras o
+            WHERE o.id = registro_locacoes.obra_id
             AND o.construtor_id = auth.uid()
         )
     );
