@@ -46,12 +46,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
   // Lightbox de foto
   const [lightboxFoto, setLightboxFoto] = useState<{ url: string; titulo?: string } | null>(null);
 
-  // Renovação de locação
-  const [renovacaoTarget, setRenovacaoTarget] = useState<{
-    obraId: string;
-    locacao: RegistroLocacao;
-  } | null>(null);
-  const [novaDataRenovacao, setNovaDataRenovacao] = useState<string>('');
+  // Prolongamento / Renovação inline de locação no card
+  const [prolongandoLocacaoId, setProlongandoLocacaoId] = useState<string | null>(null);
+  const [novaDataProlongada, setNovaDataProlongada] = useState<string>('');
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -268,56 +265,51 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     );
   };
 
-  // Abrir modal de renovação
-  const handleOpenRenovacaoModal = (obraId: string, locacao: RegistroLocacao) => {
+  // Iniciar fluxo para prolongar o prazo no card
+  const handleIniciarProlongamento = (locacao: RegistroLocacao) => {
     const base = locacao.dataVencimento
       ? new Date(locacao.dataVencimento.split('T')[0])
       : new Date();
     base.setDate(base.getDate() + 30);
-    setNovaDataRenovacao(base.toISOString().split('T')[0]);
-    setRenovacaoTarget({ obraId, locacao });
+    setNovaDataProlongada(base.toISOString().split('T')[0]);
+    setProlongandoLocacaoId(locacao.id);
   };
 
-  // Alternar estado de renovação
-  const handleToggleRenovado = (obraId: string, locacao: RegistroLocacao) => {
+  // Desfazer renovação (desmarcar checkbox)
+  const handleDesfazerRenovacao = (obraId: string, locacao: RegistroLocacao) => {
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
-    if (locacao.renovado) {
-      const dataRestaurada = locacao.vencimentoOriginal || locacao.dataVencimento;
-      const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-        if (l.id === locacao.id) {
-          return {
-            ...l,
-            renovado: false,
-            renovadoEm: undefined,
-            dataVencimento: dataRestaurada,
-          };
-        }
-        return l;
-      });
+    const dataRestaurada = locacao.vencimentoOriginal || locacao.dataVencimento;
+    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
+      if (l.id === locacao.id) {
+        return {
+          ...l,
+          renovado: false,
+          renovadoEm: undefined,
+          dataVencimento: dataRestaurada,
+        };
+      }
+      return l;
+    });
 
-      onUpdateObra({
-        ...obraAlvo,
-        locacoes: updatedLocacoes,
-      });
+    onUpdateObra({
+      ...obraAlvo,
+      locacoes: updatedLocacoes,
+    });
+    setProlongandoLocacaoId(null);
 
-      showToast(
-        'Renovação Desfeita',
-        `A locação de "${locacao.itemLocado}" retornou para o vencimento original (${formatarData(dataRestaurada)}).`,
-        'info'
-      );
-    } else {
-      handleOpenRenovacaoModal(obraId, locacao);
-    }
+    showToast(
+      'Renovação Desfeita',
+      `A locação de "${locacao.itemLocado}" retornou para o vencimento original (${formatarData(dataRestaurada)}).`,
+      'info'
+    );
   };
 
-  // Confirmar renovação com nova data de vencimento
-  const handleConfirmRenovacao = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renovacaoTarget || !novaDataRenovacao.trim()) return;
+  // Salvar novo prazo prolongado
+  const handleSalvarProlongamento = (obraId: string, locacao: RegistroLocacao) => {
+    if (!novaDataProlongada.trim()) return;
 
-    const { obraId, locacao } = renovacaoTarget;
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
@@ -327,7 +319,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       if (l.id === locacao.id) {
         return {
           ...l,
-          dataVencimento: novaDataRenovacao.trim(),
+          dataVencimento: novaDataProlongada.trim(),
           vencimentoOriginal,
           renovado: true,
           renovadoEm: new Date().toISOString(),
@@ -337,17 +329,15 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       return l;
     });
 
-    const updatedObra: Obra = {
+    onUpdateObra({
       ...obraAlvo,
       locacoes: updatedLocacoes,
-    };
-
-    onUpdateObra(updatedObra);
-    setRenovacaoTarget(null);
+    });
+    setProlongandoLocacaoId(null);
 
     showToast(
-      'Locação Renovada!',
-      `O prazo de "${locacao.itemLocado}" foi estendido para ${formatarData(novaDataRenovacao)}.`,
+      'Locação Prolongada!',
+      `O prazo de "${locacao.itemLocado}" foi estendido para ${formatarData(novaDataProlongada)}.`,
       'success'
     );
   };
@@ -1099,91 +1089,231 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                   )}
                 </div>
 
-                {/* Opção de Renovação: no registro já criado */}
+                {/* Opção de Renovação / Prolongamento: no card já criado */}
                 <div
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: '6px',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
                     backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
-                    border: locacao.renovado ? '1px solid var(--coral-glow-500, #e05a47)' : '1px dashed var(--border-hairline)',
+                    border: locacao.renovado
+                      ? '1px solid var(--coral-glow-500, #e05a47)'
+                      : '1px dashed var(--border-hairline)',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 10,
+                    flexDirection: 'column',
+                    gap: 12,
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <label
+                  <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
                       gap: 10,
-                      cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
-                      userSelect: 'none',
-                      flex: '1 1 280px',
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(locacao.renovado)}
-                      disabled={perfilAtivo !== 'construtor'}
-                      onChange={() => {
-                        if (locacao.renovado) {
-                          handleToggleRenovado(obra.id, locacao);
-                        } else {
-                          handleOpenRenovacaoModal(obra.id, locacao);
-                        }
-                      }}
+                    <label
                       style={{
-                        width: 18,
-                        height: 18,
-                        accentColor: 'var(--coral-glow-500, #e05a47)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
                         cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span
-                        style={{
-                          fontSize: '0.86rem',
-                          fontWeight: 600,
-                          color: 'var(--text-main)',
-                          lineHeight: 1.25,
-                        }}
-                      >
-                        Renovei a locação após o vencimento programado
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.74rem',
-                          color: 'var(--text-muted)',
-                          marginTop: 2,
-                        }}
-                      >
-                        Marque se este equipamento teve o contrato estendido além do prazo inicial
-                      </span>
-                    </div>
-                  </label>
-
-                  {locacao.renovado && perfilAtivo === 'construtor' && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenRenovacaoModal(obra.id, locacao)}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        color: 'var(--coral-glow-500, #e05a47)',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        textDecoration: 'underline',
+                        userSelect: 'none',
+                        flex: '1 1 280px',
                       }}
                     >
-                      Alterar data estendida
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(locacao.renovado)}
+                        disabled={perfilAtivo !== 'construtor'}
+                        onChange={() => {
+                          if (locacao.renovado) {
+                            handleDesfazerRenovacao(obra.id, locacao);
+                          } else {
+                            handleIniciarProlongamento(locacao);
+                          }
+                        }}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          accentColor: 'var(--coral-glow-500, #e05a47)',
+                          cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span
+                          style={{
+                            fontSize: '0.86rem',
+                            fontWeight: 600,
+                            color: 'var(--text-main)',
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          Renovei a locação após o vencimento programado
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.74rem',
+                            color: 'var(--text-muted)',
+                            marginTop: 2,
+                          }}
+                        >
+                          Marque se este equipamento teve o contrato estendido além do prazo inicial
+                        </span>
+                      </div>
+                    </label>
+
+                    {perfilAtivo === 'construtor' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (prolongandoLocacaoId === locacao.id) {
+                            setProlongandoLocacaoId(null);
+                          } else {
+                            handleIniciarProlongamento(locacao);
+                          }
+                        }}
+                        className="btn-secondary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          minHeight: 34,
+                          fontSize: '0.8rem',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          color: locacao.renovado ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-main)',
+                        }}
+                        title={locacao.renovado ? 'Alterar nova data estendida' : 'Prolongar prazo de vencimento'}
+                      >
+                        <ArrowsClockwise size={15} weight="bold" />
+                        <span>
+                          {locacao.renovado
+                            ? (prolongandoLocacaoId === locacao.id ? 'Fechar Edição' : 'Prolongar Mais / Alterar Data')
+                            : (prolongandoLocacaoId === locacao.id ? 'Cancelar' : 'Prolongar')}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Painel Inline de Prolongamento / Nova Data de Vencimento */}
+                  {prolongandoLocacaoId === locacao.id && perfilAtivo === 'construtor' && (
+                    <div
+                      style={{
+                        borderTop: '1px solid var(--border-hairline)',
+                        paddingTop: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                        backgroundColor: '#ffffff',
+                        padding: '12px 14px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-hairline)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                          {locacao.renovado ? 'Alterar prazo estendido:' : 'Definir novo vencimento da locação:'}
+                        </span>
+                        {locacao.dataVencimento && (
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            Vencimento atual: <strong>{formatarData(locacao.dataVencimento)}</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px' }}>
+                          <input
+                            type="date"
+                            value={novaDataProlongada}
+                            onChange={(e) => setNovaDataProlongada(e.target.value)}
+                            className="form-input"
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border-hairline)',
+                              fontSize: '0.88rem',
+                              outline: 'none',
+                            }}
+                            required
+                          />
+                        </div>
+
+                        {/* Atalhos Rápidos */}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {[
+                            { dias: 7, label: '+7 dias' },
+                            { dias: 15, label: '+15 dias' },
+                            { dias: 30, label: '+30 dias' },
+                            { dias: 60, label: '+60 dias' },
+                          ].map((btn) => (
+                            <button
+                              key={btn.dias}
+                              type="button"
+                              onClick={() => {
+                                const base = locacao.dataVencimento
+                                  ? new Date(locacao.dataVencimento.split('T')[0])
+                                  : new Date();
+                                base.setDate(base.getDate() + btn.dias);
+                                setNovaDataProlongada(base.toISOString().split('T')[0]);
+                              }}
+                              style={{
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-hairline)',
+                                backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
+                                color: 'var(--text-main)',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {btn.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Ações de Salvar / Cancelar */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                        <button
+                          type="button"
+                          onClick={() => setProlongandoLocacaoId(null)}
+                          className="btn-secondary"
+                          style={{
+                            padding: '6px 14px',
+                            fontSize: '0.82rem',
+                            borderRadius: '6px',
+                            minHeight: 34,
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSalvarProlongamento(obra.id, locacao)}
+                          className="btn-primary"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '6px 14px',
+                            fontSize: '0.82rem',
+                            borderRadius: '6px',
+                            minHeight: 34,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <FloppyDisk size={15} weight="bold" />
+                          <span>Confirmar Prolongamento</span>
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1201,228 +1331,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         onSave={handleSaveLocacao}
       />
 
-      {/* Modal Interativo de Renovação de Locação */}
-      {renovacaoTarget && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setRenovacaoTarget(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(26, 19, 10, 0.65)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="modal-container"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              backgroundColor: '#ffffff',
-              borderRadius: 'var(--radius-lg, 12px)',
-              boxShadow: 'var(--shadow-xl)',
-              overflow: 'hidden',
-              border: '1px solid var(--border-hairline)',
-            }}
-          >
-            {/* Cabeçalho */}
-            <div
-              style={{
-                padding: '16px 20px',
-                borderBottom: '1px solid var(--border-hairline)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: '8px',
-                    backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                    color: 'var(--coral-glow-500, #e05a47)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <ArrowsClockwise size={20} weight="bold" />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
-                    Renovar Locação
-                  </h3>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Estender prazo após o vencimento programado
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRenovacaoTarget(null)}
-                className="btn-icon"
-                style={{
-                  width: 32,
-                  height: 32,
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <X size={18} weight="bold" />
-              </button>
-            </div>
 
-            {/* Corpo */}
-            <form onSubmit={handleConfirmRenovacao} style={{ padding: '20px' }}>
-              <div style={{ marginBottom: 16 }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>
-                  Equipamento / Máquina
-                </span>
-                <strong style={{ fontSize: '1rem', color: 'var(--text-main)', display: 'block', marginTop: 2 }}>
-                  {renovacaoTarget.locacao.itemLocado}
-                </strong>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Vencimento atual:
-                  </span>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                    {formatarData(renovacaoTarget.locacao.dataVencimento)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Seletor de Nova Data */}
-              <div style={{ marginBottom: 16 }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  <CalendarBlank size={16} />
-                  <span>Nova Data de Vencimento *</span>
-                </label>
-                <input
-                  type="date"
-                  value={novaDataRenovacao}
-                  onChange={(e) => setNovaDataRenovacao(e.target.value)}
-                  className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                    outline: 'none',
-                  }}
-                  required
-                />
-              </div>
-
-              {/* Atalhos Rápidos de Extensão */}
-              <div style={{ marginBottom: 20 }}>
-                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
-                  Extensão rápida a partir de hoje:
-                </span>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {[
-                    { dias: 7, label: '+7 dias' },
-                    { dias: 15, label: '+15 dias' },
-                    { dias: 30, label: '+30 dias' },
-                    { dias: 60, label: '+60 dias' },
-                  ].map((btn) => (
-                    <button
-                      key={btn.dias}
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + btn.dias);
-                        setNovaDataRenovacao(d.toISOString().split('T')[0]);
-                      }}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        border: '1px solid var(--border-hairline)',
-                        backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                        color: 'var(--text-main)',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Botões de Ação */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: 10,
-                  borderTop: '1px solid var(--border-hairline)',
-                  paddingTop: 16,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setRenovacaoTarget(null)}
-                  className="btn-secondary"
-                  style={{
-                    padding: '8px 16px',
-                    minHeight: 40,
-                    borderRadius: '6px',
-                    fontSize: '0.88rem',
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  style={{
-                    padding: '8px 18px',
-                    minHeight: 40,
-                    borderRadius: '6px',
-                    fontSize: '0.88rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontWeight: 600,
-                  }}
-                >
-                  <FloppyDisk size={16} weight="bold" />
-                  <span>Confirmar Renovação</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Modal de Confirmação de Exclusão */}
       <ModalConfirm
