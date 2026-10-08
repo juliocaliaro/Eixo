@@ -838,7 +838,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
           )}
         </div>
       ) : (
-        <div className="locacoes-cards-grid">
+        <div className="locacoes-cards-grid" style={{ alignItems: 'start' }}>
           {locacoesFiltradas.map(({ locacao, obra }) => {
             const statusInfo = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
             const primeiraFoto = (locacao.fotos && locacao.fotos.length > 0) ? locacao.fotos[0] : null;
@@ -848,6 +848,8 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                 key={locacao.id}
                 className="locacao-card"
                 style={{
+                  alignSelf: 'start',
+                  height: 'fit-content',
                   opacity: locacao.status === 'devolvido' ? 0.78 : 1,
                   borderLeft: statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje'
                     ? '3px solid #b91c1c'
@@ -1137,72 +1139,44 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                   </div>
                 )}
 
-                {/* 4. Bloco de Renovação / Prolongamento no Card */}
-                <div
-                  style={{
-                    padding: '8px 10px',
-                    borderTop: '1px solid var(--border-hairline)',
-                    backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8,
-                  }}
-                >
+                {/* 4. Bloco de Prolongamento no Card (sem input checkbox Renovar) */}
                   <div
                     style={{
+                      padding: '8px 10px',
+                      borderTop: '1px solid var(--border-hairline)',
+                      backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 6,
+                      flexDirection: 'column',
+                      gap: 8,
                     }}
                   >
-                    <label
+                    <div
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: locacao.renovado ? 'space-between' : 'flex-end',
                         gap: 6,
-                        cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
-                        userSelect: 'none',
-                        flex: 1,
-                        minWidth: 0,
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={Boolean(locacao.renovado)}
-                        disabled={perfilAtivo !== 'construtor'}
-                        onChange={() => {
-                          if (locacao.renovado) {
-                            handleDesfazerRenovacao(obra.id, locacao);
-                          } else {
-                            handleIniciarProlongamento(locacao);
-                          }
-                        }}
-                        style={{
-                          width: 15,
-                          height: 15,
-                          accentColor: 'var(--coral-glow-500, #e05a47)',
-                          cursor: perfilAtivo === 'construtor' ? 'pointer' : 'default',
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          color: 'var(--text-main)',
-                          lineHeight: 1.15,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                        title="Renovei a locação após o vencimento programado"
-                      >
-                        {locacao.renovado ? 'Renovado' : 'Renovar'}
-                      </span>
-                    </label>
+                      {locacao.renovado && perfilAtivo === 'construtor' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDesfazerRenovacao(obra.id, locacao)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.70rem',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            padding: 0,
+                          }}
+                          title="Restaurar prazo original da locação"
+                        >
+                          Desfazer renovação
+                        </button>
+                      )}
 
-                    {perfilAtivo === 'construtor' && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1217,20 +1191,20 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 4,
-                          padding: '3px 7px',
-                          minHeight: 26,
-                          fontSize: '0.72rem',
-                          borderRadius: '4px',
+                          padding: '4px 9px',
+                          minHeight: 28,
+                          fontSize: '0.74rem',
+                          borderRadius: '5px',
                           fontWeight: 600,
                           color: locacao.renovado ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-main)',
                           flexShrink: 0,
+                          marginLeft: locacao.renovado ? undefined : 'auto',
                         }}
                       >
-                        <ArrowsClockwise size={12} weight="bold" />
+                        <ArrowsClockwise size={13} weight="bold" />
                         <span>{prolongandoLocacaoId === locacao.id ? 'Fechar' : 'Prolongar'}</span>
                       </button>
-                    )}
-                  </div>
+                    </div>
 
                   {/* Painel Inline de Prolongamento */}
                   {prolongandoLocacaoId === locacao.id && perfilAtivo === 'construtor' && (

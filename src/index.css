@@ -2857,11 +2857,13 @@ input, textarea, select {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+  align-items: start;
 }
 
 @media (max-width: 480px) {
   .locacoes-cards-grid {
     gap: 8px;
+    align-items: start;
   }
 }
 
@@ -2869,6 +2871,7 @@ input, textarea, select {
   .locacoes-cards-grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+    align-items: start;
   }
 }
 
@@ -2881,6 +2884,8 @@ input, textarea, select {
   flex-direction: column;
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   position: relative;
+  align-self: start;
+  height: fit-content;
 }
 
 .locacao-card:hover {
