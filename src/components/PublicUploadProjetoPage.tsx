@@ -5,10 +5,13 @@ import {
   CheckCircle,
   X,
   WarningCircle,
-  Plus
+  Plus,
+  CircleNotch
 } from '@phosphor-icons/react';
 import { Obra, TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
+import { storageApi } from '../services/api';
+import { generateUUID } from '../utils/uuid';
 
 interface PublicUploadProjetoPageProps {
   obra: Obra;
