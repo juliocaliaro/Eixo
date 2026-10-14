@@ -5,6 +5,7 @@ interface ModalEditItemProps {
   isOpen: boolean;
   title: string;
   initialValue: string;
+  placeholder?: string;
   onClose: () => void;
   onSave: (newValue: string) => void;
 }
@@ -13,6 +14,7 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
   isOpen,
   title,
   initialValue,
+  placeholder,
   onClose,
   onSave,
 }) => {
@@ -63,6 +65,7 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
               <input
                 type="text"
                 className="form-input"
+                placeholder={placeholder}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 autoFocus

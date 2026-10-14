@@ -428,6 +428,7 @@ export const obrasApi = {
                 status: etapa.concluida ? 'concluido' : 'pendente',
                 concluida: Boolean(etapa.concluida),
                 concluida_em: etapa.concluidaEm || null,
+                ambientes: etapa.ambientes || [],
               });
 
               if (etapa.tarefas && etapa.tarefas.length > 0) {
@@ -441,6 +442,15 @@ export const obrasApi = {
                     concluida: Boolean(tarefa.concluida),
                     ordem: tIdx + 1,
                     concluida_em: tarefa.concluidaEm || null,
+                    ambiente: tarefa.ambiente || null,
+                  });
+
+                  // Sincronização de ambiente resiliente entre Web e Mobile
+                  evidenciasRows.push({
+                    id: ensureUUID(`${tarefa.id}_ambiente_meta`),
+                    tarefa_id: tarefa.id,
+                    tipo: 'anotacao',
+                    conteudo: tarefa.ambiente ? `__AMBIENTE__:${tarefa.ambiente}` : '__AMBIENTE__:__NONE__',
                   });
 
                   // Evidências: fotos
@@ -481,10 +491,26 @@ export const obrasApi = {
             }
 
             if (etapasRows.length > 0) {
-              await supabase!.from('etapas').upsert(etapasRows);
+              try {
+                const { error: eErr } = await supabase!.from('etapas').upsert(etapasRows);
+                if (eErr && (eErr.message?.includes('ambientes') || eErr.code === 'PGRST204' || eErr.code === '42703')) {
+                  const fallbackEtapas = etapasRows.map(({ ambientes, ...rest }) => rest);
+                  await supabase!.from('etapas').upsert(fallbackEtapas);
+                }
+              } catch (err) {
+                console.warn('Fallback ao salvar etapas:', err);
+              }
             }
             if (tarefasRows.length > 0) {
-              await supabase!.from('tarefas').upsert(tarefasRows);
+              try {
+                const { error: tErr } = await supabase!.from('tarefas').upsert(tarefasRows);
+                if (tErr && (tErr.message?.includes('ambiente') || tErr.code === 'PGRST204' || tErr.code === '42703')) {
+                  const fallbackTarefas = tarefasRows.map(({ ambiente, ...rest }) => rest);
+                  await supabase!.from('tarefas').upsert(fallbackTarefas);
+                }
+              } catch (err) {
+                console.warn('Fallback ao salvar tarefas:', err);
+              }
             }
             if (evidenciasRows.length > 0) {
               await supabase!.from('tarefa_evidencias').upsert(evidenciasRows);

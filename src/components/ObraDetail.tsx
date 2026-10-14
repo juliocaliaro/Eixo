@@ -275,11 +275,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     });
   };
 
-  const handleAddTaskToEtapa = (etapaId: string, taskNome: string, insertAtIndex?: number) => {
+  const handleAddTaskToEtapa = (etapaId: string, taskNome: string, insertAtIndex?: number, ambiente?: string) => {
+    const ambTrim = ambiente && ambiente.trim() ? ambiente.trim() : undefined;
     const novaTarefa: Tarefa = {
       id: generateUUID(),
       nome: taskNome,
       concluida: false,
+      ambiente: ambTrim,
     };
 
     const updatedEtapas = obra.etapas.map((e) => {
@@ -290,13 +292,80 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
       } else {
         tarefas.push(novaTarefa);
       }
-      return { ...e, tarefas };
+      let ambientes = e.ambientes ? [...e.ambientes] : [];
+      if (ambTrim && !ambientes.includes(ambTrim)) {
+        ambientes.push(ambTrim);
+      }
+      return { ...e, ambientes, tarefas };
     });
 
     onUpdateObra({
       ...obra,
       etapas: updatedEtapas,
     });
+  };
+
+  const handleCreateAgrupamento = (etapaId: string, nomeAgrupamento: string) => {
+    const nomeTrim = nomeAgrupamento.trim();
+    if (!nomeTrim) return;
+    const updatedEtapas = obra.etapas.map((e) => {
+      if (e.id !== etapaId) return e;
+      const ambientesAtuais = e.ambientes ? [...e.ambientes] : [];
+      if (!ambientesAtuais.includes(nomeTrim)) {
+        ambientesAtuais.push(nomeTrim);
+      }
+      return { ...e, ambientes: ambientesAtuais };
+    });
+    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    showToast('Agrupamento criado!', `Ambiente "${nomeTrim}" adicionado.`);
+  };
+
+  const handleRenameAgrupamento = (etapaId: string, nomeAntigo: string, novoNome: string) => {
+    const novoTrim = novoNome.trim();
+    if (!novoTrim || novoTrim === nomeAntigo) return;
+    const updatedEtapas = obra.etapas.map((e) => {
+      if (e.id !== etapaId) return e;
+      const ambientesAtuais = (e.ambientes || []).map((a) => (a === nomeAntigo ? novoTrim : a));
+      const tarefasAtualizadas = e.tarefas.map((t) =>
+        t.ambiente === nomeAntigo ? { ...t, ambiente: novoTrim } : t
+      );
+      return { ...e, ambientes: ambientesAtuais, tarefas: tarefasAtualizadas };
+    });
+    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    showToast('Agrupamento renomeado', `"${nomeAntigo}" agora é "${novoTrim}".`);
+  };
+
+  const handleDeleteAgrupamento = (etapaId: string, nomeAgrupamento: string) => {
+    const updatedEtapas = obra.etapas.map((e) => {
+      if (e.id !== etapaId) return e;
+      const ambientesAtuais = (e.ambientes || []).filter((a) => a !== nomeAgrupamento);
+      const tarefasAtualizadas = e.tarefas.map((t) =>
+        t.ambiente === nomeAgrupamento ? { ...t, ambiente: undefined } : t
+      );
+      return { ...e, ambientes: ambientesAtuais, tarefas: tarefasAtualizadas };
+    });
+    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    showToast('Agrupamento removido', 'Os serviços foram movidos para "Sem agrupamento".', 'info');
+  };
+
+  const handleMoveTaskAgrupamento = (etapaId: string, tarefaId: string, novoAmbiente?: string) => {
+    const ambTrim = novoAmbiente && novoAmbiente.trim() ? novoAmbiente.trim() : undefined;
+    const updatedEtapas = obra.etapas.map((e) => {
+      if (e.id !== etapaId) return e;
+      const tarefasAtualizadas = e.tarefas.map((t) => {
+        if (t.id !== tarefaId) return t;
+        return {
+          ...t,
+          ambiente: ambTrim,
+        };
+      });
+      let ambientes = e.ambientes ? [...e.ambientes] : [];
+      if (ambTrim && !ambientes.includes(ambTrim)) {
+        ambientes.push(ambTrim);
+      }
+      return { ...e, ambientes, tarefas: tarefasAtualizadas };
+    });
+    onUpdateObra({ ...obra, etapas: updatedEtapas });
   };
 
 
@@ -695,6 +764,10 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
             onEditTaskNome={handleEditTaskNome}
             onReorderTasks={handleReorderTasks}
             onAddTaskToEtapa={handleAddTaskToEtapa}
+            onCreateAgrupamento={handleCreateAgrupamento}
+            onRenameAgrupamento={handleRenameAgrupamento}
+            onDeleteAgrupamento={handleDeleteAgrupamento}
+            onMoveTaskAgrupamento={handleMoveTaskAgrupamento}
             onUpdateTaskMedia={handleUpdateTaskMedia}
             isReadOnly={perfilAtivo === 'cliente'}
             targetTaskNavigation={targetTaskNavigation}

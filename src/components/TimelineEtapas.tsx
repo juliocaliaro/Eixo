@@ -11,10 +11,14 @@ import {
   Kanban,
   DotsSixVertical,
   Eye,
-  Check
+  Check,
+  HouseLine,
+  SquaresFour
 } from '@phosphor-icons/react';
 import { Obra, Etapa, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
+import { ModalEditTask } from './ModalEditTask';
+import { ModalMoveTask } from './ModalMoveTask';
 import { ModalConfirm } from './ModalConfirm';
 import { ModalTaskDetails } from './ModalTaskDetails';
 import { getEtapaIcon } from '../utils/etapaIcons';
@@ -29,7 +33,11 @@ interface TimelineEtapasProps {
   onDeleteTask: (etapaId: string, tarefaId: string) => void;
   onEditTaskNome: (etapaId: string, tarefaId: string, novoNome: string) => void;
   onReorderTasks: (etapaId: string, draggedIndex: number, targetIndex: number) => void;
-  onAddTaskToEtapa: (etapaId: string, taskNome: string, insertAtIndex?: number) => void;
+  onAddTaskToEtapa: (etapaId: string, taskNome: string, insertAtIndex?: number, ambiente?: string) => void;
+  onCreateAgrupamento?: (etapaId: string, nomeAgrupamento: string) => void;
+  onRenameAgrupamento?: (etapaId: string, nomeAntigo: string, novoNome: string) => void;
+  onDeleteAgrupamento?: (etapaId: string, nomeAgrupamento: string) => void;
+  onMoveTaskAgrupamento?: (etapaId: string, tarefaId: string, novoAmbiente?: string) => void;
   onUpdateTaskMedia?: (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => void;
   isReadOnly?: boolean;
   targetTaskNavigation?: { etapaId: string; tarefaId: string; timestamp: number } | null;
@@ -46,6 +54,10 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   onEditTaskNome,
   onReorderTasks,
   onAddTaskToEtapa,
+  onCreateAgrupamento,
+  onRenameAgrupamento,
+  onDeleteAgrupamento,
+  onMoveTaskAgrupamento,
   onUpdateTaskMedia,
   isReadOnly = false,
   targetTaskNavigation,
@@ -74,7 +86,24 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
   const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
-  const [editingTask, setEditingTask] = useState<{ etapaId: string; id: string; nome: string } | null>(null);
+  const [editingTask, setEditingTask] = useState<{
+    etapaId: string;
+    id: string;
+    nome: string;
+    ambiente?: string;
+  } | null>(null);
+
+  // Estados de Agrupamento por Ambiente
+  const [openAgrupamentos, setOpenAgrupamentos] = useState<{ [key: string]: boolean }>({});
+  const [movingTaskTarget, setMovingTaskTarget] = useState<{
+    etapaId: string;
+    tarefa: Tarefa;
+  } | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<{ etapaId: string; ambiente?: string } | null>(null);
+  const [creatingGroupEtapaId, setCreatingGroupEtapaId] = useState<string | null>(null);
+  const [editingGroup, setEditingGroup] = useState<{ etapaId: string; oldName: string; currentName: string } | null>(null);
+  const [deleteGroupTarget, setDeleteGroupTarget] = useState<{ etapaId: string; nome: string; count: number } | null>(null);
+  const [selectedAddAmbiente, setSelectedAddAmbiente] = useState<{ [etapaId: string]: string }>({});
 
   // Estado para Modal de Detalhes da Tarefa (Fotos e Anotações)
   const [viewingTaskDetails, setViewingTaskDetails] = useState<{
@@ -184,7 +213,8 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const handleQuickAddTask = (etapaId: string) => {
     const text = newTaskInput[etapaId]?.trim();
     if (!text) return;
-    onAddTaskToEtapa(etapaId, text);
+    const amb = selectedAddAmbiente[etapaId];
+    onAddTaskToEtapa(etapaId, text, undefined, amb && amb !== '__SEM_GRUPO__' ? amb : undefined);
     setNewTaskInput((prev) => ({ ...prev, [etapaId]: '' }));
   };
 
@@ -209,6 +239,45 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     setDragOverEtapaIndex(null);
   };
 
+  // Accordion de Agrupamento por Ambiente (padrao: aberto)
+  const isAgrupamentoOpen = (etapaId: string, groupKey: string) => {
+    const fullKey = `${etapaId}__${groupKey}`;
+    return openAgrupamentos[fullKey] !== false;
+  };
+
+  const toggleAgrupamento = (etapaId: string, groupKey: string) => {
+    const fullKey = `${etapaId}__${groupKey}`;
+    setOpenAgrupamentos((prev) => ({
+      ...prev,
+      [fullKey]: prev[fullKey] === false ? true : false,
+    }));
+  };
+
+  // Limpeza global de drag
+  const handleTaskDragEnd = () => {
+    setDraggedTask(null);
+    setDragOverTask(null);
+    setDragOverGroup(null);
+    setDraggedEtapaIndex(null);
+    setDragOverEtapaIndex(null);
+  };
+
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      setDraggedTask(null);
+      setDragOverTask(null);
+      setDragOverGroup(null);
+      setDraggedEtapaIndex(null);
+      setDragOverEtapaIndex(null);
+    };
+    window.addEventListener('dragend', handleGlobalDragEnd);
+    window.addEventListener('mouseup', handleGlobalDragEnd);
+    return () => {
+      window.removeEventListener('dragend', handleGlobalDragEnd);
+      window.removeEventListener('mouseup', handleGlobalDragEnd);
+    };
+  }, []);
+
   // Drag handlers de Tarefa
   const handleTaskDragStart = (e: React.DragEvent, etapaId: string, index: number) => {
     e.stopPropagation();
@@ -226,11 +295,38 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const handleTaskDrop = (e: React.DragEvent, etapaId: string, targetIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
-    if (draggedTask && draggedTask.etapaId === etapaId && draggedTask.index !== targetIndex) {
-      onReorderTasks(etapaId, draggedTask.index, targetIndex);
+    if (draggedTask && draggedTask.etapaId === etapaId) {
+      const currentEtapa = obra.etapas.find((ep) => ep.id === etapaId);
+      if (currentEtapa) {
+        const draggedTarefa = currentEtapa.tarefas[draggedTask.index];
+        const targetTarefa = currentEtapa.tarefas[targetIndex];
+
+        if (draggedTarefa && targetTarefa && draggedTarefa.ambiente !== targetTarefa.ambiente) {
+          if (onMoveTaskAgrupamento) {
+            onMoveTaskAgrupamento(etapaId, draggedTarefa.id, targetTarefa.ambiente);
+          }
+        }
+        if (draggedTask.index !== targetIndex) {
+          onReorderTasks(etapaId, draggedTask.index, targetIndex);
+        }
+      }
     }
-    setDraggedTask(null);
-    setDragOverTask(null);
+    handleTaskDragEnd();
+  };
+
+  const handleGroupDrop = (e: React.DragEvent, etapaId: string, ambienteNome?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedTask && draggedTask.etapaId === etapaId) {
+      const currentEtapa = obra.etapas.find((ep) => ep.id === etapaId);
+      const draggedTarefa = currentEtapa?.tarefas[draggedTask.index];
+      if (draggedTarefa && draggedTarefa.ambiente !== ambienteNome) {
+        if (onMoveTaskAgrupamento) {
+          onMoveTaskAgrupamento(etapaId, draggedTarefa.id, ambienteNome);
+        }
+      }
+    }
+    handleTaskDragEnd();
   };
 
   if (obra.etapas.length === 0) {
@@ -455,193 +551,513 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                     </div>
 
                     {/* Bloco de Tarefas / Checklist */}
-                    {isOpen && (
-                      <div className="tasks-block">
-                        {etapa.tarefas.length === 0 ? (
-                          <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                            Nenhum serviço listado. Digite no campo abaixo para incluir.
-                          </div>
-                        ) : (
-                          <div>
-                            {etapa.tarefas.map((tarefa, taskIndex) => {
-                              const temAnexos = (tarefa.fotos && tarefa.fotos.length > 0) || (tarefa.anotacoes && tarefa.anotacoes.length > 0);
-                              const isTaskOver = dragOverTask?.etapaId === etapa.id && dragOverTask?.index === taskIndex;
-                              const isTaskDragging = draggedTask?.etapaId === etapa.id && draggedTask?.index === taskIndex;
+                    {isOpen && (() => {
+                      const etapaAmbientes = Array.from(new Set([
+                        ...(etapa.ambientes || []),
+                        ...etapa.tarefas.map((t) => t.ambiente).filter((a): a is string => Boolean(a && a.trim()))
+                      ]));
+                      const hasAgrupamentos = etapaAmbientes.length > 0;
 
-                              return (
+                      // Função para renderizar a linha individual da tarefa
+                      const renderTaskRow = (tarefa: Tarefa, globalTaskIndex: number) => {
+                        const temAnexos = (tarefa.fotos && tarefa.fotos.length > 0) || (tarefa.anotacoes && tarefa.anotacoes.length > 0);
+                        const isTaskOver = dragOverTask?.etapaId === etapa.id && dragOverTask?.index === globalTaskIndex;
+                        const isTaskDragging = draggedTask?.etapaId === etapa.id && draggedTask?.index === globalTaskIndex;
+
+                        return (
+                          <div
+                            key={tarefa.id}
+                            id={`task-row-${tarefa.id}`}
+                            className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''}`}
+                            onDragOver={(e) => handleTaskDragOver(e, etapa.id, globalTaskIndex)}
+                            onDrop={(e) => handleTaskDrop(e, etapa.id, globalTaskIndex)}
+                            onDragEnd={handleTaskDragEnd}
+                            style={{ opacity: isTaskDragging ? 0.35 : 1 }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                              {/* Drag Handle da Tarefa (apenas Construtor) */}
+                              {!isReadOnly && (
                                 <div
-                                  key={tarefa.id}
-                                  id={`task-row-${tarefa.id}`}
-                                  className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''}`}
-                                  onDragOver={(e) => handleTaskDragOver(e, etapa.id, taskIndex)}
-                                  onDrop={(e) => handleTaskDrop(e, etapa.id, taskIndex)}
-                                  style={{ opacity: isTaskDragging ? 0.35 : 1 }}
+                                  draggable
+                                  onDragStart={(e) => handleTaskDragStart(e, etapa.id, globalTaskIndex)}
+                                  onDragEnd={handleTaskDragEnd}
+                                  className="drag-handle-grip"
+                                  style={{ padding: 2 }}
+                                  title="Arrastar para reordenar serviço ou soltar sobre um agrupamento"
                                 >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                                    {/* Drag Handle da Tarefa (apenas Construtor) */}
-                                    {!isReadOnly && (
-                                      <div
-                                        draggable
-                                        onDragStart={(e) => handleTaskDragStart(e, etapa.id, taskIndex)}
-                                        className="drag-handle-grip"
-                                        style={{ padding: 2 }}
-                                        title="Arrastar para reordenar serviço"
+                                  <DotsSixVertical size={15} />
+                                </div>
+                              )}
+
+                              <input
+                                type="checkbox"
+                                className="task-checkbox"
+                                checked={tarefa.concluida}
+                                disabled={isReadOnly}
+                                onChange={() => {
+                                  if (isReadOnly) return;
+                                  onToggleTask(etapa.id, tarefa.id);
+                                  if (!tarefa.concluida) {
+                                    import('canvas-confetti')
+                                      .then((confettiModule) => {
+                                        const fire = confettiModule.default || confettiModule;
+                                        fire({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
+                                      })
+                                      .catch(() => {});
+                                  }
+                                }}
+                                title={isReadOnly ? 'Status gerenciado pelo construtor (somente leitura)' : tarefa.concluida ? 'Desmarcar' : 'Concluir'}
+                                style={{ cursor: isReadOnly ? 'default' : 'pointer' }}
+                              />
+
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <span className={`task-label ${tarefa.concluida ? 'strikethrough' : ''}`}>
+                                  {tarefa.nome}
+                                </span>
+
+                                {temAnexos && (
+                                  <div className="task-media-pills-row">
+                                    {tarefa.fotos && tarefa.fotos.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
+                                        }}
+                                        className="task-media-pill foto"
+                                        title="Ver fotos do serviço"
                                       >
-                                        <DotsSixVertical size={15} />
+                                        <div className="task-thumb-mini-group">
+                                          {tarefa.fotos.slice(0, 3).map((f, i) => (
+                                            <img key={i} src={f} alt="" className="task-thumb-mini" />
+                                          ))}
+                                        </div>
+                                        <Camera size={12} weight="bold" />
+                                        <span>{tarefa.fotos.length} foto{tarefa.fotos.length > 1 ? 's' : ''}</span>
+                                      </button>
+                                    )}
+                                    {tarefa.anotacoes && tarefa.anotacoes.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
+                                        }}
+                                        className="task-media-pill nota"
+                                        title={`Ver observação: "${tarefa.anotacoes[0].slice(0, 45)}..."`}
+                                      >
+                                        <NotePencil size={12} weight="bold" />
+                                        <span>{tarefa.anotacoes.length} nota{tarefa.anotacoes.length > 1 ? 's' : ''}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Ações da Tarefa */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {/* Botão de Ver Detalhes (Fotos e Notas) */}
+                              <button
+                                type="button"
+                                onClick={() => setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id })}
+                                className="btn-icon"
+                                style={{
+                                  width: 26,
+                                  height: 26,
+                                  color: temAnexos ? 'var(--primary-accent)' : 'var(--text-muted)',
+                                  background: temAnexos ? 'var(--coral-glow-50)' : undefined,
+                                }}
+                                title={temAnexos ? "Ver fotos e anotações deste serviço" : "Ver detalhes do serviço"}
+                              >
+                                <Eye size={13} weight={temAnexos ? "bold" : "regular"} />
+                              </button>
+
+                              {!isReadOnly && (
+                                <>
+                                  {hasAgrupamentos && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setMovingTaskTarget({ etapaId: etapa.id, tarefa });
+                                      }}
+                                      className="btn-icon"
+                                      style={{ width: 26, height: 26, color: 'var(--primary-accent)' }}
+                                      title="Mover para outro ambiente / agrupamento"
+                                      aria-label="Mover para outro ambiente"
+                                    >
+                                      <HouseLine size={13} weight="bold" />
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingTask({
+                                        etapaId: etapa.id,
+                                        id: tarefa.id,
+                                        nome: tarefa.nome,
+                                        ambiente: tarefa.ambiente,
+                                      })
+                                    }
+                                    className="btn-icon"
+                                    style={{ width: 26, height: 26 }}
+                                    title="Editar"
+                                  >
+                                    <PencilSimple size={12} weight="bold" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteTaskTarget({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome })}
+                                    className="btn-icon"
+                                    style={{ width: 26, height: 26, color: 'var(--coral-glow-600)' }}
+                                    title="Excluir"
+                                  >
+                                    <Trash size={12} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <div className="tasks-block">
+                          {/* Barra discreta de Agrupamentos por Ambiente */}
+                          {(!isReadOnly || hasAgrupamentos) && (
+                            <div className="agrupamento-toolbar">
+                              <div className="agrupamento-toolbar-title">
+                                <SquaresFour size={14} weight="bold" style={{ color: 'var(--primary-accent)' }} />
+                                <span>Agrupamentos por Ambiente</span>
+                                {hasAgrupamentos && (
+                                  <span className="agrupamento-badge-count">{etapaAmbientes.length}</span>
+                                )}
+                              </div>
+                              {!isReadOnly && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCreatingGroupEtapaId(etapa.id)}
+                                  className="btn-ghost"
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    padding: '3px 8px',
+                                    height: 26,
+                                    gap: 4,
+                                    color: 'var(--primary-accent)',
+                                    fontWeight: 600,
+                                  }}
+                                  title="Criar novo agrupamento nesta etapa (Ex: Cozinha, Sala, Quarto, Banheiro...)"
+                                >
+                                  <Plus size={12} weight="bold" />
+                                  <span>Novo Agrupamento</span>
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {etapa.tarefas.length === 0 ? (
+                            <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                              Nenhum serviço listado. Digite no campo abaixo para incluir.
+                            </div>
+                          ) : !hasAgrupamentos ? (
+                            /* Modo sem agrupamentos: visual idêntico ao original */
+                            <div>
+                              {etapa.tarefas.map((tarefa, taskIndex) => renderTaskRow(tarefa, taskIndex))}
+                            </div>
+                          ) : (
+                            /* Modo com agrupamentos: renderiza agrupado por ambiente */
+                            <div>
+                              {/* 1. Serviços Gerais / Sem Agrupamento */}
+                              {(() => {
+                                const semGrupo = etapa.tarefas
+                                  .map((t, idx) => ({ tarefa: t, originalIndex: idx }))
+                                  .filter(({ tarefa }) => !tarefa.ambiente || !etapaAmbientes.includes(tarefa.ambiente));
+
+                                if (semGrupo.length === 0 && !hasAgrupamentos) return null;
+                                const concluidasCount = semGrupo.filter(({ tarefa }) => tarefa.concluida).length;
+                                const isGeralOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === '__SEM_GRUPO__';
+                                const isGeralOpen = isAgrupamentoOpen(etapa.id, '__SEM_GRUPO__');
+
+                                return (
+                                  <div
+                                    key="sem-agrupamento"
+                                    className={`agrupamento-section ${isGeralOver ? 'agrupamento-drop-active' : ''}`}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (draggedTask && draggedTask.etapaId === etapa.id) {
+                                        setDragOverGroup({ etapaId: etapa.id, ambiente: '__SEM_GRUPO__' });
+                                      }
+                                    }}
+                                    onDragLeave={(e) => {
+                                      e.preventDefault();
+                                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                        setDragOverGroup(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => handleGroupDrop(e, etapa.id, undefined)}
+                                    style={{ marginBottom: 14 }}
+                                  >
+                                    <div
+                                      className={`agrupamento-header geral ${isGeralOver ? 'drag-over-highlight' : ''}`}
+                                      onClick={() => toggleAgrupamento(etapa.id, '__SEM_GRUPO__')}
+                                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                                      title="Clique para minimizar ou expandir este agrupamento"
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div
+                                          className={`accordion-caret-box ${isGeralOpen ? 'is-open' : ''}`}
+                                          style={{
+                                            color: 'var(--text-muted)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 18,
+                                            height: 18,
+                                          }}
+                                        >
+                                          <CaretDown size={14} weight="bold" className="accordion-caret-icon" />
+                                        </div>
+                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                                          Serviços Gerais / Sem Agrupamento
+                                        </span>
+                                        <span className="agrupamento-badge-count">
+                                          {concluidasCount}/{semGrupo.length} concluídos
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {isGeralOpen && (
+                                      <div>
+                                        {semGrupo.length === 0 ? (
+                                          <div
+                                            className={`agrupamento-empty-box ${isGeralOver ? 'is-dropping' : ''}`}
+                                            style={{
+                                              padding: '12px 14px',
+                                              fontSize: '0.80rem',
+                                              color: isGeralOver ? 'var(--primary-accent)' : 'var(--text-muted)',
+                                              fontStyle: 'italic',
+                                              background: isGeralOver ? 'var(--dark-coffee-50)' : '#fafaf9',
+                                              borderRadius: 'var(--radius-xs)',
+                                              border: isGeralOver ? '2px dashed var(--primary-accent)' : '1px dashed var(--border-hairline)',
+                                              marginBottom: 4,
+                                              textAlign: 'center',
+                                              transition: 'all 0.15s ease',
+                                            }}
+                                          >
+                                            {isGeralOver ? 'Solte aqui para remover o agrupamento' : 'Nenhum serviço geral. Arraste serviços para cá se desejar remover o grupo.'}
+                                          </div>
+                                        ) : (
+                                          semGrupo.map(({ tarefa, originalIndex }) => renderTaskRow(tarefa, originalIndex))
+                                        )}
                                       </div>
                                     )}
+                                  </div>
+                                );
+                              })()}
 
-                                    <input
-                                      type="checkbox"
-                                      className="task-checkbox"
-                                      checked={tarefa.concluida}
-                                      disabled={isReadOnly}
-                                      onChange={() => {
-                                        if (isReadOnly) return;
-                                        onToggleTask(etapa.id, tarefa.id);
-                                        if (!tarefa.concluida) {
-                                          import('canvas-confetti')
-                                            .then((confettiModule) => {
-                                              const fire = confettiModule.default || confettiModule;
-                                              fire({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
-                                            })
-                                            .catch(() => {});
-                                        }
-                                      }}
-                                      title={isReadOnly ? 'Status gerenciado pelo construtor (somente leitura)' : tarefa.concluida ? 'Desmarcar' : 'Concluir'}
-                                      style={{ cursor: isReadOnly ? 'default' : 'pointer' }}
-                                    />
+                              {/* 2. Cada Agrupamento de Ambiente */}
+                              {etapaAmbientes.map((ambienteNome) => {
+                                const grupoTarefas = etapa.tarefas
+                                  .map((t, idx) => ({ tarefa: t, originalIndex: idx }))
+                                  .filter(({ tarefa }) => tarefa.ambiente === ambienteNome);
 
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <span className={`task-label ${tarefa.concluida ? 'strikethrough' : ''}`}>
-                                        {tarefa.nome}
-                                      </span>
+                                const concluidasCount = grupoTarefas.filter(({ tarefa }) => tarefa.concluida).length;
+                                const isGroupOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === ambienteNome;
+                                const isGroupOpen = isAgrupamentoOpen(etapa.id, ambienteNome);
 
-                                      {temAnexos && (
-                                        <div className="task-media-pills-row">
-                                          {tarefa.fotos && tarefa.fotos.length > 0 && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
-                                              }}
-                                              className="task-media-pill foto"
-                                              title="Ver fotos do serviço"
-                                            >
-                                              <div className="task-thumb-mini-group">
-                                                {tarefa.fotos.slice(0, 3).map((f, i) => (
-                                                  <img key={i} src={f} alt="" className="task-thumb-mini" />
-                                                ))}
-                                              </div>
-                                              <Camera size={12} weight="bold" />
-                                              <span>{tarefa.fotos.length} foto{tarefa.fotos.length > 1 ? 's' : ''}</span>
-                                            </button>
-                                          )}
-                                          {tarefa.anotacoes && tarefa.anotacoes.length > 0 && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
-                                              }}
-                                              className="task-media-pill nota"
-                                              title={`Ver observação: "${tarefa.anotacoes[0].slice(0, 45)}..."`}
-                                            >
-                                              <NotePencil size={12} weight="bold" />
-                                              <span>{tarefa.anotacoes.length} nota{tarefa.anotacoes.length > 1 ? 's' : ''}</span>
-                                            </button>
-                                          )}
+                                return (
+                                  <div
+                                    key={ambienteNome}
+                                    className={`agrupamento-section ${isGroupOver ? 'agrupamento-drop-active' : ''}`}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      if (draggedTask && draggedTask.etapaId === etapa.id) {
+                                        setDragOverGroup({ etapaId: etapa.id, ambiente: ambienteNome });
+                                      }
+                                    }}
+                                    onDragLeave={(e) => {
+                                      e.preventDefault();
+                                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                                        setDragOverGroup(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => handleGroupDrop(e, etapa.id, ambienteNome)}
+                                    style={{ marginBottom: 14 }}
+                                  >
+                                    <div
+                                      className={`agrupamento-header ${isGroupOver ? 'drag-over-highlight' : ''}`}
+                                      onClick={() => toggleAgrupamento(etapa.id, ambienteNome)}
+                                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                                      title="Clique para minimizar ou expandir este agrupamento"
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <div
+                                          className={`accordion-caret-box ${isGroupOpen ? 'is-open' : ''}`}
+                                          style={{
+                                            color: 'var(--text-muted)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 18,
+                                            height: 18,
+                                          }}
+                                        >
+                                          <CaretDown size={14} weight="bold" className="accordion-caret-icon" />
+                                        </div>
+                                        <HouseLine size={15} weight="bold" style={{ color: 'var(--primary-accent)' }} />
+                                        <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--dark-coffee-900)' }}>
+                                          {ambienteNome}
+                                        </span>
+                                        <span className="agrupamento-badge-count">
+                                          {concluidasCount}/{grupoTarefas.length} concluídos
+                                        </span>
+                                      </div>
+
+                                      {!isReadOnly && (
+                                        <div
+                                          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setEditingGroup({
+                                                etapaId: etapa.id,
+                                                oldName: ambienteNome,
+                                                currentName: ambienteNome,
+                                              })
+                                            }
+                                            className="btn-icon"
+                                            style={{ width: 24, height: 24 }}
+                                            title="Renomear agrupamento"
+                                          >
+                                            <PencilSimple size={12} weight="bold" />
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setDeleteGroupTarget({
+                                                etapaId: etapa.id,
+                                                nome: ambienteNome,
+                                                count: grupoTarefas.length,
+                                              })
+                                            }
+                                            className="btn-icon"
+                                            style={{ width: 24, height: 24, color: 'var(--coral-glow-600)' }}
+                                            title="Excluir agrupamento (os serviços serão preservados)"
+                                          >
+                                            <Trash size={12} />
+                                          </button>
                                         </div>
                                       )}
                                     </div>
-                                  </div>
 
-                                  {/* Ações da Tarefa */}
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    {/* Botão de Ver Detalhes (Fotos e Notas) - Visível para Ambos */}
-                                    <button
-                                      type="button"
-                                      onClick={() => setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id })}
-                                      className="btn-icon"
-                                      style={{
-                                        width: 26,
-                                        height: 26,
-                                        color: temAnexos ? 'var(--primary-accent)' : 'var(--text-muted)',
-                                        background: temAnexos ? 'var(--coral-glow-50)' : undefined,
-                                      }}
-                                      title={temAnexos ? "Ver fotos e anotações deste serviço" : "Ver detalhes do serviço"}
-                                    >
-                                      <Eye size={13} weight={temAnexos ? "bold" : "regular"} />
-                                    </button>
-
-                                    {!isReadOnly && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setEditingTask({
-                                              etapaId: etapa.id,
-                                              id: tarefa.id,
-                                              nome: tarefa.nome,
-                                            })
-                                          }
-                                          className="btn-icon"
-                                          style={{ width: 26, height: 26 }}
-                                          title="Editar"
-                                        >
-                                          <PencilSimple size={12} weight="bold" />
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={() => setDeleteTaskTarget({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome })}
-                                          className="btn-icon"
-                                          style={{ width: 26, height: 26, color: 'var(--coral-glow-600)' }}
-                                          title="Excluir"
-                                        >
-                                          <Trash size={12} />
-                                        </button>
-                                      </>
+                                    {isGroupOpen && (
+                                      <div>
+                                        {grupoTarefas.length === 0 ? (
+                                          <div
+                                            className={`agrupamento-empty-box ${isGroupOver ? 'is-dropping' : ''}`}
+                                            style={{
+                                              padding: '12px 14px',
+                                              fontSize: '0.80rem',
+                                              color: isGroupOver ? 'var(--primary-accent)' : 'var(--text-muted)',
+                                              fontStyle: 'italic',
+                                              background: isGroupOver ? 'var(--dark-coffee-50)' : '#fafaf9',
+                                              borderRadius: 'var(--radius-xs)',
+                                              border: isGroupOver ? '2px dashed var(--primary-accent)' : '1px dashed var(--border-hairline)',
+                                              marginBottom: 4,
+                                              textAlign: 'center',
+                                              transition: 'all 0.15s ease',
+                                            }}
+                                          >
+                                            {isGroupOver ? `Solte aqui para mover para "${ambienteNome}"` : 'Nenhum serviço neste agrupamento. Adicione abaixo ou arraste serviços para cá.'}
+                                          </div>
+                                        ) : (
+                                          grupoTarefas.map(({ tarefa, originalIndex }) => renderTaskRow(tarefa, originalIndex))
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                                );
+                              })}
+                            </div>
+                          )}
 
-                        {/* Inserir Serviço (apenas Construtor) */}
-                        {!isReadOnly && (
-                          <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                            <input
-                              type="text"
-                              className="form-input"
-                              style={{ padding: '8px 12px', fontSize: '0.88rem' }}
-                              placeholder="+ Novo serviço..."
-                              value={newTaskInput[etapa.id] || ''}
-                              onChange={(e) =>
-                                setNewTaskInput((prev) => ({
-                                  ...prev,
-                                  [etapa.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleQuickAddTask(etapa.id);
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleQuickAddTask(etapa.id)}
-                              className="btn-secondary"
-                              style={{ padding: '8px 14px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                            >
-                              <span>Adicionar</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          {/* Inserir Serviço (apenas Construtor) */}
+                          {!isReadOnly && (
+                            <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                              {hasAgrupamentos && (
+                                <select
+                                  className="form-input"
+                                  style={{
+                                    width: 'auto',
+                                    minWidth: 140,
+                                    maxWidth: 200,
+                                    padding: '8px 10px',
+                                    fontSize: '0.85rem',
+                                    background: '#ffffff',
+                                    cursor: 'pointer',
+                                  }}
+                                  value={selectedAddAmbiente[etapa.id] || '__SEM_GRUPO__'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '__NOVO__') {
+                                      setCreatingGroupEtapaId(etapa.id);
+                                    } else {
+                                      setSelectedAddAmbiente((prev) => ({ ...prev, [etapa.id]: val }));
+                                    }
+                                  }}
+                                  title="Escolha o agrupamento/ambiente para o novo serviço"
+                                >
+                                  <option value="__SEM_GRUPO__">Sem agrupamento</option>
+                                  {etapaAmbientes.map((amb) => (
+                                    <option key={amb} value={amb}>
+                                      {amb}
+                                    </option>
+                                  ))}
+                                  <option value="__NOVO__">+ Novo agrupamento...</option>
+                                </select>
+                              )}
+
+                              <input
+                                type="text"
+                                className="form-input"
+                                style={{ flex: 1, minWidth: 160, padding: '8px 12px', fontSize: '0.88rem' }}
+                                placeholder={
+                                  selectedAddAmbiente[etapa.id] && selectedAddAmbiente[etapa.id] !== '__SEM_GRUPO__'
+                                    ? `+ Novo serviço em "${selectedAddAmbiente[etapa.id]}"...`
+                                    : '+ Novo serviço...'
+                                }
+                                value={newTaskInput[etapa.id] || ''}
+                                onChange={(e) =>
+                                  setNewTaskInput((prev) => ({
+                                    ...prev,
+                                    [etapa.id]: e.target.value,
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleQuickAddTask(etapa.id);
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAddTask(etapa.id)}
+                                className="btn-secondary"
+                                style={{ padding: '8px 14px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                              >
+                                <span>Adicionar</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Botão Intermediário Sutil (apenas Construtor) */}
@@ -680,6 +1096,91 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         </div>
       )}
 
+      {/* Modais de Agrupamento por Ambiente */}
+      {creatingGroupEtapaId && (
+        <ModalEditItem
+          isOpen={true}
+          title="Novo Agrupamento por Ambiente"
+          initialValue=""
+          placeholder="Ex: Cozinha, Quarto, Banheiro, Cobertura..."
+          onClose={() => setCreatingGroupEtapaId(null)}
+          onSave={(novoNome) => {
+            if (onCreateAgrupamento) {
+              onCreateAgrupamento(creatingGroupEtapaId, novoNome);
+            }
+            setSelectedAddAmbiente((prev) => ({ ...prev, [creatingGroupEtapaId]: novoNome }));
+            setCreatingGroupEtapaId(null);
+          }}
+        />
+      )}
+
+      {editingGroup && (
+        <ModalEditItem
+          isOpen={true}
+          title="Renomear Agrupamento"
+          initialValue={editingGroup.currentName}
+          onClose={() => setEditingGroup(null)}
+          onSave={(novoNome) => {
+            if (onRenameAgrupamento) {
+              onRenameAgrupamento(editingGroup.etapaId, editingGroup.oldName, novoNome);
+            }
+            setEditingGroup(null);
+          }}
+        />
+      )}
+
+      {deleteGroupTarget && (
+        <ModalConfirm
+          isOpen={true}
+          title="Remover Agrupamento"
+          message={`Tem certeza que deseja remover o agrupamento "${deleteGroupTarget.nome}"? ${deleteGroupTarget.count > 0 ? `Os ${deleteGroupTarget.count} serviços associados serão mantidos nesta etapa e movidos para "Sem agrupamento".` : 'Nenhum serviço será excluído.'}`}
+          confirmText="Sim, remover"
+          cancelText="Cancelar"
+          variant="danger"
+          onConfirm={() => {
+            if (onDeleteAgrupamento) {
+              onDeleteAgrupamento(deleteGroupTarget.etapaId, deleteGroupTarget.nome);
+            }
+            setDeleteGroupTarget(null);
+          }}
+          onCancel={() => setDeleteGroupTarget(null)}
+        />
+      )}
+
+      {/* Modal de Mover Serviço para Agrupamento (Ideal para Mobile & Desktop) */}
+      {movingTaskTarget && (() => {
+        const targetEtapa = obra.etapas.find((e) => e.id === movingTaskTarget.etapaId);
+        const etapaAmbientes = Array.from(new Set([
+          ...(targetEtapa?.ambientes || []),
+          ...((targetEtapa?.tarefas || []).map((t) => t.ambiente).filter((a): a is string => Boolean(a && a.trim())))
+        ]));
+
+        return (
+          <ModalMoveTask
+            isOpen={true}
+            tarefaNome={movingTaskTarget.tarefa.nome}
+            ambienteAtual={movingTaskTarget.tarefa.ambiente}
+            ambientesDisponiveis={etapaAmbientes}
+            onClose={() => setMovingTaskTarget(null)}
+            onSelectAmbiente={(novoAmbiente) => {
+              if (onMoveTaskAgrupamento) {
+                onMoveTaskAgrupamento(movingTaskTarget.etapaId, movingTaskTarget.tarefa.id, novoAmbiente);
+              }
+              setMovingTaskTarget(null);
+            }}
+            onCreateNovoAmbiente={(novoNome) => {
+              if (onCreateAgrupamento) {
+                onCreateAgrupamento(movingTaskTarget.etapaId, novoNome);
+              }
+              if (onMoveTaskAgrupamento) {
+                onMoveTaskAgrupamento(movingTaskTarget.etapaId, movingTaskTarget.tarefa.id, novoNome);
+              }
+              setMovingTaskTarget(null);
+            }}
+          />
+        );
+      })()}
+
       {/* Modais de Edição */}
       {editingEtapa && (
         <ModalEditItem
@@ -694,18 +1195,32 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         />
       )}
 
-      {editingTask && (
-        <ModalEditItem
-          isOpen={true}
-          title="Editar Nome do Serviço"
-          initialValue={editingTask.nome}
-          onClose={() => setEditingTask(null)}
-          onSave={(novoNome) => {
-            onEditTaskNome(editingTask.etapaId, editingTask.id, novoNome);
-            setEditingTask(null);
-          }}
-        />
-      )}
+      {editingTask && (() => {
+        const targetEtapa = obra.etapas.find((e) => e.id === editingTask.etapaId);
+        const etapaAmbientes = Array.from(new Set([
+          ...(targetEtapa?.ambientes || []),
+          ...((targetEtapa?.tarefas || []).map((t) => t.ambiente).filter((a): a is string => Boolean(a && a.trim())))
+        ]));
+
+        return (
+          <ModalEditTask
+            isOpen={true}
+            initialNome={editingTask.nome}
+            initialAmbiente={editingTask.ambiente}
+            ambientesDisponiveis={etapaAmbientes}
+            onClose={() => setEditingTask(null)}
+            onSave={(novoNome, novoAmbiente) => {
+              if (novoNome !== editingTask.nome) {
+                onEditTaskNome(editingTask.etapaId, editingTask.id, novoNome);
+              }
+              if (novoAmbiente !== editingTask.ambiente && onMoveTaskAgrupamento) {
+                onMoveTaskAgrupamento(editingTask.etapaId, editingTask.id, novoAmbiente);
+              }
+              setEditingTask(null);
+            }}
+          />
+        );
+      })()}
 
       {/* Modal Customizado de Exclusão de Etapa */}
       {deleteEtapaTarget && (

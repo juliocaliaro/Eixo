@@ -40,6 +40,7 @@ export interface EtapaRow {
   status: StatusCronograma;
   concluida: boolean;
   concluida_em?: string | null;
+  ambientes?: string[] | null;
   created_at: string;
 }
 
@@ -51,6 +52,7 @@ export interface TarefaRow {
   status: StatusCronograma;
   concluida: boolean;
   concluida_em?: string | null;
+  ambiente?: string | null;
   created_at: string;
 }
 
@@ -181,6 +183,18 @@ export const mapObraFromDb = (
 };
 
 export const mapEtapaFromDb = (row: EtapaRow, tarefas: Tarefa[] = []): Etapa => {
+  const ambientesSet = new Set<string>();
+  if (Array.isArray(row.ambientes)) {
+    row.ambientes.forEach((a) => {
+      if (typeof a === 'string' && a.trim().length > 0) ambientesSet.add(a.trim());
+    });
+  }
+  tarefas.forEach((t) => {
+    if (t.ambiente && t.ambiente.trim().length > 0) {
+      ambientesSet.add(t.ambiente.trim());
+    }
+  });
+
   return {
     id: row.id,
     nome: row.nome,
@@ -188,6 +202,7 @@ export const mapEtapaFromDb = (row: EtapaRow, tarefas: Tarefa[] = []): Etapa => 
     status: row.status,
     concluida: row.concluida,
     concluidaEm: row.concluida_em || undefined,
+    ambientes: ambientesSet.size > 0 ? Array.from(ambientesSet) : undefined,
     tarefas,
   };
 };
@@ -199,8 +214,23 @@ export const mapTarefaFromDb = (
   const fotos = evidencias
     .filter((e) => e.tipo === 'foto')
     .map((e) => e.conteudo);
+
+  // Extrai ambiente se foi sincronizado via anotação especial ou da própria coluna row.ambiente
+  const ambienteEvidencia = evidencias.find(
+    (e) => e.tipo === 'anotacao' && e.conteudo.startsWith('__AMBIENTE__:')
+  );
+  const ambienteExtraido = ambienteEvidencia
+    ? ambienteEvidencia.conteudo.replace('__AMBIENTE__:', '').trim()
+    : undefined;
+  const ambienteFinal =
+    ambienteExtraido && ambienteExtraido !== '__NONE__'
+      ? ambienteExtraido
+      : row.ambiente && row.ambiente.trim().length > 0
+      ? row.ambiente.trim()
+      : undefined;
+
   const anotacoes = evidencias
-    .filter((e) => e.tipo === 'anotacao')
+    .filter((e) => e.tipo === 'anotacao' && !e.conteudo.startsWith('__AMBIENTE__:'))
     .map((e) => e.conteudo);
 
   return {
@@ -211,6 +241,7 @@ export const mapTarefaFromDb = (
     concluidaEm: row.concluida_em || undefined,
     fotos: fotos.length > 0 ? fotos : undefined,
     anotacoes: anotacoes.length > 0 ? anotacoes : undefined,
+    ambiente: ambienteFinal,
   };
 };
 

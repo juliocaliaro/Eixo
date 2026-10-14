@@ -8,6 +8,7 @@ export interface Tarefa {
   status?: StatusCronograma;
   anotacoes?: string[];
   fotos?: string[]; // base64 or URL
+  ambiente?: string; // Agrupamento por ambiente/área (ex: 'Cozinha', 'Sala', 'Cobertura')
 }
 
 export interface Etapa {
@@ -18,6 +19,7 @@ export interface Etapa {
   concluida?: boolean;
   concluidaEm?: string; // Registro de data e horário de conclusão da etapa
   status?: StatusCronograma;
+  ambientes?: string[]; // Lista ordenada de agrupamentos/ambientes definidos nesta etapa
 }
 
 export type PerfilUsuario = 'construtor' | 'cliente';

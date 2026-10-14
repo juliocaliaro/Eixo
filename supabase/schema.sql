@@ -473,3 +473,9 @@ CREATE POLICY "Usuário gerencia seus templates customizados"
 -- 1. Bucket 'projetos-pdf' (privado ou público conforme necessidade de visualização)
 -- 2. Bucket 'evidencias-diario' (público para fotos de canteiro)
 -- 3. Bucket 'registro-notas' (privado para notas fiscais e recibos)
+
+-- ==============================================================================
+-- ATUALIZAÇÕES / MIGRATIONS
+-- ==============================================================================
+ALTER TABLE public.etapas ADD COLUMN IF NOT EXISTS ambientes JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.tarefas ADD COLUMN IF NOT EXISTS ambiente VARCHAR(100);
