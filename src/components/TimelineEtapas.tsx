@@ -13,7 +13,8 @@ import {
   Eye,
   Check,
   HouseLine,
-  SquaresFour
+  SquaresFour,
+  DotsThreeVertical
 } from '@phosphor-icons/react';
 import { Obra, Etapa, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
@@ -21,6 +22,7 @@ import { ModalEditTask } from './ModalEditTask';
 import { ModalMoveTask } from './ModalMoveTask';
 import { ModalConfirm } from './ModalConfirm';
 import { ModalTaskDetails } from './ModalTaskDetails';
+import { ModalCreateTask } from './ModalCreateTask';
 import { getEtapaIcon } from '../utils/etapaIcons';
 
 interface TimelineEtapasProps {
@@ -86,6 +88,28 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
   const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
+  // Estado para menu de ações de cada tarefa no mobile [...]
+  const [activeTaskMenu, setActiveTaskMenu] = useState<{ etapaId: string; tarefaId: string } | null>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.mobile-task-actions')) {
+        setActiveTaskMenu(null);
+      }
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const [addingTaskEtapa, setAddingTaskEtapa] = useState<{
+    etapaId: string;
+    etapaNome: string;
+    defaultAmbiente?: string;
+    ambientes: string[];
+  } | null>(null);
+  const [newGroupInput, setNewGroupInput] = useState<{ [etapaId: string]: string }>({});
+
   const [editingTask, setEditingTask] = useState<{
     etapaId: string;
     id: string;
@@ -209,6 +233,16 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     });
   };
 
+
+  const handleCreateGroupQuick = (etapaId: string) => {
+    const nome = (newGroupInput[etapaId] || '').trim();
+    if (!nome) return;
+    if (onCreateAgrupamento) {
+      onCreateAgrupamento(etapaId, nome);
+    }
+    setNewGroupInput((prev) => ({ ...prev, [etapaId]: '' }));
+    setOpenAgrupamentos((prev) => ({ ...prev, [`${etapaId}__${nome}`]: true }));
+  };
 
   const handleQuickAddTask = (etapaId: string) => {
     const text = newTaskInput[etapaId]?.trim();
@@ -563,16 +597,21 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                         const temAnexos = (tarefa.fotos && tarefa.fotos.length > 0) || (tarefa.anotacoes && tarefa.anotacoes.length > 0);
                         const isTaskOver = dragOverTask?.etapaId === etapa.id && dragOverTask?.index === globalTaskIndex;
                         const isTaskDragging = draggedTask?.etapaId === etapa.id && draggedTask?.index === globalTaskIndex;
+                        const isMenuOpen = activeTaskMenu?.etapaId === etapa.id && activeTaskMenu?.tarefaId === tarefa.id;
 
                         return (
                           <div
                             key={tarefa.id}
                             id={`task-row-${tarefa.id}`}
-                            className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''}`}
+                            className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''} ${isMenuOpen ? 'has-active-menu' : ''}`}
                             onDragOver={(e) => handleTaskDragOver(e, etapa.id, globalTaskIndex)}
                             onDrop={(e) => handleTaskDrop(e, etapa.id, globalTaskIndex)}
                             onDragEnd={handleTaskDragEnd}
-                            style={{ opacity: isTaskDragging ? 0.35 : 1 }}
+                            style={{
+                              opacity: isTaskDragging ? 0.35 : 1,
+                              position: isMenuOpen ? 'relative' : undefined,
+                              zIndex: isMenuOpen ? 150 : undefined,
+                            }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                               {/* Drag Handle da Tarefa (apenas Construtor) */}
@@ -655,9 +694,8 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                               </div>
                             </div>
 
-                            {/* Ações da Tarefa */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              {/* Botão de Ver Detalhes (Fotos e Notas) */}
+                            {/* Ações da Tarefa no Desktop (arrastar substitui mover) */}
+                            <div className="desktop-task-actions" style={{ alignItems: 'center', gap: 4 }}>
                               <button
                                 type="button"
                                 onClick={() => setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id })}
@@ -675,22 +713,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
                               {!isReadOnly && (
                                 <>
-                                  {hasAgrupamentos && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setMovingTaskTarget({ etapaId: etapa.id, tarefa });
-                                      }}
-                                      className="btn-icon"
-                                      style={{ width: 26, height: 26, color: 'var(--primary-accent)' }}
-                                      title="Mover para outro ambiente / agrupamento"
-                                      aria-label="Mover para outro ambiente"
-                                    >
-                                      <HouseLine size={13} weight="bold" />
-                                    </button>
-                                  )}
-
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -718,6 +740,97 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                     <Trash size={12} />
                                   </button>
                                 </>
+                              )}
+                            </div>
+
+                            {/* Ações da Tarefa no Mobile (Menu Compacto [...]) */}
+                            <div className="mobile-task-actions" style={{ position: 'relative', zIndex: isMenuOpen ? 160 : undefined }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveTaskMenu((prev) =>
+                                    prev?.etapaId === etapa.id && prev?.tarefaId === tarefa.id
+                                      ? null
+                                      : { etapaId: etapa.id, tarefaId: tarefa.id }
+                                  );
+                                }}
+                                className="btn-icon mobile-task-menu-btn"
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  background: temAnexos ? 'var(--coral-glow-50)' : '#ffffff',
+                                  color: temAnexos ? 'var(--primary-accent)' : 'var(--text-main)',
+                                }}
+                                aria-label="Opções do serviço"
+                              >
+                                <DotsThreeVertical size={18} weight="bold" />
+                              </button>
+
+                              {activeTaskMenu?.etapaId === etapa.id && activeTaskMenu?.tarefaId === tarefa.id && (
+                                <div
+                                  className="task-mobile-menu-dropdown"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveTaskMenu(null);
+                                      setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
+                                    }}
+                                    className="task-mobile-menu-item"
+                                  >
+                                    <Eye size={16} weight={temAnexos ? 'bold' : 'regular'} style={{ color: 'var(--primary-accent)' }} />
+                                    <span>Ver fotos e notas {temAnexos ? `(${(tarefa.fotos?.length || 0) + (tarefa.anotacoes?.length || 0)})` : ''}</span>
+                                  </button>
+
+                                  {!isReadOnly && (
+                                    <>
+                                      {hasAgrupamentos && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActiveTaskMenu(null);
+                                            setMovingTaskTarget({ etapaId: etapa.id, tarefa });
+                                          }}
+                                          className="task-mobile-menu-item"
+                                        >
+                                          <HouseLine size={16} weight="bold" style={{ color: 'var(--primary-accent)' }} />
+                                          <span>Mover ambiente</span>
+                                        </button>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveTaskMenu(null);
+                                          setEditingTask({
+                                            etapaId: etapa.id,
+                                            id: tarefa.id,
+                                            nome: tarefa.nome,
+                                            ambiente: tarefa.ambiente,
+                                          });
+                                        }}
+                                        className="task-mobile-menu-item"
+                                      >
+                                        <PencilSimple size={16} weight="bold" />
+                                        <span>Editar serviço</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveTaskMenu(null);
+                                          setDeleteTaskTarget({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome });
+                                        }}
+                                        className="task-mobile-menu-item danger"
+                                      >
+                                        <Trash size={16} weight="bold" />
+                                        <span>Excluir serviço</span>
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -932,11 +1045,10 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                                 currentName: ambienteNome,
                                               })
                                             }
-                                            className="btn-icon"
-                                            style={{ width: 24, height: 24 }}
+                                            className="agrupamento-action-btn"
                                             title="Renomear agrupamento"
                                           >
-                                            <PencilSimple size={12} weight="bold" />
+                                            <PencilSimple size={13} weight="bold" />
                                           </button>
 
                                           <button
@@ -948,11 +1060,10 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                                 count: grupoTarefas.length,
                                               })
                                             }
-                                            className="btn-icon"
-                                            style={{ width: 24, height: 24, color: 'var(--coral-glow-600)' }}
+                                            className="agrupamento-action-btn danger"
                                             title="Excluir agrupamento (os serviços serão preservados)"
                                           >
-                                            <Trash size={12} />
+                                            <Trash size={13} />
                                           </button>
                                         </div>
                                       )}
@@ -989,69 +1100,53 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             </div>
                           )}
 
-                          {/* Inserir Serviço (apenas Construtor) */}
+                          {/* Rodapé da Etapa: Input para criar agrupamento & Botão Pop-up Novo Serviço */}
                           {!isReadOnly && (
-                            <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                              {hasAgrupamentos && (
-                                <select
-                                  className="form-input"
-                                  style={{
-                                    width: 'auto',
-                                    minWidth: 140,
-                                    maxWidth: 200,
-                                    padding: '8px 10px',
-                                    fontSize: '0.85rem',
-                                    background: '#ffffff',
-                                    cursor: 'pointer',
-                                  }}
-                                  value={selectedAddAmbiente[etapa.id] || '__SEM_GRUPO__'}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === '__NOVO__') {
-                                      setCreatingGroupEtapaId(etapa.id);
-                                    } else {
-                                      setSelectedAddAmbiente((prev) => ({ ...prev, [etapa.id]: val }));
+                            <div className="etapa-footer-actions">
+                              <div className="etapa-create-group-bar">
+                                <input
+                                  type="text"
+                                  className="form-input etapa-group-input"
+                                  placeholder="+ Novo agrupamento (ex: Cozinha, Sala, Quarto)..."
+                                  value={newGroupInput[etapa.id] || ''}
+                                  onChange={(e) =>
+                                    setNewGroupInput((prev) => ({
+                                      ...prev,
+                                      [etapa.id]: e.target.value,
+                                    }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleCreateGroupQuick(etapa.id);
                                     }
                                   }}
-                                  title="Escolha o agrupamento/ambiente para o novo serviço"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleCreateGroupQuick(etapa.id)}
+                                  className="btn-secondary etapa-create-group-btn"
+                                  title="Criar agrupamento nesta etapa"
                                 >
-                                  <option value="__SEM_GRUPO__">Sem agrupamento</option>
-                                  {etapaAmbientes.map((amb) => (
-                                    <option key={amb} value={amb}>
-                                      {amb}
-                                    </option>
-                                  ))}
-                                  <option value="__NOVO__">+ Novo agrupamento...</option>
-                                </select>
-                              )}
+                                  <Plus size={14} weight="bold" />
+                                  <span>Criar agrupamento</span>
+                                </button>
+                              </div>
 
-                              <input
-                                type="text"
-                                className="form-input"
-                                style={{ flex: 1, minWidth: 160, padding: '8px 12px', fontSize: '0.88rem' }}
-                                placeholder={
-                                  selectedAddAmbiente[etapa.id] && selectedAddAmbiente[etapa.id] !== '__SEM_GRUPO__'
-                                    ? `+ Novo serviço em "${selectedAddAmbiente[etapa.id]}"...`
-                                    : '+ Novo serviço...'
-                                }
-                                value={newTaskInput[etapa.id] || ''}
-                                onChange={(e) =>
-                                  setNewTaskInput((prev) => ({
-                                    ...prev,
-                                    [etapa.id]: e.target.value,
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleQuickAddTask(etapa.id);
-                                }}
-                              />
                               <button
                                 type="button"
-                                onClick={() => handleQuickAddTask(etapa.id)}
-                                className="btn-secondary"
-                                style={{ padding: '8px 14px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                                onClick={() =>
+                                  setAddingTaskEtapa({
+                                    etapaId: etapa.id,
+                                    etapaNome: etapa.nome,
+                                    ambientes: etapaAmbientes,
+                                  })
+                                }
+                                className="btn-primary etapa-add-task-btn"
+                                title="Adicionar novo serviço nesta etapa"
                               >
-                                <span>Adicionar</span>
+                                <Plus size={16} weight="bold" />
+                                <span>Novo Serviço</span>
                               </button>
                             </div>
                           )}
@@ -1094,6 +1189,21 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             <span>Adicionar Próxima Etapa</span>
           </button>
         </div>
+      )}
+
+      {/* Modal de Criação de Serviço (com opções de agrupamentos existentes) */}
+      {addingTaskEtapa && (
+        <ModalCreateTask
+          isOpen={true}
+          etapaNome={addingTaskEtapa.etapaNome}
+          ambientesDisponiveis={addingTaskEtapa.ambientes}
+          defaultAmbiente={addingTaskEtapa.defaultAmbiente}
+          onClose={() => setAddingTaskEtapa(null)}
+          onSave={(nome, ambiente) => {
+            onAddTaskToEtapa(addingTaskEtapa.etapaId, nome, undefined, ambiente);
+            setAddingTaskEtapa(null);
+          }}
+        />
       )}
 
       {/* Modais de Agrupamento por Ambiente */}

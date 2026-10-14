@@ -1276,11 +1276,152 @@ input, textarea, select {
 }
 
 /* =========================================
+   Ações da Tarefa: Desktop vs Mobile
+   ========================================= */
+.mobile-task-actions {
+  display: none !important;
+}
+
+.desktop-task-actions {
+  display: flex !important;
+}
+
+.task-row.has-active-menu {
+  position: relative !important;
+  z-index: 150 !important;
+}
+
+.task-mobile-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #ffffff;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 14px 30px -4px rgba(30, 24, 6, 0.25), 0 6px 14px rgba(30, 24, 6, 0.1);
+  min-width: 200px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  z-index: 9999 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+  animation: tasksBlockFade 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.task-mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--text-main);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+}
+
+.task-mobile-menu-item:hover, .task-mobile-menu-item:active {
+  background: var(--dark-coffee-50);
+}
+
+.task-mobile-menu-item.danger {
+  color: var(--coral-glow-600);
+}
+
+.task-mobile-menu-item.danger:hover, .task-mobile-menu-item.danger:active {
+  background: var(--coral-glow-50);
+}
+
+/* Botões discretos na barra de agrupamento por ambiente */
+.agrupamento-action-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  transition: all 0.15s ease;
+}
+
+.agrupamento-action-btn:hover {
+  background: var(--dark-coffee-100);
+  color: var(--text-main);
+}
+
+.agrupamento-action-btn.danger {
+  color: var(--coral-glow-600);
+}
+
+.agrupamento-action-btn.danger:hover {
+  background: var(--coral-glow-100);
+  color: var(--coral-glow-700);
+}
+
+/* Rodapé da Etapa: Input para criar agrupamento e botão de Novo Serviço */
+.etapa-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-hairline);
+  flex-wrap: wrap;
+}
+
+.etapa-create-group-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.etapa-group-input {
+  flex: 1;
+  min-width: 160px;
+  height: 38px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  background: #ffffff;
+}
+
+.etapa-create-group-btn {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+.etapa-add-task-btn {
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+/* =========================================
    Aprimoramentos de Responsividade Mobile
    ========================================= */
 @media (max-width: 640px) {
   .main-content {
-    padding: 16px 14px 60px 14px;
+    padding: 14px 10px 60px 10px;
   }
 
   .navbar {
@@ -1288,18 +1429,67 @@ input, textarea, select {
   }
 
   .vertical-timeline-container {
-    padding-left: 28px;
+    padding-left: 24px;
   }
 
   .timeline-spine-line {
-    left: 10px;
+    left: 8px;
   }
 
   .timeline-spine-node {
-    left: -28px;
-    width: 24px;
-    height: 24px;
-    font-size: 0.75rem;
+    left: -24px;
+    width: 22px;
+    height: 22px;
+    font-size: 0.72rem;
+  }
+
+  /* Ocultar drag handles no mobile para evitar toques acidentais e poluição */
+  .drag-handle-grip {
+    display: none !important;
+  }
+
+  /* Alternar ações da tarefa para menu touch limpo [...] */
+  .desktop-task-actions {
+    display: none !important;
+  }
+
+  .mobile-task-actions {
+    display: flex !important;
+    align-items: center;
+  }
+
+  .mobile-task-menu-btn {
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--border-hairline);
+    touch-action: manipulation;
+  }
+
+  .task-quick-add-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-hairline);
+  }
+
+  .task-quick-add-select {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 42px;
+  }
+
+  .task-quick-add-input {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 42px;
+  }
+
+  .task-quick-add-btn {
+    width: 100% !important;
+    height: 40px;
+    justify-content: center;
   }
 
   .modal-backdrop {

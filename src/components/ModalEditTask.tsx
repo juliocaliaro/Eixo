@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, PencilSimple, HouseLine, Plus } from '@phosphor-icons/react';
+import { X, FloppyDisk, PencilSimple, HouseLine } from '@phosphor-icons/react';
 
 interface ModalEditTaskProps {
   isOpen: boolean;
@@ -20,14 +20,10 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
 }) => {
   const [nome, setNome] = useState(initialNome);
   const [ambiente, setAmbiente] = useState(initialAmbiente || '');
-  const [isCreatingNewAmbiente, setIsCreatingNewAmbiente] = useState(false);
-  const [newAmbienteInput, setNewAmbienteInput] = useState('');
 
   useEffect(() => {
     setNome(initialNome);
     setAmbiente(initialAmbiente || '');
-    setIsCreatingNewAmbiente(false);
-    setNewAmbienteInput('');
   }, [initialNome, initialAmbiente, isOpen]);
 
   useEffect(() => {
@@ -45,14 +41,7 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
     e.preventDefault();
     if (!nome.trim()) return;
 
-    let finalAmbiente: string | undefined = undefined;
-    if (isCreatingNewAmbiente && newAmbienteInput.trim()) {
-      finalAmbiente = newAmbienteInput.trim();
-    } else if (!isCreatingNewAmbiente && ambiente) {
-      finalAmbiente = ambiente.trim();
-    }
-
-    onSave(nome.trim(), finalAmbiente);
+    onSave(nome.trim(), ambiente.trim() ? ambiente.trim() : undefined);
     onClose();
   };
 
@@ -66,7 +55,7 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
             </div>
             <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>Editar Serviço</h2>
           </div>
-          <button onClick={onClose} className="btn-icon" title="Fechar">
+          <button onClick={onClose} className="btn-icon" title="Fechar" type="button">
             <X size={18} weight="bold" />
           </button>
         </div>
@@ -85,60 +74,26 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
               />
             </div>
 
-            {/* Seletor de Agrupamento / Ambiente */}
+            {/* Seletor de Agrupamento / Ambiente (Apenas os já existentes) */}
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <HouseLine size={16} weight="bold" style={{ color: 'var(--primary-accent)' }} />
                 <span>Ambiente / Agrupamento:</span>
               </label>
 
-              {!isCreatingNewAmbiente ? (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <select
-                    className="form-input"
-                    value={ambiente}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === '__CRIAR_NOVO__') {
-                        setIsCreatingNewAmbiente(true);
-                      } else {
-                        setAmbiente(val);
-                      }
-                    }}
-                    style={{ flex: 1, background: '#ffffff', cursor: 'pointer' }}
-                  >
-                    <option value="">Sem agrupamento (Geral)</option>
-                    {ambientesDisponiveis.map((amb) => (
-                      <option key={amb} value={amb}>
-                        {amb}
-                      </option>
-                    ))}
-                    <option value="__CRIAR_NOVO__">+ Criar novo agrupamento...</option>
-                  </select>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Nome do novo ambiente (ex: Suíte, Cozinha)..."
-                    value={newAmbienteInput}
-                    onChange={(e) => setNewAmbienteInput(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreatingNewAmbiente(false);
-                      setNewAmbienteInput('');
-                    }}
-                    className="btn-ghost"
-                    style={{ fontSize: '0.8rem', padding: '6px 10px', whiteSpace: 'nowrap' }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              )}
+              <select
+                className="form-input"
+                value={ambiente}
+                onChange={(e) => setAmbiente(e.target.value)}
+                style={{ width: '100%', background: '#ffffff', cursor: 'pointer' }}
+              >
+                <option value="">Sem agrupamento (Geral)</option>
+                {ambientesDisponiveis.map((amb) => (
+                  <option key={amb} value={amb}>
+                    {amb}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
