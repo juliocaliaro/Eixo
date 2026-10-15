@@ -136,6 +136,7 @@ export interface RegistroLocacaoRow {
   id: string;
   obra_id: string;
   item_locado: string;
+  quantidade?: number | null;
   periodo?: string | null;
   data_vencimento: string;
   fotos: string[];
@@ -355,6 +356,7 @@ export const mapLocacaoFromDb = (row: RegistroLocacaoRow): RegistroLocacao => {
     id: row.id,
     obraId: row.obra_id,
     itemLocado: row.item_locado,
+    quantidade: row.quantidade !== null && row.quantidade !== undefined ? Number(row.quantidade) : undefined,
     periodo: (row.periodo as any) || undefined,
     dataVencimento: row.data_vencimento,
     fotos: parseFotosFromDb(row.fotos),

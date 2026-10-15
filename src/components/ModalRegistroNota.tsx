@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch, Images } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch, FilePdf } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { storageApi } from '../services/api';
 import { generateUUID } from '../utils/uuid';
+import { isPdfFile } from '../utils/fileUtils';
 
 export interface NovaNotaData {
   obraId: string;
@@ -22,6 +23,8 @@ interface ModalRegistroNotaProps {
 interface FotoPreview {
   blob: Blob;
   previewUrl: string;
+  name?: string;
+  isPdf?: boolean;
 }
 
 export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
@@ -38,7 +41,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   const [erro, setErro] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar apenas quando o modal for aberto (evita limpar o formulário se obras atualizar em segundo plano)
   const prevIsOpenRef = useRef(false);
@@ -68,9 +71,15 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
 
   if (!isOpen) return null;
 
-  // Processamento e compressão de imagem para Blob binário (sem base64)
-  const processarArquivo = (file: File): Promise<Blob> => {
+  // Processamento e compressão de imagem para Blob binário ou retenção direta de PDF
+  const processarArquivo = (file: File): Promise<{ blob: Blob; isPdf: boolean; name: string }> => {
     return new Promise((resolve) => {
+      const isPdf = isPdfFile(file);
+      if (isPdf) {
+        resolve({ blob: file, isPdf: true, name: file.name });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -93,17 +102,18 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
             canvas.toBlob(
-              (blob) => resolve(blob || file),
+              (blob) => resolve({ blob: blob || file, isPdf: false, name: file.name }),
               'image/jpeg',
               0.82
             );
           } else {
-            resolve(file);
+            resolve({ blob: file, isPdf: false, name: file.name });
           }
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
         img.src = e.target?.result as string;
       };
+      reader.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
       reader.readAsDataURL(file);
     });
   };
@@ -115,17 +125,19 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
     try {
       const fileList = Array.from(files);
       const novosBlobs = await Promise.all(fileList.map((f) => processarArquivo(f)));
-      const novosItens: FotoPreview[] = novosBlobs.map((blob) => ({
+      const novosItens: FotoPreview[] = novosBlobs.map(({ blob, isPdf, name }) => ({
         blob,
+        isPdf,
+        name,
         previewUrl: URL.createObjectURL(blob),
       }));
       setFotos((prev) => [...prev, ...novosItens]);
       if (erro) setErro('');
     } catch {
-      setErro('Erro ao processar imagem.');
+      setErro('Erro ao processar arquivo.');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
     }
   };
 
@@ -149,7 +161,7 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
     }
 
     if (fotos.length === 0) {
-      setErro('Faça o upload de pelo menos uma imagem da nota ou recibo.');
+      setErro('Faça o upload de pelo menos uma foto ou documento PDF da nota/recibo.');
       return;
     }
 
@@ -161,8 +173,11 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
       // Envia os arquivos binários diretamente para o Supabase Storage (sem base64)
       for (let i = 0; i < fotos.length; i++) {
         const item = fotos[i];
-        const path = `${obraId}/notas/${notaId}_${i}.jpg`;
-        const remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, 'image/jpeg');
+        const isPdf = item.isPdf || item.blob.type === 'application/pdf';
+        const ext = isPdf ? 'pdf' : 'jpg';
+        const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
+        const path = `${obraId}/notas/${notaId}_${i}.${ext}`;
+        const remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, mimeType);
 
         if (remoteUrl) {
           urlsUpload.push(remoteUrl);
@@ -282,11 +297,11 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
               </select>
             </div>
 
-            {/* Campo 2: Upload de Imagem */}
+            {/* Campo 2: Upload de Imagem ou PDF */}
             <div className="form-group" style={{ margin: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-                  Upload de Imagem da Nota *
+                  Upload de Imagem ou PDF da Nota *
                 </label>
                 {fotos.length > 0 && (
                   <button
@@ -306,66 +321,14 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                     }}
                   >
                     <Plus size={13} weight="bold" />
-                    <span>Adicionar outra foto</span>
+                    <span>Adicionar outro arquivo</span>
                   </button>
                 )}
               </div>
 
               {fotos.length === 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                  {/* Opção 1: Tirar Foto com a Câmera */}
-                  <div
-                    onClick={() => cameraInputRef.current?.click()}
-                    style={{
-                      border: '1.5px dashed var(--border-hairline)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '20px 14px',
-                      textAlign: 'center',
-                      background: 'var(--dark-coffee-50)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      color: 'var(--text-muted)',
-                      transition: 'border-color 0.15s, background 0.15s, transform 0.1s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--primary-accent)';
-                      e.currentTarget.style.background = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                      e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: '#ffffff',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary-accent)',
-                      }}
-                    >
-                      <Camera size={22} weight="bold" />
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
-                        Tirar Foto
-                      </span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Câmera do celular
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Opção 2: Escolher da Galeria / Arquivos */}
+                  {/* Opção 1: Fotos ou Galeria (um único input unificado) */}
                   <div
                     onClick={() => fileInputRef.current?.click()}
                     style={{
@@ -405,14 +368,66 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                         color: 'var(--primary-accent)',
                       }}
                     >
-                      <Images size={22} weight="bold" />
+                      <Camera size={24} weight="bold" />
                     </div>
                     <div>
-                      <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
-                        Galeria / Arquivo
+                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Fotos ou Galeria
                       </span>
                       <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Selecionar do aparelho
+                        Câmera ou imagens do celular
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Opção 2: Anexar Documento PDF */}
+                  <div
+                    onClick={() => pdfInputRef.current?.click()}
+                    style={{
+                      border: '1.5px dashed var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '20px 14px',
+                      textAlign: 'center',
+                      background: 'var(--dark-coffee-50)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      color: 'var(--text-muted)',
+                      transition: 'border-color 0.15s, background 0.15s, transform 0.1s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#dc2626';
+                      e.currentTarget.style.background = '#fff5f5';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                      e.currentTarget.style.background = 'var(--dark-coffee-50)';
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#dc2626',
+                      }}
+                    >
+                      <FilePdf size={24} weight="bold" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Anexar PDF
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                        Nota fiscal em PDF
                       </span>
                     </div>
                   </div>
@@ -430,13 +445,37 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                         overflow: 'hidden',
                         border: '1px solid var(--border-hairline)',
                         boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                        background: item.isPdf ? '#fef2f2' : '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
-                      <img
-                        src={item.previewUrl}
-                        alt={`Nota ${idx + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
+                      {item.isPdf ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: 4, textAlign: 'center' }}>
+                          <FilePdf size={26} weight="duotone" color="#dc2626" />
+                          <span
+                            style={{
+                              fontSize: '0.60rem',
+                              fontWeight: 700,
+                              color: '#dc2626',
+                              maxWidth: 62,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block',
+                            }}
+                          >
+                            PDF
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={item.previewUrl}
+                          alt={`Nota ${idx + 1}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => handleRemoveFoto(idx)}
@@ -457,39 +496,14 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                           padding: 0,
                           transition: 'background 0.15s ease',
                         }}
-                        title="Remover foto"
+                        title="Remover arquivo"
                       >
                         <Trash size={12} weight="bold" />
                       </button>
                     </div>
                   ))}
 
-                  {/* Botão Tirar mais fotos com a câmera */}
-                  <button
-                    type="button"
-                    onClick={() => cameraInputRef.current?.click()}
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1.5px dashed var(--border-hairline)',
-                      background: 'var(--dark-coffee-50)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                      gap: 4,
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    title="Tirar foto com a câmera"
-                  >
-                    <Camera size={18} weight="bold" />
-                    <span style={{ fontSize: '0.66rem', fontWeight: 600 }}>+ Câmera</span>
-                  </button>
-
-                  {/* Botão Adicionar mais fotos da galeria */}
+                  {/* Botão Adicionar mais fotos da câmera ou galeria */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -505,32 +519,57 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
                       justifyContent: 'center',
                       cursor: 'pointer',
                       color: 'var(--text-muted)',
-                      gap: 4,
+                      gap: 3,
                       transition: 'border-color 0.15s, background 0.15s',
                     }}
-                    title="Adicionar fotos da galeria"
+                    title="Adicionar mais fotos (câmera ou galeria)"
                   >
-                    <Images size={18} weight="bold" />
-                    <span style={{ fontSize: '0.66rem', fontWeight: 600 }}>+ Galeria</span>
+                    <Camera size={18} weight="bold" />
+                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ Fotos</span>
+                  </button>
+
+                  {/* Botão Adicionar mais documentos PDF */}
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1.5px dashed var(--border-hairline)',
+                      background: 'var(--dark-coffee-50)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#dc2626',
+                      gap: 3,
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    title="Adicionar arquivo PDF"
+                  >
+                    <FilePdf size={18} weight="bold" />
+                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ PDF</span>
                   </button>
                 </div>
               )}
 
-              {/* Input exclusivo para captura direta pela câmera */}
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                style={{ display: 'none' }}
-                onChange={handleFilesChange}
-              />
-
-              {/* Input padrão para seleção múltipla de arquivos da galeria */}
+              {/* Input unificado para fotos (câmera ou galeria do dispositivo) */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFilesChange}
+              />
+
+              {/* Input exclusivo para seleção de arquivos PDF */}
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
                 multiple
                 style={{ display: 'none' }}
                 onChange={handleFilesChange}

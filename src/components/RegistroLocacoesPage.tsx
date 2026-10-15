@@ -19,12 +19,16 @@ import {
   CircleNotch,
   CaretLeft,
   CaretRight,
+  FilePdf,
+  ArrowSquareOut,
+  DownloadSimple,
 } from '@phosphor-icons/react';
 import { Obra, RegistroLocacao, PerfilUsuario } from '../types/obra';
 import { ModalRegistroLocacao, NovaLocacaoData } from './ModalRegistroLocacao';
 import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
 import { locacoesApi } from '../services/api';
+import { isPdfUrl } from '../utils/fileUtils';
 
 interface RegistroLocacoesPageProps {
   obras: Obra[];
@@ -251,6 +255,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       id: generateUUID(),
       obraId: dados.obraId,
       itemLocado: dados.itemLocado,
+      quantidade: dados.quantidade,
       periodo: dados.periodo,
       dataVencimento: dados.dataVencimento,
       fotos: dados.fotos,
@@ -875,11 +880,44 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                 >
                   {primeiraFoto ? (
                     <>
-                      <img
-                        src={primeiraFoto}
-                        alt={locacao.itemLocado}
-                        className="locacao-card-img"
-                      />
+                      {isPdfUrl(primeiraFoto) ? (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#fff5f5',
+                            gap: 6,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 8,
+                              backgroundColor: '#fee2e2',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#dc2626',
+                            }}
+                          >
+                            <FilePdf size={26} weight="fill" />
+                          </div>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#991b1b' }}>
+                            Documento PDF
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={primeiraFoto}
+                          alt={locacao.itemLocado}
+                          className="locacao-card-img"
+                        />
+                      )}
                       <div
                         style={{
                           position: 'absolute',
@@ -1008,10 +1046,36 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                       className="locacao-card-title"
                       style={{
                         textDecoration: locacao.status === 'devolvido' ? 'line-through' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        flexWrap: 'wrap',
                       }}
                       title={locacao.itemLocado}
                     >
-                      {locacao.itemLocado}
+                      {locacao.quantidade && locacao.quantidade > 0 && (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: '22px',
+                            height: '19px',
+                            padding: '0 5px',
+                            borderRadius: '4px',
+                            backgroundColor: 'var(--coral-glow-50)',
+                            color: 'var(--primary-accent)',
+                            border: '1px solid var(--coral-glow-200)',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            lineHeight: 1,
+                          }}
+                          title={`Quantidade: ${locacao.quantidade}`}
+                        >
+                          {locacao.quantidade}x
+                        </span>
+                      )}
+                      <span>{locacao.itemLocado}</span>
                     </h4>
 
                     {locacao.renovado && (
@@ -1506,19 +1570,118 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
               </button>
             )}
 
-            <img
-              src={lightboxState.fotos[lightboxState.index]}
-              alt=""
-              draggable={false}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
-                borderRadius: '6px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                userSelect: 'none',
-              }}
-            />
+            {isPdfUrl(lightboxState.fotos[lightboxState.index]) ? (
+              <div
+                style={{
+                  width: '92vw',
+                  maxWidth: 860,
+                  height: '75vh',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
+                    borderBottom: '1px solid var(--border-hairline)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <FilePdf size={22} weight="fill" color="#dc2626" />
+                    <span
+                      style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        color: 'var(--text-main)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {lightboxState.titulo || 'Documento PDF'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <a
+                      href={lightboxState.fotos[lightboxState.index]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: '#ffffff',
+                        border: '1px solid var(--border-hairline)',
+                        color: 'var(--text-main)',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <ArrowSquareOut size={14} weight="bold" />
+                      <span>Abrir</span>
+                    </a>
+                    <a
+                      href={lightboxState.fotos[lightboxState.index]}
+                      download
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 12px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        background: 'var(--primary-accent)',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <DownloadSimple size={14} weight="bold" />
+                      <span>Baixar</span>
+                    </a>
+                  </div>
+                </div>
+
+                <iframe
+                  src={lightboxState.fotos[lightboxState.index]}
+                  title="Documento PDF"
+                  style={{
+                    width: '100%',
+                    flex: 1,
+                    border: 'none',
+                    backgroundColor: '#525659',
+                  }}
+                />
+              </div>
+            ) : (
+              <img
+                src={lightboxState.fotos[lightboxState.index]}
+                alt=""
+                draggable={false}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'contain',
+                  borderRadius: '6px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                  userSelect: 'none',
+                }}
+              />
+            )}
 
             {/* Seta Lateral Direita */}
             {lightboxState.fotos.length > 1 && (
@@ -1639,25 +1802,53 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                 }}
               >
                 {lightboxState.fotos.map((fUrl, fIdx) => (
-                  <img
-                    key={fIdx}
-                    src={fUrl}
-                    alt=""
-                    draggable={false}
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 6,
-                      objectFit: 'cover',
-                      cursor: 'pointer',
-                      border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                      opacity: fIdx === lightboxState.index ? 1 : 0.55,
-                      flexShrink: 0,
-                      transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                      transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                    }}
-                    onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                  />
+                  isPdfUrl(fUrl) ? (
+                    <div
+                      key={fIdx}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 6,
+                        backgroundColor: '#fff5f5',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                        opacity: fIdx === lightboxState.index ? 1 : 0.65,
+                        flexShrink: 0,
+                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
+                        color: '#dc2626',
+                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
+                      }}
+                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
+                      title="Documento PDF"
+                    >
+                      <FilePdf size={20} weight="fill" />
+                      <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#991b1b', lineHeight: 1 }}>PDF</span>
+                    </div>
+                  ) : (
+                    <img
+                      key={fIdx}
+                      src={fUrl}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 6,
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
+                        opacity: fIdx === lightboxState.index ? 1 : 0.55,
+                        flexShrink: 0,
+                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
+                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
+                      }}
+                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
+                    />
+                  )
                 ))}
               </div>
             </div>

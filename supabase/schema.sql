@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.etapas (
     status VARCHAR(50) DEFAULT 'pendente' CHECK (status IN ('pendente', 'em_andamento', 'concluido')),
     concluida BOOLEAN DEFAULT false NOT NULL,
     concluida_em TIMESTAMPTZ,
+    ambientes TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS public.tarefas (
     status VARCHAR(50) DEFAULT 'pendente' CHECK (status IN ('pendente', 'em_andamento', 'concluido')),
     concluida BOOLEAN DEFAULT false NOT NULL,
     concluida_em TIMESTAMPTZ,
+    ambiente TEXT,
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
@@ -479,3 +481,4 @@ CREATE POLICY "Usuário gerencia seus templates customizados"
 -- ==============================================================================
 ALTER TABLE public.etapas ADD COLUMN IF NOT EXISTS ambientes JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.tarefas ADD COLUMN IF NOT EXISTS ambiente VARCHAR(100);
+ALTER TABLE public.registro_locacoes ADD COLUMN IF NOT EXISTS quantidade INTEGER;

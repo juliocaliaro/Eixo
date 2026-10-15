@@ -1372,40 +1372,16 @@ input, textarea, select {
   color: var(--coral-glow-700);
 }
 
-/* Rodapé da Etapa: Input para criar agrupamento e botão de Novo Serviço */
+/* Rodapé da Etapa: Botão de Novo Serviço */
 .etapa-footer-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px dashed var(--border-hairline);
   flex-wrap: wrap;
-}
-
-.etapa-create-group-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 260px;
-}
-
-.etapa-group-input {
-  flex: 1;
-  min-width: 160px;
-  height: 38px;
-  padding: 8px 12px;
-  font-size: 0.88rem;
-  background: #ffffff;
-}
-
-.etapa-create-group-btn {
-  height: 38px;
-  padding: 0 14px;
-  font-size: 0.84rem;
-  white-space: nowrap;
-  gap: 6px;
 }
 
 .etapa-add-task-btn {

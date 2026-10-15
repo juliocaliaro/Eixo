@@ -283,9 +283,50 @@ export const obrasApi = {
           })
         );
 
-        // Atualiza o cache local com os dados mais recentes da nuvem
-        saveObrasToStorage(obrasCompletas, targetUserId);
-        return obrasCompletas;
+        // Mescla com cache local para resiliência: se o banco ainda não possuir a coluna 'ambientes'
+        // ou 'ambiente', os agrupamentos criados localmente não se perdem no refresh (F5).
+        const localObras = loadObrasFromStorage(targetUserId);
+        const obrasCompletasMerged = obrasCompletas.map((cloudObra) => {
+          const localObra = localObras.find((lo) => lo.id === cloudObra.id);
+          if (!localObra) return cloudObra;
+
+          const etapasMerged = cloudObra.etapas.map((cloudEtapa) => {
+            const localEtapa = localObra.etapas.find((le) => le.id === cloudEtapa.id);
+            if (!localEtapa) return cloudEtapa;
+
+            const ambientesSet = new Set<string>(cloudEtapa.ambientes || []);
+            (localEtapa.ambientes || []).forEach((amb) => {
+              if (typeof amb === 'string' && amb.trim().length > 0) {
+                ambientesSet.add(amb.trim());
+              }
+            });
+
+            const tarefasMerged = cloudEtapa.tarefas.map((cloudTarefa) => {
+              const localTarefa = localEtapa.tarefas.find((lt) => lt.id === cloudTarefa.id);
+              const amb = cloudTarefa.ambiente || localTarefa?.ambiente;
+              if (amb && amb.trim().length > 0) ambientesSet.add(amb.trim());
+              return {
+                ...cloudTarefa,
+                ambiente: amb,
+              };
+            });
+
+            return {
+              ...cloudEtapa,
+              ambientes: ambientesSet.size > 0 ? Array.from(ambientesSet) : undefined,
+              tarefas: tarefasMerged,
+            };
+          });
+
+          return {
+            ...cloudObra,
+            etapas: etapasMerged,
+          };
+        });
+
+        // Atualiza o cache local com os dados mesclados
+        saveObrasToStorage(obrasCompletasMerged, targetUserId);
+        return obrasCompletasMerged;
       } catch (err) {
         console.error('Falha de rede Supabase em obrasApi.list:', err);
         return loadObrasFromStorage(userId);
@@ -513,7 +554,14 @@ export const obrasApi = {
               }
             }
             if (evidenciasRows.length > 0) {
-              await supabase!.from('tarefa_evidencias').upsert(evidenciasRows);
+              try {
+                const { error: evErr } = await supabase!.from('tarefa_evidencias').upsert(evidenciasRows);
+                if (evErr) {
+                  console.warn('Aviso ao sincronizar tarefa_evidencias (verifique políticas de RLS):', evErr);
+                }
+              } catch (err) {
+                console.warn('Exceção ao sincronizar tarefa_evidencias:', err);
+              }
             }
           }
 
@@ -809,22 +857,36 @@ export const locacoesApi = {
           created_at: locacao.criadoEm || new Date().toISOString(),
         };
 
+        if (locacao.quantidade !== undefined && locacao.quantidade !== null) {
+          payload.quantidade = locacao.quantidade;
+        }
+
         if (locacao.periodo) {
           payload.periodo = locacao.periodo;
         }
 
         const { error } = await supabase.from('registro_locacoes').upsert(payload);
         if (error) {
-          // Se a coluna 'periodo' não existir no banco, retenta sem a coluna 'periodo'
-          if (error.message?.includes('periodo') || error.code === 'PGRST204') {
+          // Se as colunas 'quantidade' ou 'periodo' não existirem no banco remoto, retenta sem elas
+          let needsRetry = false;
+          if (error.message?.includes('quantidade') || error.code === 'PGRST204' || error.code === '42703') {
+            delete payload.quantidade;
+            needsRetry = true;
+          }
+          if (error.message?.includes('periodo') || error.code === 'PGRST204' || error.code === '42703') {
             delete payload.periodo;
+            needsRetry = true;
+          }
+
+          if (needsRetry) {
             const retry = await supabase.from('registro_locacoes').upsert(payload);
             if (retry.error) {
-              console.error('Erro ao salvar locação no Supabase (retry sem periodo):', retry.error);
+              console.error('Erro ao salvar locação no Supabase (retry sem campos novos):', retry.error);
               return false;
             }
             return true;
           }
+
           console.error('Erro ao salvar locação no Supabase:', error);
           return false;
         }

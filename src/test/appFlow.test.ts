@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mapTarefaFromDb, mapEtapaFromDb, TarefaEvidenciaRow } from '../services/dbTypes';
-import { Etapa, Tarefa, Decisao } from '../types/obra';
+import { mapTarefaFromDb, mapEtapaFromDb, mapLocacaoFromDb, TarefaEvidenciaRow, RegistroLocacaoRow } from '../services/dbTypes';
+import { Etapa, Tarefa, Decisao, RegistroLocacao } from '../types/obra';
 
 describe('1. Mapeamento e Resiliência de Ambientes (Supabase / Local)', () => {
   it('deve extrair ambiente a partir da anotação especial de sincronização resiliente __AMBIENTE__', () => {
@@ -128,5 +128,42 @@ describe('3. Agrupamento de Ambientes e Preservação de Tarefas', () => {
     expect(total).toBe(3);
     expect(concluidas).toBe(2);
     expect(`${concluidas}/${total} concluídos`).toBe('2/3 concluídos');
+  });
+});
+
+describe('4. Gestão de Locações e Quantidade de Equipamentos', () => {
+  it('deve mapear corretamente o campo quantidade a partir do banco de dados', () => {
+    const row: RegistroLocacaoRow = {
+      id: 'loc-1',
+      obra_id: 'obra-1',
+      item_locado: 'Escora metálica',
+      quantidade: 15,
+      periodo: 'mensal',
+      data_vencimento: '2026-11-14',
+      fotos: [],
+      created_at: '2026-10-14T22:00:00.000Z',
+    };
+
+    const locacao = mapLocacaoFromDb(row);
+    expect(locacao.itemLocado).toBe('Escora metálica');
+    expect(locacao.quantidade).toBe(15);
+    expect(locacao.periodo).toBe('mensal');
+  });
+
+  it('deve manter quantidade como undefined quando não informada no registro', () => {
+    const row: RegistroLocacaoRow = {
+      id: 'loc-2',
+      obra_id: 'obra-1',
+      item_locado: 'Betoneira 400L',
+      quantidade: null,
+      periodo: 'semanal',
+      data_vencimento: '2026-10-21',
+      fotos: [],
+      created_at: '2026-10-14T22:00:00.000Z',
+    };
+
+    const locacao = mapLocacaoFromDb(row);
+    expect(locacao.itemLocado).toBe('Betoneira 400L');
+    expect(locacao.quantidade).toBeUndefined();
   });
 });

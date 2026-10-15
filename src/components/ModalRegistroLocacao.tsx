@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch } from '@phosphor-icons/react';
+import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch, Hash, FilePdf } from '@phosphor-icons/react';
 import { Obra, TipoPeriodoLocacao } from '../types/obra';
 import { storageApi } from '../services/api';
 import { generateUUID } from '../utils/uuid';
+import { isPdfFile } from '../utils/fileUtils';
 
 export interface NovaLocacaoData {
   id?: string;
   obraId: string;
   itemLocado: string;
+  quantidade?: number;
   periodo: TipoPeriodoLocacao;
   dataVencimento: string;
   fotos: string[];
@@ -17,6 +19,8 @@ export interface NovaLocacaoData {
 interface FotoItem {
   blob: Blob;
   previewUrl: string;
+  name?: string;
+  isPdf?: boolean;
 }
 
 interface ModalRegistroLocacaoProps {
@@ -36,6 +40,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
 }) => {
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
   const [itemLocado, setItemLocado] = useState<string>('');
+  const [quantidade, setQuantidade] = useState<number | ''>('');
   const [fornecedor, setFornecedor] = useState<string>('');
   const [periodo, setPeriodo] = useState<TipoPeriodoLocacao | ''>('');
   const [fotos, setFotos] = useState<FotoItem[]>([]);
@@ -43,6 +48,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar apenas quando o modal for aberto
   const prevIsOpenRef = useRef(false);
@@ -50,6 +56,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     if (isOpen && !prevIsOpenRef.current) {
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setItemLocado('');
+      setQuantidade('');
       setFornecedor('');
       setPeriodo('');
       setFotos((prev) => {
@@ -74,11 +81,15 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
 
   if (!isOpen) return null;
 
-  // Processamento e compressão inteligente para Blob (leve e otimizado para mobile)
-  const comprimirArquivoParaBlob = (file: File): Promise<Blob> => {
+  // Processamento e compressão inteligente para Blob (com suporte direto a PDF e imagens)
+  const comprimirArquivoParaBlob = (file: File): Promise<{ blob: Blob; isPdf: boolean; name: string }> => {
     return new Promise((resolve) => {
+      if (isPdfFile(file)) {
+        resolve({ blob: file, isPdf: true, name: file.name });
+        return;
+      }
       if (!file.type.startsWith('image/')) {
-        resolve(file);
+        resolve({ blob: file, isPdf: false, name: file.name });
         return;
       }
       const reader = new FileReader();
@@ -104,19 +115,19 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
             ctx.drawImage(img, 0, 0, width, height);
             canvas.toBlob(
               (blob) => {
-                resolve(blob || file);
+                resolve({ blob: blob || file, isPdf: false, name: file.name });
               },
               'image/jpeg',
               0.82
             );
           } else {
-            resolve(file);
+            resolve({ blob: file, isPdf: false, name: file.name });
           }
         };
-        img.onerror = () => resolve(file);
+        img.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
         img.src = e.target?.result as string;
       };
-      reader.onerror = () => resolve(file);
+      reader.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
       reader.readAsDataURL(file);
     });
   };
@@ -139,16 +150,17 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       const fileList = Array.from(files);
       const novosItens: FotoItem[] = [];
       for (const file of fileList) {
-        const blob = await comprimirArquivoParaBlob(file);
+        const { blob, isPdf, name } = await comprimirArquivoParaBlob(file);
         const previewUrl = URL.createObjectURL(blob);
-        novosItens.push({ blob, previewUrl });
+        novosItens.push({ blob, previewUrl, isPdf, name });
       }
       setFotos((prev) => [...prev, ...novosItens]);
     } catch {
-      setErro('Falha ao processar imagem(ns). Tente novamente.');
+      setErro('Falha ao processar arquivo(s). Tente novamente.');
     } finally {
       setIsProcessingPhotos(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
     }
   };
 
@@ -197,13 +209,16 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       const locacaoId = generateUUID();
       const urlsUpload: string[] = [];
 
-      // Faz upload de cada foto diretamente para o Supabase Storage antes de salvar
+      // Faz upload de cada foto/PDF diretamente para o Supabase Storage antes de salvar
       for (let i = 0; i < fotos.length; i++) {
         const item = fotos[i];
-        const path = `${obraId}/locacoes/${locacaoId}_${i}.jpg`;
-        let remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, 'image/jpeg');
+        const isPdf = item.isPdf || item.blob.type === 'application/pdf';
+        const ext = isPdf ? 'pdf' : 'jpg';
+        const contentType = isPdf ? 'application/pdf' : 'image/jpeg';
+        const path = `${obraId}/locacoes/${locacaoId}_${i}.${ext}`;
+        let remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, contentType);
         if (!remoteUrl) {
-          remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, item.blob, 'image/jpeg');
+          remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, item.blob, contentType);
         }
 
         if (remoteUrl) {
@@ -222,6 +237,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
         id: locacaoId,
         obraId,
         itemLocado: itemLocado.trim(),
+        quantidade: quantidade ? Number(quantidade) : undefined,
         periodo,
         dataVencimento,
         fotos: urlsUpload,
@@ -423,41 +439,97 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               </select>
             </div>
 
-            {/* 2. O que foi locado (Obrigatório) */}
-            <div>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  marginBottom: 6,
-                }}
-              >
-                <Wrench size={16} />
-                <span>O que foi locado? *</span>
-              </label>
-              <input
-                type="text"
-                value={itemLocado}
-                onChange={(e) => {
-                  setItemLocado(e.target.value);
-                  setErro('');
-                }}
-                placeholder="Ex: Andaime Fachadeiro 12m, Betoneira 400L, Rompedor 30kg..."
-                className="form-input"
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-hairline)',
-                  fontSize: '0.92rem',
-                  outline: 'none',
-                }}
-                required
-              />
+            {/* 2. O que foi locado E Quantidade na mesma linha */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    marginBottom: 6,
+                  }}
+                >
+                  <Wrench size={16} />
+                  <span>O que foi locado? *</span>
+                </label>
+                <input
+                  type="text"
+                  value={itemLocado}
+                  onChange={(e) => {
+                    setItemLocado(e.target.value);
+                    setErro('');
+                  }}
+                  placeholder="Ex: Escora metálica, Andaime, Betoneira..."
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-hairline)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                  }}
+                  required
+                />
+              </div>
+
+              <div style={{ width: 95, flexShrink: 0 }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-main)',
+                    marginBottom: 6,
+                  }}
+                >
+                  <Hash size={16} />
+                  <span>Qtd.</span>
+                </label>
+                <input
+                  id="locacao-quantidade"
+                  name="quantidade"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  step="1"
+                  value={quantidade}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setQuantidade('');
+                    } else {
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num) && num > 0) {
+                        setQuantidade(num);
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  placeholder="1"
+                  className="form-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--border-hairline)',
+                    fontSize: '0.92rem',
+                    textAlign: 'center',
+                    outline: 'none',
+                  }}
+                  title="Quantidade do equipamento locado"
+                />
+              </div>
             </div>
 
             {/* 3. Fornecedor / Locadora E Data de Vencimento lado a lado */}
@@ -545,7 +617,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               </div>
             </div>
 
-            {/* 4. Upload de Foto do Equipamento / Comprovante */}
+            {/* 4. Upload de Foto ou Documento PDF */}
             <div>
               <label
                 style={{
@@ -560,74 +632,124 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Camera size={16} />
-                  <span>Foto do Equipamento ou Comprovante</span>
+                  <span>Foto do Equipamento ou Documento PDF</span>
                 </div>
                 {fotos.length > 0 && (
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    {fotos.length} {fotos.length === 1 ? 'foto selecionada' : 'fotos selecionadas'}
+                    {fotos.length} {fotos.length === 1 ? 'arquivo selecionado' : 'arquivos selecionados'}
                   </span>
                 )}
               </label>
 
-              {/* Botão de Adição de Fotos */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  border: '1.5px dashed var(--border-hairline)',
-                  borderRadius: '8px',
-                  padding: '18px 16px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                  transition: 'border-color 0.15s ease, background 0.15s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--coral-glow-500, #e05a47)';
-                  e.currentTarget.style.background = '#ffffff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                  e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
-                }}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFilesChange}
-                  style={{ display: 'none' }}
-                />
-                <Camera size={26} color="var(--coral-glow-500, #e05a47)" weight="duotone" />
-                <div>
-                  <span
+              {fotos.length === 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                  {/* Opção 1: Fotos ou Galeria (um único input unificado) */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
                     style={{
-                      fontSize: '0.88rem',
-                      fontWeight: 600,
-                      color: 'var(--text-main)',
-                      display: 'block',
-                    }}
-                  >
-                    {isProcessingPhotos ? 'Processando imagem...' : 'Clique para adicionar foto'}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.76rem',
+                      border: '1.5px dashed var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '20px 14px',
+                      textAlign: 'center',
+                      background: 'var(--dark-coffee-50, #fcfaf8)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
                       color: 'var(--text-muted)',
-                      display: 'block',
-                      marginTop: 2,
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary-accent)';
+                      e.currentTarget.style.background = '#ffffff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                      e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
                     }}
                   >
-                    JPG, PNG ou foto direta da câmera do celular
-                  </span>
-                </div>
-              </div>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-accent)',
+                      }}
+                    >
+                      <Camera size={24} weight="bold" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Fotos ou Galeria
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                        Câmera ou imagens do celular
+                      </span>
+                    </div>
+                  </div>
 
-              {/* Miniaturas das Fotos */}
+                  {/* Opção 2: Anexar Documento PDF */}
+                  <div
+                    onClick={() => pdfInputRef.current?.click()}
+                    style={{
+                      border: '1.5px dashed var(--border-hairline)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '20px 14px',
+                      textAlign: 'center',
+                      background: 'var(--dark-coffee-50, #fcfaf8)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      color: 'var(--text-muted)',
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#dc2626';
+                      e.currentTarget.style.background = '#fff5f5';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
+                      e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#dc2626',
+                      }}
+                    >
+                      <FilePdf size={24} weight="bold" />
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
+                        Anexar PDF
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
+                        Contrato ou recibo em PDF
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Miniaturas das Fotos e PDFs */}
               {fotos.length > 0 && (
                 <div
                   style={{
@@ -650,15 +772,49 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                         backgroundColor: '#f1f1f1',
                       }}
                     >
-                      <img
-                        src={foto.previewUrl}
-                        alt={`Foto locação ${idx + 1}`}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                        }}
-                      />
+                      {foto.isPdf ? (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#fff5f5',
+                            border: '1px solid #fed7d7',
+                            padding: 4,
+                            textAlign: 'center',
+                          }}
+                        >
+                          <FilePdf size={28} weight="fill" color="#dc2626" />
+                          <span
+                            style={{
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              color: '#991b1b',
+                              marginTop: 2,
+                              maxWidth: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'block',
+                            }}
+                          >
+                            PDF
+                          </span>
+                        </div>
+                      ) : (
+                        <img
+                          src={foto.previewUrl}
+                          alt={`Foto locação ${idx + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -680,14 +836,84 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                           justifyContent: 'center',
                           cursor: 'pointer',
                         }}
-                        title="Remover foto"
+                        title="Remover arquivo"
                       >
                         <Trash size={12} weight="bold" />
                       </button>
                     </div>
                   ))}
+
+                  {/* Botão Adicionar mais fotos da câmera ou galeria */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: '6px',
+                      border: '1.5px dashed var(--border-hairline)',
+                      background: 'var(--dark-coffee-50)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      gap: 3,
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    title="Adicionar mais fotos (câmera ou galeria)"
+                  >
+                    <Camera size={18} weight="bold" />
+                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ Fotos</span>
+                  </button>
+
+                  {/* Botão Adicionar mais documentos PDF */}
+                  <button
+                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1',
+                      borderRadius: '6px',
+                      border: '1.5px dashed var(--border-hairline)',
+                      background: 'var(--dark-coffee-50)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#dc2626',
+                      gap: 3,
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                    title="Adicionar arquivo PDF"
+                  >
+                    <FilePdf size={18} weight="bold" />
+                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ PDF</span>
+                  </button>
                 </div>
               )}
+
+              {/* Input unificado para fotos (câmera ou galeria do dispositivo) */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFilesChange}
+                style={{ display: 'none' }}
+              />
+
+              {/* Input exclusivo para seleção de PDFs */}
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                onChange={handleFilesChange}
+                style={{ display: 'none' }}
+              />
             </div>
           </div>
 

@@ -108,7 +108,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     defaultAmbiente?: string;
     ambientes: string[];
   } | null>(null);
-  const [newGroupInput, setNewGroupInput] = useState<{ [etapaId: string]: string }>({});
 
   const [editingTask, setEditingTask] = useState<{
     etapaId: string;
@@ -231,17 +230,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         [etapaId]: !current,
       };
     });
-  };
-
-
-  const handleCreateGroupQuick = (etapaId: string) => {
-    const nome = (newGroupInput[etapaId] || '').trim();
-    if (!nome) return;
-    if (onCreateAgrupamento) {
-      onCreateAgrupamento(etapaId, nome);
-    }
-    setNewGroupInput((prev) => ({ ...prev, [etapaId]: '' }));
-    setOpenAgrupamentos((prev) => ({ ...prev, [`${etapaId}__${nome}`]: true }));
   };
 
   const handleQuickAddTask = (etapaId: string) => {
@@ -1100,39 +1088,9 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             </div>
                           )}
 
-                          {/* Rodapé da Etapa: Input para criar agrupamento & Botão Pop-up Novo Serviço */}
+                          {/* Rodapé da Etapa: Botão Pop-up Novo Serviço */}
                           {!isReadOnly && (
                             <div className="etapa-footer-actions">
-                              <div className="etapa-create-group-bar">
-                                <input
-                                  type="text"
-                                  className="form-input etapa-group-input"
-                                  placeholder="+ Novo agrupamento (ex: Cozinha, Sala, Quarto)..."
-                                  value={newGroupInput[etapa.id] || ''}
-                                  onChange={(e) =>
-                                    setNewGroupInput((prev) => ({
-                                      ...prev,
-                                      [etapa.id]: e.target.value,
-                                    }))
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleCreateGroupQuick(etapa.id);
-                                    }
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleCreateGroupQuick(etapa.id)}
-                                  className="btn-secondary etapa-create-group-btn"
-                                  title="Criar agrupamento nesta etapa"
-                                >
-                                  <Plus size={14} weight="bold" />
-                                  <span>Criar agrupamento</span>
-                                </button>
-                              </div>
-
                               <button
                                 type="button"
                                 onClick={() =>

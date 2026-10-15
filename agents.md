@@ -10,6 +10,7 @@ Este documento consolida todas as decisões arquiteturais, de experiência do us
 - **Diretriz primordial**: **"Menos é mais"** (usabilidade extrema, estratégias de wizard passo a passo, ausência de poluição visual, remoção de labels repetitivas e de banners informativos desnecessários).
 - **Sem Alerts Nativos**: Todas as confirmações de exclusão e alertas do sistema usam modais desenhados no design system (`ModalConfirm`), banindo `window.alert()` e `window.confirm()`.
 - **Supressão Estrita de Notificações em Mobile Durante Preenchimento/Registro**: Durante qualquer fluxo de cadastro, preenchimento de campos, foco em formulários ou modais/assistentes abertos no dispositivo móvel, nenhuma notificação (toast) pode subir ou ser exibida, impedindo a sobreposição de botões de ação ("Avançar", "Salvar"), obstrução do teclado virtual ou cliques residuais acidentais.
+- **PROIBIÇÃO ESTRITA DE GIT COMMIT E GIT PUSH SEM SOLICITAÇÃO EXPRESSA DO USUÁRIO**: É TERMINANTEMENTE PROIBIDO EXECUTAR `git commit` OU `git push` DE FORMA AUTÔNOMA. COMMIT E PUSH SÓ PODEM SER EXECUTADOS QUANDO O USUÁRIO PEDIR OU AUTORIZAR EXPLICITAMENTE.
 
 ---
 
@@ -536,7 +537,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Sincronização em tempo real de URL via parâmetro `?view=locacoes`, garantindo que atualizar a página (F5) mantenha a visualização aberta.
 - **Formulário de Cadastro (`ModalRegistroLocacao.tsx`)**:
   - **Upload de foto**: foto do maquinário, ferramenta ou comprovante/recibo com compressão inteligente via `<canvas>` e upload para bucket de armazenamento.
-  - **O que foi locado**: campo de texto livre obrigatório para descrição detalhada (ex: *Andaime Fachadeiro 12m*, *Betoneira 400L*).
+  - **O que foi locado & Quantidade na mesma linha**: o campo descritivo livre ("O que foi locado?", ex: *Escora metálica*, *Andaime Fachadeiro 12m*) e o campo numérico pequeno ("Qtd.", aceitando estritamente números inteiros com teclado numérico em mobile) dispostos lado a lado na mesma linha.
   - **Disposição Lado a Lado**: `Fornecedor / Locadora` e `Data de Vencimento` dispostos em 2 colunas horizontais harmoniosas, otimizando o fluxo visual.
   - **Remoção de Campos Desnecessários ("Menos é mais")**: Campos de valor em R$ e observações foram removidos da criação para acelerar o registro operacional no canteiro. O formulário de criação foca estritamente nos dados de entrada da locação.
 - **Painel Executivo e Mecânica de Renovação no Registro Criado (`RegistroLocacoesPage.tsx`)**:
