@@ -8,6 +8,8 @@ import {
 import { PunchListItem, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
+import { percentualConcluido } from '../utils/obraMetrics';
+import { formatarDataHoraBR } from '../utils/data';
 
 interface VistoriaPunchListProps {
   punchList: PunchListItem[];
@@ -31,7 +33,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
   const total = punchList.length;
   const concluidos = punchList.filter((i) => i.concluido).length;
-  const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+  const percentual = percentualConcluido(concluidos, total);
   const tudoResolvido = total > 0 && concluidos === total;
 
   const handleToggleItem = (id: string) => {
@@ -76,20 +78,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
     setDeleteTargetId(null);
   };
 
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
+  const formatarDataHora = (isoStr?: string) => formatarDataHoraBR(isoStr, { ano: false, separador: ', ' });
 
   return (
     <div

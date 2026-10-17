@@ -1,4 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useToggleMap } from '../hooks/useToggleMap';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import { Lightbox } from './Lightbox';
+import { DatePickerInput } from './DatePickerInput';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   BookOpen,
   CheckCircle,
@@ -11,56 +16,20 @@ import {
   MagnifyingGlass,
   Plus,
   ArrowRight,
-  CurrencyDollar,
   X,
-  Eye,
   CalendarBlank,
-  Buildings,
-  ShareNetwork,
-  Scales,
   Funnel,
   Check,
-  Package,
-  Receipt,
   CaretDown,
   CircleNotch,
 } from '@phosphor-icons/react';
-import { storageApi } from '../services/api';
-import { Obra, Tarefa, Etapa, Decisao, AnexoItem, PerfilUsuario, PunchListItem, RegistroMaterial, RegistroNota } from '../types/obra';
-import { getEtapaIcon } from '../utils/etapaIcons';
+import { normalizeFile, releasePreview, storeNormalized, buildStoragePath } from '../utils/fileIntake';
+import { Obra, AnexoItem, PerfilUsuario } from '../types/obra';
 import { formatarMoeda } from '../utils/moeda';
+import { montarExtrato, DiarioEntry } from '../utils/diarioExtrato';
+import { ImpactoFinanceiroBadge } from './ImpactoFinanceiroBadge';
 
-export interface DiarioEntry {
-  id: string;
-  dataHora: string; // ISO string
-  dataKey: string; // YYYY-MM-DD
-  tipo:
-    | 'servico_concluido'
-    | 'etapa_concluida'
-    | 'decisao_criada'
-    | 'decisao_aprovada'
-    | 'decisao_recusada'
-    | 'evidencia_tarefa'
-    | 'anexo_geral'
-    | 'vistoria_concluida'
-    | 'material_registrado'
-    | 'nota_registrada';
-  categoria: 'etapa' | 'decisao' | 'evidencia' | 'financeiro' | 'material' | 'nota';
-  titulo: string;
-  subtitulo?: string;
-  descricao?: string;
-  autorNome?: string;
-  autorPerfil?: PerfilUsuario;
-  impactoFinanceiro?: number;
-  valorAditivo?: number;
-  valorSupressivo?: number;
-  fotos?: string[];
-  anotacoes?: string[];
-  etapaId?: string;
-  etapaNome?: string;
-  tarefaId?: string;
-  decisaoId?: string;
-}
+export type { DiarioEntry };
 
 interface DiarioObraTabProps {
   obra: Obra;
@@ -91,14 +60,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const filterContainerRef = useRef<HTMLDivElement>(null);
 
   // Accordion Mobile
-  const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
-
-  const toggleMobileExpand = (id: string) => {
-    setExpandedMobileIds((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
+  const [expandedMobileIds, toggleMobileExpand] = useToggleMap();
 
   // Lightbox
   const [selectedImageModal, setSelectedImageModal] = useState<{
@@ -120,81 +82,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
   const [isSalvandoRegistro, setIsSalvandoRegistro] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Fechar popups de busca e filtro ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
-        setIsSearchOpen(false);
-      }
-      if (filterContainerRef.current && !filterContainerRef.current.contains(target)) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Fechar popups de busca e filtro ao clicar fora (ou Escape)
+  usePopoverDismiss(searchContainerRef, isSearchOpen, () => setIsSearchOpen(false));
+  usePopoverDismiss(filterContainerRef, isFilterOpen, () => setIsFilterOpen(false));
 
-  // Listener para fechar modais, popups e lightbox via tecla Escape
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (selectedImageModal) setSelectedImageModal(null);
-        if (isNovoRegistroOpen) setIsNovoRegistroOpen(false);
-        if (isFilterOpen) setIsFilterOpen(false);
-        if (isSearchOpen) setIsSearchOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedImageModal, isNovoRegistroOpen, isFilterOpen, isSearchOpen]);
-
-  // Função auxiliar para extrair chave de data YYYY-MM-DD
-  const extrairDataKey = (isoStr?: string): string => {
-    if (!isoStr) return new Date().toISOString().split('T')[0];
-    try {
-      if (isoStr.includes('T')) return isoStr.split('T')[0];
-      if (/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) return isoStr;
-      const d = new Date(isoStr);
-      if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-    } catch {}
-    return new Date().toISOString().split('T')[0];
-  };
-
-  // Função para formatar o cabeçalho do dia
-  const formatarHeaderDia = (dataKey: string): string => {
-    try {
-      const [ano, mes, dia] = dataKey.split('-').map(Number);
-      const dataObj = new Date(ano, mes - 1, dia);
-
-      const hoje = new Date();
-      const hojeKey = hoje.toISOString().split('T')[0];
-
-      const ontem = new Date();
-      ontem.setDate(ontem.getDate() - 1);
-      const ontemKey = ontem.toISOString().split('T')[0];
-
-      const options: Intl.DateTimeFormatOptions = {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      };
-      const dataFormatada = dataObj.toLocaleDateString('pt-BR', options);
-
-      if (dataKey === hojeKey) {
-        return `Hoje • ${dataFormatada}`;
-      }
-      if (dataKey === ontemKey) {
-        return `Ontem • ${dataFormatada}`;
-      }
-
-      const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
-      const diaSemanaCap = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
-      return `${dataFormatada} (${diaSemanaCap})`;
-    } catch {
-      return dataKey;
-    }
-  };
+  // Escape fecha apenas o overlay do topo (lightbox > modal > popups).
+  useEscapeKey(() => setIsNovoRegistroOpen(false), isNovoRegistroOpen);
 
   const formatarHora = (isoStr?: string): string => {
     if (!isoStr) return '--:--';
@@ -206,209 +99,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
       return '--:--';
     }
   };
-
-  // 1. Consolidação e Normalização de Todos os Lançamentos do Diário de Obra
-  const todosLancamentos: DiarioEntry[] = useMemo(() => {
-    const entries: DiarioEntry[] = [];
-    const obraCriadaEm = obra.criadaEm || new Date().toISOString();
-
-    // A) Serviços Concluídos e Evidências das Etapas
-    (obra.etapas || []).forEach((etapa) => {
-      (etapa.tarefas || []).forEach((tarefa) => {
-        const temFotos = Boolean(tarefa.fotos && tarefa.fotos.length > 0);
-        const temNotas = Boolean(tarefa.anotacoes && tarefa.anotacoes.length > 0);
-
-        if (tarefa.concluida) {
-          const timestamp = tarefa.concluidaEm || obraCriadaEm;
-          entries.push({
-            id: `entry_task_done_${tarefa.id}`,
-            dataHora: timestamp,
-            dataKey: extrairDataKey(timestamp),
-            tipo: 'servico_concluido',
-            categoria: 'etapa',
-            titulo: tarefa.nome,
-            subtitulo: `Etapa: ${etapa.nome}`,
-            fotos: tarefa.fotos,
-            anotacoes: tarefa.anotacoes,
-            etapaId: etapa.id,
-            etapaNome: etapa.nome,
-            tarefaId: tarefa.id,
-          });
-        } else if (temFotos || temNotas) {
-          // Tarefa em andamento com registros fotográficos ou notas de campo
-          const timestamp = obraCriadaEm;
-          entries.push({
-            id: `entry_task_evid_${tarefa.id}`,
-            dataHora: timestamp,
-            dataKey: extrairDataKey(timestamp),
-            tipo: 'evidencia_tarefa',
-            categoria: 'evidencia',
-            titulo: `Registro de Campo: ${tarefa.nome}`,
-            subtitulo: `Etapa: ${etapa.nome} (Em andamento)`,
-            fotos: tarefa.fotos,
-            anotacoes: tarefa.anotacoes,
-            etapaId: etapa.id,
-            etapaNome: etapa.nome,
-            tarefaId: tarefa.id,
-          });
-        }
-      });
-
-      // Etapa Concluída por Completo
-      if (etapa.concluidaEm) {
-        entries.push({
-          id: `entry_etapa_done_${etapa.id}`,
-          dataHora: etapa.concluidaEm,
-          dataKey: extrairDataKey(etapa.concluidaEm),
-          tipo: 'etapa_concluida',
-          categoria: 'etapa',
-          titulo: `Etapa Finalizada: ${etapa.nome}`,
-          subtitulo: `${(etapa.tarefas || []).length} serviços concluídos`,
-          etapaId: etapa.id,
-          etapaNome: etapa.nome,
-        });
-      }
-    });
-
-    // B) Decisões & Aprovações Bilaterais
-    (obra.decisoes || []).forEach((decisao) => {
-      const temImpactoFinanceiro =
-        decisao.valorAditivo !== undefined ||
-        decisao.valorSupressivo !== undefined ||
-        (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro !== 0);
-
-      // Decisão Aprovada & Assinada
-      if (decisao.status === 'aprovada') {
-        const timestamp = decisao.assinaturaContraparte?.assinadoEm || decisao.criadaEm;
-        entries.push({
-          id: `entry_decisao_app_${decisao.id}`,
-          dataHora: timestamp,
-          dataKey: extrairDataKey(timestamp),
-          tipo: 'decisao_aprovada',
-          categoria: temImpactoFinanceiro ? 'financeiro' : 'decisao',
-          titulo: decisao.titulo,
-          subtitulo: `Aprovada por Ambos • Criada por ${decisao.criadorNome} (${decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'})`,
-          descricao: decisao.descricao,
-          autorNome: decisao.criadorNome,
-          autorPerfil: decisao.criadaPor,
-          impactoFinanceiro: decisao.impactoFinanceiro,
-          valorAditivo: decisao.valorAditivo,
-          valorSupressivo: decisao.valorSupressivo,
-          fotos: decisao.fotos,
-          decisaoId: decisao.id,
-        });
-      } else if (decisao.status === 'recusada') {
-        const timestamp = decisao.criadaEm;
-        entries.push({
-          id: `entry_decisao_rec_${decisao.id}`,
-          dataHora: timestamp,
-          dataKey: extrairDataKey(timestamp),
-          tipo: 'decisao_recusada',
-          categoria: 'decisao',
-          titulo: `Decisão Recusada: ${decisao.titulo}`,
-          subtitulo: `Solicitado ajuste pela contraparte`,
-          descricao: decisao.descricao,
-          autorNome: decisao.criadorNome,
-          autorPerfil: decisao.criadaPor,
-          fotos: decisao.fotos,
-          decisaoId: decisao.id,
-        });
-      } else {
-        // Decisão Pendente de Assinatura
-        entries.push({
-          id: `entry_decisao_pen_${decisao.id}`,
-          dataHora: decisao.criadaEm,
-          dataKey: extrairDataKey(decisao.criadaEm),
-          tipo: 'decisao_criada',
-          categoria: temImpactoFinanceiro ? 'financeiro' : 'decisao',
-          titulo: `Proposta de Decisão: ${decisao.titulo}`,
-          subtitulo: `Registrada por ${decisao.criadorNome} (${decisao.criadaPor === 'construtor' ? 'Construtor' : 'Cliente'}) • Aguardando Assinatura`,
-          descricao: decisao.descricao,
-          autorNome: decisao.criadorNome,
-          autorPerfil: decisao.criadaPor,
-          impactoFinanceiro: decisao.impactoFinanceiro,
-          valorAditivo: decisao.valorAditivo,
-          valorSupressivo: decisao.valorSupressivo,
-          fotos: decisao.fotos,
-          decisaoId: decisao.id,
-        });
-      }
-    });
-
-    // C) Anotações e Fotos Gerais do Diário
-    (obra.anexosGerais || []).forEach((anexo) => {
-      const timestamp = anexo.data || obraCriadaEm;
-      entries.push({
-        id: `entry_anexo_geral_${anexo.id}`,
-        dataHora: timestamp,
-        dataKey: extrairDataKey(timestamp),
-        tipo: 'anexo_geral',
-        categoria: 'evidencia',
-        titulo: anexo.titulo || (anexo.tipo === 'foto' ? 'Foto Geral da Obra' : 'Nota de Diário'),
-        subtitulo: 'Registro Geral de Canteiro',
-        descricao: anexo.tipo === 'anotacao' ? anexo.conteudo : undefined,
-        fotos: anexo.tipo === 'foto' ? [anexo.conteudo] : undefined,
-      });
-    });
-
-    // D) Itens de Vistoria Final Concluídos
-    (obra.punchList || []).forEach((item) => {
-      if (item.concluido && item.concluidoEm) {
-        entries.push({
-          id: `entry_punch_${item.id}`,
-          dataHora: item.concluidoEm,
-          dataKey: extrairDataKey(item.concluidoEm),
-          tipo: 'vistoria_concluida',
-          categoria: 'etapa',
-          titulo: `Vistoria Final: ${item.item}`,
-          subtitulo: `Ambiente: ${item.ambiente || 'Geral'} • Validado`,
-        });
-      }
-    });
-
-    return entries;
-  }, [obra]);
-
-  // 2. Filtragem dos Lançamentos (Período e Busca Textual)
-  const lancamentosFiltrados = useMemo(() => {
-    const cleanSearch = searchTerm.trim().toLowerCase();
-
-    return todosLancamentos.filter((entry) => {
-      // Filtro de Período (Hoje, 7 dias, 30 dias, Intervalo)
-      if (periodoFiltro === 'hoje') {
-        const hojeKey = new Date().toISOString().split('T')[0];
-        if (entry.dataKey !== hojeKey) return false;
-      } else if (periodoFiltro === '7dias') {
-        const d7 = new Date();
-        d7.setDate(d7.getDate() - 7);
-        const d7Key = d7.toISOString().split('T')[0];
-        if (entry.dataKey < d7Key) return false;
-      } else if (periodoFiltro === '30dias') {
-        const d30 = new Date();
-        d30.setDate(d30.getDate() - 30);
-        const d30Key = d30.toISOString().split('T')[0];
-        if (entry.dataKey < d30Key) return false;
-      } else if (periodoFiltro === 'intervalo') {
-        if (dataInicio && entry.dataKey < dataInicio) return false;
-        if (dataFim && entry.dataKey > dataFim) return false;
-      }
-
-      // Filtro de Busca Textual
-      if (cleanSearch) {
-        const matchesTitulo = entry.titulo.toLowerCase().includes(cleanSearch);
-        const matchesSubtitulo = (entry.subtitulo || '').toLowerCase().includes(cleanSearch);
-        const matchesDescricao = (entry.descricao || '').toLowerCase().includes(cleanSearch);
-        const matchesAutor = (entry.autorNome || '').toLowerCase().includes(cleanSearch);
-        const matchesAnotacoes = (entry.anotacoes || []).some((a) => a.toLowerCase().includes(cleanSearch));
-
-        if (!matchesTitulo && !matchesSubtitulo && !matchesDescricao && !matchesAutor && !matchesAnotacoes) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [todosLancamentos, searchTerm, periodoFiltro, dataInicio, dataFim]);
 
   // Helpers do filtro de período
   const isPeriodoAtivo = periodoFiltro !== 'todos' || Boolean(dataInicio || dataFim);
@@ -434,50 +124,16 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
     return '';
   }, [periodoFiltro, dataInicio, dataFim]);
 
-  // 3. Agrupamento por Dia (Extrato Bancário) ordenado do mais recente ao mais antigo
-  const extratoPorDia = useMemo(() => {
-    const grupos: Record<string, DiarioEntry[]> = {};
-
-    lancamentosFiltrados.forEach((entry) => {
-      if (!grupos[entry.dataKey]) {
-        grupos[entry.dataKey] = [];
-      }
-      grupos[entry.dataKey].push(entry);
-    });
-
-    // Ordenar dias em ordem decrescente (mais recente no topo)
-    const chavesOrdenadas = Object.keys(grupos).sort((a, b) => b.localeCompare(a));
-
-    return chavesOrdenadas.map((diaKey) => {
-      // Ordenar lançamentos do dia por horário decrescente
-      const entriesDoDia = grupos[diaKey].sort((a, b) => {
-        try {
-          const timeA = new Date(a.dataHora).getTime();
-          const timeB = new Date(b.dataHora).getTime();
-          return timeB - timeA;
-        } catch {
-          return 0;
-        }
-      });
-
-      // Cálculo de Saldo Financeiro do Dia (se houver decisões aprovadas/propostas no dia)
-      const saldoDia = entriesDoDia.reduce((acc, item) => {
-        if (item.tipo === 'decisao_aprovada') {
-          const aditivo = item.valorAditivo || (item.impactoFinanceiro && item.impactoFinanceiro > 0 ? item.impactoFinanceiro : 0);
-          const supressivo = item.valorSupressivo ? -Math.abs(item.valorSupressivo) : (item.impactoFinanceiro && item.impactoFinanceiro < 0 ? item.impactoFinanceiro : 0);
-          return acc + aditivo + supressivo;
-        }
-        return acc;
-      }, 0);
-
-      return {
-        diaKey,
-        headerTexto: formatarHeaderDia(diaKey),
-        entries: entriesDoDia,
-        saldoDia,
-      };
-    });
-  }, [lancamentosFiltrados]);
+  // 3. Extrato por dia (consolidação, filtro de período/busca e agrupamento em utils/diarioExtrato)
+  const extratoPorDia = useMemo(
+    () =>
+      montarExtrato(
+        obra,
+        { busca: searchTerm, periodo: periodoFiltro, dataInicio, dataFim },
+        new Date()
+      ),
+    [obra, searchTerm, periodoFiltro, dataInicio, dataFim]
+  );
 
   // Submissão do Modal de Novo Registro
   const handleSalvarNovoRegistro = async (e: React.FormEvent) => {
@@ -497,10 +153,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
     try {
       let fotoUrlFinal = novaFotoPreview;
       if (novoTipo === 'foto' && novaFotoArquivo) {
-        const sanitizedName = novaFotoArquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `${obra.id}/diario/${Date.now()}_${sanitizedName}`;
-        const remoteUrl = await storageApi.uploadFile('evidencias-diario', path, novaFotoArquivo);
-        fotoUrlFinal = remoteUrl || novaFotoPreview;
+        const item = await normalizeFile(novaFotoArquivo);
+        releasePreview(item);
+        fotoUrlFinal = await storeNormalized(item, {
+          bucket: 'evidencias-diario',
+          path: buildStoragePath(`${obra.id}/diario/${Date.now()}`, item),
+        });
       }
 
       if (novoDestino === 'tarefa' && novaEtapaId && novaTarefaId && onUpdateTaskMedia) {
@@ -569,7 +227,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <h2 style={{ fontSize: '1.20rem', fontWeight: 800, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>
+          <h2 className="tab-title" style={{ margin: 0 }}>
             Diário de Obra
           </h2>
 
@@ -658,13 +316,13 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   position: 'absolute',
                   top: 'calc(100% + 8px)',
                   right: 0,
-                  width: 300,
+                  width: 'min(300px, calc(100vw - 32px))',
                   background: '#ffffff',
                   border: '1px solid var(--border-hairline)',
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-floating)',
                   padding: '12px',
-                  zIndex: 200,
+                  zIndex: 'var(--z-popover)',
                   animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
@@ -682,9 +340,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     onChange={(e) => setSearchTerm(e.target.value)}
                     autoFocus
                     style={{ paddingLeft: 34, paddingRight: searchTerm ? 30 : 10, fontSize: '0.86rem', paddingBlock: '8px' }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setIsSearchOpen(false);
-                    }}
                   />
                   {searchTerm && (
                     <button
@@ -750,7 +405,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-floating)',
                   padding: '14px',
-                  zIndex: 200,
+                  zIndex: 'var(--z-popover)',
                   animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
@@ -852,46 +507,21 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                         gap: 8,
                       }}
                     >
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>
-                          Data inicial (De):
-                        </label>
-                        <input
-                          type="date"
-                          value={dataInicio}
-                          onChange={(e) => setDataInicio(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            border: '1px solid var(--border-hairline)',
-                            borderRadius: 'var(--radius-xs)',
-                            padding: '6px 8px',
-                            fontSize: '0.80rem',
-                            color: 'var(--text-main)',
-                            background: '#ffffff',
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 3 }}>
-                          Data final (Até):
-                        </label>
-                        <input
-                          type="date"
-                          value={dataFim}
-                          onChange={(e) => setDataFim(e.target.value)}
-                          style={{
-                            width: '100%',
-                            boxSizing: 'border-box',
-                            border: '1px solid var(--border-hairline)',
-                            borderRadius: 'var(--radius-xs)',
-                            padding: '6px 8px',
-                            fontSize: '0.80rem',
-                            color: 'var(--text-main)',
-                            background: '#ffffff',
-                          }}
-                        />
-                      </div>
+                      <DatePickerInput
+                        label="Data inicial (De)"
+                        helperText=""
+                        value={dataInicio}
+                        onChange={setDataInicio}
+                        autoScrollOnMobile={false}
+                      />
+                      <DatePickerInput
+                        label="Data final (Até)"
+                        helperText=""
+                        value={dataFim}
+                        onChange={setDataFim}
+                        minDate={dataInicio || undefined}
+                        autoScrollOnMobile={false}
+                      />
                     </div>
                   )}
                 </div>
@@ -1086,8 +716,6 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                     IconComponent = CheckCircle;
                   }
 
-                  const temAditivo = entry.valorAditivo !== undefined && entry.valorAditivo > 0;
-                  const temSupressivo = entry.valorSupressivo !== undefined && entry.valorSupressivo > 0;
 
                   const isExpandedMobile = Boolean(expandedMobileIds[entry.id]);
 
@@ -1288,58 +916,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                           {/* Coluna Direita: Valores Financeiros & Ações Rápidas */}
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                             {/* Badges Financeiros de Extrato */}
-                            {temAditivo && temSupressivo ? (
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
-                                  +{formatarMoeda(entry.valorAditivo)}
-                                </div>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                                  -{formatarMoeda(entry.valorSupressivo)}
-                                </div>
-                              </div>
-                            ) : temAditivo ? (
-                              <div
-                                style={{
-                                  fontSize: '0.82rem',
-                                  fontWeight: 800,
-                                  color: 'var(--primary-accent)',
-                                  background: 'var(--coral-glow-50)',
-                                  border: '1px solid var(--coral-glow-200)',
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                }}
-                              >
-                                +{formatarMoeda(entry.valorAditivo)}
-                              </div>
-                            ) : temSupressivo ? (
-                              <div
-                                style={{
-                                  fontSize: '0.82rem',
-                                  fontWeight: 800,
-                                  color: '#15803d',
-                                  background: '#dcfce7',
-                                  border: '1px solid #bbf7d0',
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                }}
-                              >
-                                -{formatarMoeda(entry.valorSupressivo)}
-                              </div>
-                            ) : entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0 ? (
-                              <div
-                                style={{
-                                  fontSize: '0.82rem',
-                                  fontWeight: 800,
-                                  color: entry.impactoFinanceiro > 0 ? 'var(--primary-accent)' : '#15803d',
-                                  background: entry.impactoFinanceiro > 0 ? 'var(--coral-glow-50)' : '#dcfce7',
-                                  border: `1px solid ${entry.impactoFinanceiro > 0 ? 'var(--coral-glow-200)' : '#bbf7d0'}`,
-                                  padding: '2px 8px',
-                                  borderRadius: 4,
-                                }}
-                              >
-                                {entry.impactoFinanceiro > 0 ? `+${formatarMoeda(entry.impactoFinanceiro)}` : `-${formatarMoeda(Math.abs(entry.impactoFinanceiro))}`}
-                              </div>
-                            ) : null}
+                            <ImpactoFinanceiroBadge impacto={entry.impacto} tamanho="desktop" />
 
                             {/* Atalhos Rápidos */}
                             {entry.etapaId && entry.tarefaId && onNavigateToTask && (
@@ -1592,58 +1169,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                             {/* Rodapé do Accordion: Impacto Financeiro e Botão de Ação */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                               <div>
-                                {temAditivo && temSupressivo ? (
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-accent)' }}>
-                                      +{formatarMoeda(entry.valorAditivo)}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>
-                                      -{formatarMoeda(entry.valorSupressivo)}
-                                    </span>
-                                  </div>
-                                ) : temAditivo ? (
-                                  <span
-                                    style={{
-                                      fontSize: '0.75rem',
-                                      fontWeight: 800,
-                                      color: 'var(--primary-accent)',
-                                      background: 'var(--coral-glow-50)',
-                                      border: '1px solid var(--coral-glow-200)',
-                                      padding: '2px 8px',
-                                      borderRadius: 4,
-                                    }}
-                                  >
-                                    +{formatarMoeda(entry.valorAditivo)}
-                                  </span>
-                                ) : temSupressivo ? (
-                                  <span
-                                    style={{
-                                      fontSize: '0.75rem',
-                                      fontWeight: 800,
-                                      color: '#15803d',
-                                      background: '#dcfce7',
-                                      border: '1px solid #bbf7d0',
-                                      padding: '2px 8px',
-                                      borderRadius: 4,
-                                    }}
-                                  >
-                                    -{formatarMoeda(entry.valorSupressivo)}
-                                  </span>
-                                ) : entry.impactoFinanceiro !== undefined && entry.impactoFinanceiro !== 0 ? (
-                                  <span
-                                    style={{
-                                      fontSize: '0.75rem',
-                                      fontWeight: 800,
-                                      color: entry.impactoFinanceiro > 0 ? 'var(--primary-accent)' : '#15803d',
-                                      background: entry.impactoFinanceiro > 0 ? 'var(--coral-glow-50)' : '#dcfce7',
-                                      border: `1px solid ${entry.impactoFinanceiro > 0 ? 'var(--coral-glow-200)' : '#bbf7d0'}`,
-                                      padding: '2px 8px',
-                                      borderRadius: 4,
-                                    }}
-                                  >
-                                    {entry.impactoFinanceiro > 0 ? `+${formatarMoeda(entry.impactoFinanceiro)}` : `-${formatarMoeda(Math.abs(entry.impactoFinanceiro))}`}
-                                  </span>
-                                ) : null}
+                                <ImpactoFinanceiroBadge impacto={entry.impacto} tamanho="mobile" />
                               </div>
 
                               <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
@@ -1968,79 +1494,12 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
           MODAL LIGHTBOX: VISUALIZAR FOTO EM TELA CHEIA
          ======================================================== */}
       {selectedImageModal && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setSelectedImageModal(null)}
-          style={{ background: 'rgba(0,0,0,0.85)', padding: 16, zIndex: 1200 }}
-          role="dialog"
-          aria-label="Visualização ampliada da foto"
-        >
-          <div
-            style={{
-              maxWidth: '92vw',
-              maxHeight: '92vh',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                color: '#ffffff',
-                marginBottom: 8,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '0.94rem', fontWeight: 700 }}>
-                  {selectedImageModal.titulo}
-                </div>
-                {selectedImageModal.subtitulo && (
-                  <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
-                    {selectedImageModal.subtitulo}
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedImageModal(null)}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  border: 'none',
-                  color: '#ffffff',
-                  borderRadius: '50%',
-                  width: 32,
-                  height: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                }}
-                aria-label="Fechar foto ampliada"
-              >
-                <X size={16} weight="bold" />
-              </button>
-            </div>
-
-            <img
-              src={selectedImageModal.url}
-              alt={selectedImageModal.titulo}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '80vh',
-                borderRadius: 'var(--radius-sm)',
-                display: 'block',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              }}
-            />
-          </div>
-        </div>
+        <Lightbox
+          src={selectedImageModal.url}
+          titulo={selectedImageModal.titulo}
+          subtitulo={selectedImageModal.subtitulo}
+          onClose={() => setSelectedImageModal(null)}
+        />
       )}
     </div>
   );

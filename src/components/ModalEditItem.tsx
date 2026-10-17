@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, FloppyDisk, PencilSimple } from '@phosphor-icons/react';
 
 interface ModalEditItemProps {
@@ -24,15 +25,7 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
     setValue(initialValue);
   }, [initialValue, isOpen]);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 

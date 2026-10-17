@@ -1,6 +1,9 @@
 import React from 'react';
 import { MapPin, User, CalendarBlank, CheckCircle, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
+import { progressoDaObra, totaisFinanceiros } from '../utils/obraMetrics';
+import { formatarMoeda as formatarMoedaBR } from '../utils/moeda';
+import { formatarDataBR } from '../utils/data';
 
 interface ObraHeaderProps {
   obra: Obra;
@@ -10,43 +13,13 @@ interface ObraHeaderProps {
 }
 
 export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRelatorio, perfilAtivo = 'construtor' }) => {
-  const todasTarefas = (obra.etapas || []).flatMap((e) => e.tarefas || []);
-  const totalTarefas = todasTarefas.length;
-  const concluidas = todasTarefas.filter((t) => t.concluida).length;
-  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
-  const isConcluida = totalTarefas > 0 && concluidas === totalTarefas;
+  const { totalTarefas, concluidas, percentual, concluida: isConcluida } = progressoDaObra(obra);
+  const totais = totaisFinanceiros(obra);
+  const saldoAlteracoes = totais.aprovadas.saldo;
+  const totalInvestimento = totais.investimentoAtualizado;
 
-  const aditivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-
-  const supressivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-
-  const saldoAlteracoes = aditivosAprovados + supressivosAprovados;
-  const totalInvestimento = (obra.orcamentoInicial || 0) + saldoAlteracoes;
-
-  const formatarMoeda = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-  };
-
-  const formatarData = (dataStr: string) => {
-    if (!dataStr) return 'Não definida';
-    try {
-      const [ano, mes, dia] = dataStr.split('-');
-      if (ano && mes && dia) return `${dia}/${mes}/${ano}`;
-      return dataStr;
-    } catch {
-      return dataStr;
-    }
-  };
+  const formatarMoeda = (val: number) => formatarMoedaBR(val, 0);
+  const formatarData = (dataStr: string) => formatarDataBR(dataStr, 'Não definida');
 
   return (
     <div className="obra-header-panel">

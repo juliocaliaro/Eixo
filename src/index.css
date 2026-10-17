@@ -94,6 +94,31 @@
 
   --shadow-subtle: 0 1px 3px rgba(37, 27, 14, 0.05);
   --shadow-floating: 0 16px 36px -8px rgba(30, 24, 6, 0.16), 0 4px 12px rgba(30, 24, 6, 0.06);
+
+  /* Escala de camadas (z-index): nav < popover < modal < toast < top.
+     Popovers/dropdowns nunca pintam acima de um modal aberto; o calendário (DatePicker) vive
+     DENTRO do contexto do modal e portanto fica acima dele; o relatório (--z-top) cobre tudo. */
+  --z-base: 1;
+  --z-raised: 2;
+  --z-raised-2: 3;
+  --z-sticky: 10;
+  --z-nav: 40;
+  --z-popover: 60;
+  --z-modal: 100;
+  --z-modal-stacked: 110; /* confirmações e pré-visualizações abertas sobre outro modal */
+  --z-toast: 150;
+  --z-lightbox: 200;
+  --z-drawer: 900;
+  --z-top: 1000;
+
+  /* Escala tipográfica (apenas definida; migração gradual) */
+  --fs-xs: 0.72rem;
+  --fs-sm: 0.82rem;
+  --fs-base: 0.92rem;
+  --fs-md: 1.05rem;
+  --fs-lg: 1.2rem;
+  --fs-xl: 1.35rem;
+  --fs-tab-title: 1.25rem;
 }
 
 * {
@@ -115,7 +140,8 @@ button {
   cursor: pointer;
   border: none;
   background: none;
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  /* transição explícita (antes: all) para não animar propriedades de layout */
+  transition: background-color 0.16s cubic-bezier(0.16, 1, 0.3, 1), color 0.16s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1), transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 input, textarea, select {
@@ -126,6 +152,7 @@ input, textarea, select {
 /* Layout Principal */
 .app-container {
   min-height: 100vh;
+  min-height: 100dvh; /* viewport dinâmico: evita corte pela barra do navegador móvel */
   display: flex;
   flex-direction: column;
 }
@@ -145,7 +172,7 @@ input, textarea, select {
   padding: 14px 24px;
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: var(--z-nav);
 }
 
 .navbar-inner {
@@ -358,7 +385,7 @@ input, textarea, select {
 
 .hero-visual-content {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   padding: 32px 36px;
   max-width: 640px;
 }
@@ -692,7 +719,7 @@ input, textarea, select {
   right: 0;
   height: 3px;
   background: rgba(242, 66, 13, 0.12);
-  z-index: 999999;
+  z-index: calc(var(--z-top) * 2);
   overflow: hidden;
   pointer-events: none;
 }
@@ -899,7 +926,7 @@ input, textarea, select {
   inset: 0;
   background: rgba(30, 24, 6, 0.55);
   backdrop-filter: blur(5px);
-  z-index: 50;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1068,7 +1095,7 @@ input, textarea, select {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 100;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1124,7 +1151,7 @@ input, textarea, select {
 
 .insert-divider-btn {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   background: #ffffff;
   border: 1px solid var(--border-hairline);
   height: 26px;
@@ -1191,12 +1218,12 @@ input, textarea, select {
   left: 14px;
   width: 2px;
   background: var(--dark-coffee-200);
-  z-index: 1;
+  z-index: var(--z-base);
 }
 
 .timeline-items-flow {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   display: flex;
   flex-direction: column;
 }
@@ -1225,7 +1252,7 @@ input, textarea, select {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 3;
+  z-index: var(--z-raised-2);
   box-shadow: 0 0 0 4px var(--bg-app);
 }
 
@@ -1288,7 +1315,7 @@ input, textarea, select {
 
 .task-row.has-active-menu {
   position: relative !important;
-  z-index: 150 !important;
+  z-index: calc(var(--z-popover) + 1) !important;
 }
 
 .task-mobile-menu-dropdown {
@@ -1303,7 +1330,7 @@ input, textarea, select {
   width: max-content;
   max-width: calc(100vw - 32px);
   padding: 6px;
-  z-index: 9999 !important;
+  z-index: var(--z-popover) !important;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -1507,10 +1534,18 @@ input, textarea, select {
     flex-wrap: wrap;
   }
 
+  .modal-footer {
+    align-items: stretch;
+  }
+
   .modal-footer button {
-    flex: 1;
-    min-height: 42px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
     justify-content: center;
+    white-space: nowrap;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .hero-visual-content {
@@ -1623,7 +1658,7 @@ input, textarea, select {
 .relatorio-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--z-top);
   background: #1a130a;
   display: flex;
   flex-direction: column;
@@ -1636,7 +1671,7 @@ input, textarea, select {
   padding: 10px 24px;
   position: sticky;
   top: 0;
-  z-index: 10000;
+  z-index: calc(var(--z-top) + 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
@@ -1654,10 +1689,12 @@ input, textarea, select {
   padding: 36px 16px 80px;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   background: #251b0e;
 }
 
 .relatorio-document {
+  flex-shrink: 0;
   width: 100%;
   max-width: 860px;
   background: #ffffff;
@@ -2745,6 +2782,7 @@ input, textarea, select {
    ======================================================== */
 .login-screen-wrapper {
   min-height: 100vh;
+  min-height: 100dvh; /* viewport dinâmico: evita corte pela barra do navegador móvel */
   display: flex;
   flex-direction: column;
   background: var(--bg-main, #fdfbf7);
@@ -2752,6 +2790,7 @@ input, textarea, select {
 
 .login-page-container {
   min-height: 100vh;
+  min-height: 100dvh; /* viewport dinâmico: evita corte pela barra do navegador móvel */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3084,14 +3123,14 @@ input, textarea, select {
   position: absolute;
   top: 6px;
   left: 6px;
-  z-index: 2;
+  z-index: var(--z-raised);
 }
 
 .locacao-card-badge-periodo {
   position: absolute;
   top: 6px;
   right: 6px;
-  z-index: 2;
+  z-index: var(--z-raised);
 }
 
 .locacao-card-content {
@@ -3136,6 +3175,69 @@ input, textarea, select {
 }
 
 
+
+/* Título padrão das abas da obra (Etapas, Arquivos, Decisões, Diário) */
+.tab-title {
+  font-size: var(--fs-tab-title);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+/* Etapas: ações de edição/exclusão migram para o corpo no mobile */
+.etapa-body-actions {
+  display: none;
+}
+@media (max-width: 768px) {
+  .etapa-header-actions,
+  .etapa-header-handle {
+    display: none !important;
+  }
+  .timeline-title.etapa-title-text {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+  .etapa-body-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 0 4px;
+  }
+  .etapa-body-actions .btn-secondary {
+    flex: 1;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Mobile: coluna única, nada cortado (nomes, endereço, badges, chips) */
+@media (max-width: 768px) {
+  .locacoes-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .locacao-card-media {
+    aspect-ratio: 16 / 9;
+  }
+  .locacao-card-meta {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+  .locacoes-chips-row {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+  }
+}
 
 
 /* ========================================================
@@ -3207,7 +3309,7 @@ input, textarea, select {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 100;
+  z-index: var(--z-popover);
   background: #ffffff;
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-sm);
@@ -3278,4 +3380,118 @@ input, textarea, select {
 .agrupamento-empty-box.is-dropping {
   font-weight: 600;
   box-shadow: 0 0 0 2px var(--primary-accent);
+}
+
+/* ========================================================
+   POLIMENTO DE UI: FOCO, MOVIMENTO REDUZIDO, TOQUE, CONTRASTE
+   (todas as regras abaixo são neutras para desktop com mouse)
+   ======================================================== */
+
+/* (a) Foco visível global com o acento coral. :where() mantém especificidade zero,
+   então qualquer foco específico (ex.: .form-input, .cardless-row) continua mandando. */
+:where(button, a, [role='button'], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+}
+
+/* Campos "sem moldura" (URL somente leitura, selects de filtro): substituem o antigo
+   outline:none inline por um estado de foco visível. */
+.field-bare {
+  outline: none;
+}
+.field-bare:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+/* Campos com borda própria: mesmo anel dos .form-input. */
+.field-focus {
+  outline: none;
+}
+.field-focus:focus-visible {
+  border-color: var(--primary-accent) !important;
+  box-shadow: 0 0 0 3px var(--coral-glow-100);
+}
+
+/* (b) Movimento reduzido: neutraliza animações e transições. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* (g) Alvos de toque de 44px em dispositivos de ponteiro grosso, SEM mudar o tamanho visual:
+   a área clicável é expandida por um ::before transparente (mesma técnica do .task-checkbox).
+   Cobre botões .btn-icon (inclui os de 28-38px da Navbar, Decisões, Diário, Projetos e
+   os botões de fechar dos modais). */
+@media (pointer: coarse) {
+  .btn-icon {
+    position: relative;
+  }
+  .btn-icon::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    bottom: -8px;
+    left: -8px;
+    right: -8px;
+  }
+}
+
+/* Alvos de 44px (sem mudar o visual): link "Todas as Obras", "Inserir etapa aqui", pills de nota/foto. */
+@media (pointer: coarse) {
+  .touch-target-44,
+  .insert-divider-btn,
+  .task-media-pill {
+    position: relative;
+  }
+  .insert-divider-btn {
+    overflow: visible;
+  }
+  .touch-target-44::before,
+  .insert-divider-btn::before,
+  .task-media-pill::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* (i) Contraste: o coral do desktop NÃO muda. No mobile/toque e nos estados de foco/pressão
+   usa-se o --coral-glow-600 (#c2350a), que atinge contraste AA com texto branco. */
+@media (max-width: 768px), (pointer: coarse) {
+  .btn-primary {
+    background: var(--coral-glow-600);
+  }
+  .tab-btn.active {
+    color: var(--coral-glow-600);
+  }
+}
+.btn-primary:focus-visible,
+.btn-primary:active {
+  background: var(--coral-glow-600);
+}
+/* --text-faint (#ba8b78) falha AA como texto (único uso real: rótulo do checklist do wizard).
+   Escurecido apenas no mobile/toque; desktop e placeholders mantêm o tom original. */
+@media (max-width: 768px), (pointer: coarse) {
+  :root {
+    --text-faint: var(--mauve-bark-600);
+  }
+}
+
+/* (h) Hover só em dispositivos com hover real (evita "hover pegajoso" no toque). */
+@media (hover: none) {
+  .btn-primary:hover,
+  .btn-icon:hover {
+    transform: none;
+  }
 }

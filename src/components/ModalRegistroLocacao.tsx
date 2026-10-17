@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch, Hash, FilePdf } from '@phosphor-icons/react';
 import { Obra, TipoPeriodoLocacao } from '../types/obra';
-import { storageApi } from '../services/api';
 import { generateUUID } from '../utils/uuid';
-import { isPdfFile } from '../utils/fileUtils';
+import { useFileIntake } from '../utils/useFileIntake';
+import { storeNormalized, buildStoragePath } from '../utils/fileIntake';
+import { hojeLocal, calcularVencimentoPeriodo } from '../utils/locacao';
 
 export interface NovaLocacaoData {
   id?: string;
@@ -14,13 +16,6 @@ export interface NovaLocacaoData {
   dataVencimento: string;
   fotos: string[];
   fornecedor?: string;
-}
-
-interface FotoItem {
-  blob: Blob;
-  previewUrl: string;
-  name?: string;
-  isPdf?: boolean;
 }
 
 interface ModalRegistroLocacaoProps {
@@ -43,9 +38,14 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [quantidade, setQuantidade] = useState<number | ''>('');
   const [fornecedor, setFornecedor] = useState<string>('');
   const [periodo, setPeriodo] = useState<TipoPeriodoLocacao | ''>('');
-  const [fotos, setFotos] = useState<FotoItem[]>([]);
   const [erro, setErro] = useState<string>('');
-  const [isProcessingPhotos, setIsProcessingPhotos] = useState(false);
+  const {
+    items: fotos,
+    isProcessing: isProcessingPhotos,
+    handleInputChange: handleFilesChange,
+    remove: handleRemoveFoto,
+    clear: clearFotos,
+  } = useFileIntake(setErro);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -59,129 +59,15 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setQuantidade('');
       setFornecedor('');
       setPeriodo('');
-      setFotos((prev) => {
-        prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
-        return [];
-      });
+      clearFotos();
       setErro('');
-      setIsProcessingPhotos(false);
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, preselectedObraId]);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
-
-  // Processamento e compressão inteligente para Blob (com suporte direto a PDF e imagens)
-  const comprimirArquivoParaBlob = (file: File): Promise<{ blob: Blob; isPdf: boolean; name: string }> => {
-    return new Promise((resolve) => {
-      if (isPdfFile(file)) {
-        resolve({ blob: file, isPdf: true, name: file.name });
-        return;
-      }
-      if (!file.type.startsWith('image/')) {
-        resolve({ blob: file, isPdf: false, name: file.name });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 1400;
-          let { width, height } = img;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob(
-              (blob) => {
-                resolve({ blob: blob || file, isPdf: false, name: file.name });
-              },
-              'image/jpeg',
-              0.82
-            );
-          } else {
-            resolve({ blob: file, isPdf: false, name: file.name });
-          }
-        };
-        img.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const blobToDataUrl = (blob: Blob): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve('');
-      reader.readAsDataURL(blob);
-    });
-  };
-
-  const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsProcessingPhotos(true);
-    try {
-      const fileList = Array.from(files);
-      const novosItens: FotoItem[] = [];
-      for (const file of fileList) {
-        const { blob, isPdf, name } = await comprimirArquivoParaBlob(file);
-        const previewUrl = URL.createObjectURL(blob);
-        novosItens.push({ blob, previewUrl, isPdf, name });
-      }
-      setFotos((prev) => [...prev, ...novosItens]);
-    } catch {
-      setErro('Falha ao processar arquivo(s). Tente novamente.');
-    } finally {
-      setIsProcessingPhotos(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (pdfInputRef.current) pdfInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => {
-      const item = prev[index];
-      if (item?.previewUrl) {
-        URL.revokeObjectURL(item.previewUrl);
-      }
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  const calcularDataVencimento = (p: TipoPeriodoLocacao): string => {
-    const d = new Date();
-    if (p === 'diaria') d.setDate(d.getDate() + 1);
-    else if (p === 'semanal') d.setDate(d.getDate() + 7);
-    else if (p === 'quinzenal') d.setDate(d.getDate() + 15);
-    else if (p === 'mensal') d.setDate(d.getDate() + 30);
-    return d.toISOString().split('T')[0];
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +87,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       return;
     }
 
-    const dataVencimento = calcularDataVencimento(periodo);
+    const dataVencimento = calcularVencimentoPeriodo(periodo, hojeLocal());
 
     setIsSaving(true);
     setErro('');
@@ -212,26 +98,15 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       // Faz upload de cada foto/PDF diretamente para o Supabase Storage antes de salvar
       for (let i = 0; i < fotos.length; i++) {
         const item = fotos[i];
-        const isPdf = item.isPdf || item.blob.type === 'application/pdf';
-        const ext = isPdf ? 'pdf' : 'jpg';
-        const contentType = isPdf ? 'application/pdf' : 'image/jpeg';
-        const path = `${obraId}/locacoes/${locacaoId}_${i}.${ext}`;
-        let remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, contentType);
-        if (!remoteUrl) {
-          remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, item.blob, contentType);
-        }
-
-        if (remoteUrl) {
-          urlsUpload.push(remoteUrl);
-        } else {
-          // Fallback offline caso sem conexão
-          const fallback = await blobToDataUrl(item.blob);
-          if (fallback) urlsUpload.push(fallback);
-        }
+        const path = buildStoragePath(`${obraId}/locacoes/${locacaoId}_${i}`, item);
+        urlsUpload.push(
+          await storeNormalized(item, {
+            bucket: 'registro-notas',
+            path,
+            fallbackBuckets: ['evidencias-diario'],
+          })
+        );
       }
-
-      // Libera as referências da memória local
-      fotos.forEach((f) => URL.revokeObjectURL(f.previewUrl));
 
       await onSave({
         id: locacaoId,
@@ -244,6 +119,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
         fornecedor: fornecedor.trim() || undefined,
       });
 
+      clearFotos();
       onClose();
     } catch (err: any) {
       setErro(err?.message || 'Falha ao salvar locação. Tente novamente.');
@@ -264,7 +140,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
         bottom: 0,
         backgroundColor: 'rgba(26, 19, 10, 0.65)',
         backdropFilter: 'blur(4px)',
-        zIndex: 9999,
+        zIndex: 'var(--z-modal)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -417,7 +293,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                   setObraId(e.target.value);
                   setErro('');
                 }}
-                className="form-select"
+                className="form-select field-focus"
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -426,7 +302,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                   fontSize: '0.92rem',
                   backgroundColor: '#ffffff',
                   color: 'var(--text-main)',
-                  outline: 'none',
                 }}
                 required
               >
@@ -471,7 +346,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     borderRadius: '6px',
                     border: '1px solid var(--border-hairline)',
                     fontSize: '0.92rem',
-                    outline: 'none',
                   }}
                   required
                 />
@@ -525,7 +399,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     border: '1px solid var(--border-hairline)',
                     fontSize: '0.92rem',
                     textAlign: 'center',
-                    outline: 'none',
                   }}
                   title="Quantidade do equipamento locado"
                 />
@@ -568,7 +441,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     borderRadius: '6px',
                     border: '1px solid var(--border-hairline)',
                     fontSize: '0.92rem',
-                    outline: 'none',
                   }}
                 />
               </div>
@@ -595,7 +467,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     setPeriodo(e.target.value as TipoPeriodoLocacao);
                     setErro('');
                   }}
-                  className="form-select"
+                  className="form-select field-focus"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
@@ -604,7 +476,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     fontSize: '0.92rem',
                     backgroundColor: '#ffffff',
                     color: 'var(--text-main)',
-                    outline: 'none',
                   }}
                   required
                 >

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   BuildingApartment,
@@ -10,6 +11,8 @@ import {
   CircleNotch,
 } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
+import { useSessionUser } from '../hooks/useSession';
+import { EmailChipsInput } from './EmailChipsInput';
 import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalCreateObraProps {
@@ -22,6 +25,7 @@ interface ModalCreateObraProps {
     dataPrevista: string;
     empresaResponsavel?: string;
     orcamentoInicial?: number;
+    emailsClientes?: string[];
   }) => void;
 }
 
@@ -30,25 +34,17 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const sessionUser = useSessionUser();
   const [nome, setNome] = useState('');
   const [cliente, setCliente] = useState('');
   const [endereco, setEndereco] = useState('');
   const [dataPrevista, setDataPrevista] = useState('');
   const [orcamentoInicial, setOrcamentoInicial] = useState('');
+  const [emailsClientes, setEmailsClientes] = useState<string[]>([]);
   const [erro, setErro] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  useEscapeKey(() => handleClose(), isOpen);
 
   if (!isOpen) return null;
 
@@ -89,10 +85,8 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
       return;
     }
 
-    const savedEmpresa =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('eixo_empresa_cadastrada') || undefined
-        : undefined;
+    // Empresa responsável vem do perfil da conta autenticada (banco de dados)
+    const savedEmpresa = sessionUser?.empresa || undefined;
 
     setIsSubmitting(true);
     try {
@@ -103,6 +97,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
         dataPrevista: dataPrevista || '',
         empresaResponsavel: savedEmpresa,
         orcamentoInicial: valorNumerico,
+        emailsClientes: emailsClientes.length ? emailsClientes : undefined,
       });
 
       handleClose();
@@ -117,6 +112,7 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
     setEndereco('');
     setDataPrevista('');
     setOrcamentoInicial('');
+    setEmailsClientes([]);
     setErro('');
     onClose();
   };
@@ -218,6 +214,8 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                 }}
               />
             </div>
+
+            <EmailChipsInput value={emailsClientes} onChange={setEmailsClientes} />
 
             <div className="form-group">
               <label className="form-label">

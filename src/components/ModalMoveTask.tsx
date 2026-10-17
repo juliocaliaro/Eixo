@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, HouseLine, Check, Plus, FolderSimple } from '@phosphor-icons/react';
 
 interface ModalMoveTaskProps {
@@ -28,14 +29,7 @@ export const ModalMoveTask: React.FC<ModalMoveTaskProps> = ({
     setNovoAmbienteNome('');
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 

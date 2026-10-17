@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Warning, Trash, CircleNotch } from '@phosphor-icons/react';
 
 interface ModalConfirmProps {
@@ -24,21 +25,14 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
+  useEscapeKey(onCancel, isOpen);
 
   if (!isOpen) return null;
 
   const isDanger = variant === 'danger';
 
   return (
-    <div className="modal-backdrop" onClick={onCancel} style={{ zIndex: 120 }}>
+    <div className="modal-backdrop" onClick={onCancel} style={{ zIndex: 'var(--z-modal-stacked)' }}>
       <div
         className="modal-card"
         style={{ maxWidth: '440px' }}

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useIsMobile, isMobileViewport } from '../hooks/useIsMobile';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 interface DatePickerInputProps {
@@ -78,17 +80,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   const [textoBr, setTextoBr] = useState<string>(() => isoToBr(value));
   const [avisoErro, setAvisoErro] = useState<string>('');
 
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   // Mês e ano em visualização no calendário customizado
   const [viewDate, setViewDate] = useState<Date>(() => {
@@ -147,23 +139,17 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        setIsCalendarOpen(false);
-      }
-    };
-
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isCalendarOpen]);
+
+  // Escape fecha só o calendário (topo da pilha), sem fechar o modal pai.
+  useEscapeKey(() => setIsCalendarOpen(false), isCalendarOpen);
 
 
   // Manipular digitação manual no input (SEM disparar clique nem abrir picker)
@@ -397,7 +383,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
               position: 'absolute',
               bottom: 'calc(100% + 6px)',
               left: 0,
-              zIndex: 1050,
+              zIndex: 'var(--z-popover)',
               width: '296px',
               maxWidth: '100%',
               background: '#ffffff',

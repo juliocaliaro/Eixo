@@ -1,4 +1,4 @@
-import { Tarefa, Etapa, StatusCronograma } from '../types/obra';
+import { Tarefa, StatusCronograma } from '../types/obra';
 
 /**
  * Determina o status padronizado de uma tarefa:
@@ -24,25 +24,14 @@ export function getTarefaStatus(tarefa?: Tarefa | null): StatusCronograma {
   return 'pendente';
 }
 
-/**
- * Determina o status consolidado de uma etapa:
- * - 'concluido' — todas as tarefas finalizadas
- * - 'em_andamento' — pelo menos uma tarefa iniciada ou concluída, mas nem todas finalizadas
- * - 'pendente' — nenhuma tarefa iniciada
- */
-export function getEtapaStatus(etapa?: Etapa | null): StatusCronograma {
-  if (!etapa) return 'pendente';
-  const tarefas = etapa.tarefas || [];
-  if (tarefas.length === 0) return 'pendente';
+/** Tarefa concluída segundo o status padronizado (única definição de "concluída" para métricas). */
+export function isTarefaConcluida(tarefa?: Tarefa | null): boolean {
+  return getTarefaStatus(tarefa) === 'concluido';
+}
 
-  const statuses = tarefas.map(getTarefaStatus);
-  const todasConcluidas = statuses.every((s) => s === 'concluido');
-  if (todasConcluidas) return 'concluido';
-
-  const algumaIniciada = statuses.some((s) => s === 'concluido' || s === 'em_andamento');
-  if (algumaIniciada) return 'em_andamento';
-
-  return 'pendente';
+/** Quantidade de tarefas concluídas em uma lista. */
+export function contarTarefasConcluidas(tarefas: Tarefa[] = []): number {
+  return tarefas.filter(isTarefaConcluida).length;
 }
 
 /**

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   LinkSimple,
@@ -26,15 +27,7 @@ export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = (
 }) => {
   const [copiado, setCopiado] = useState(false);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -141,6 +134,7 @@ export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = (
           >
             <LinkSimple size={18} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
             <input
+              className="field-bare"
               type="text"
               readOnly
               value={uploadUrl}
@@ -148,7 +142,6 @@ export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = (
               style={{
                 background: 'transparent',
                 border: 'none',
-                outline: 'none',
                 width: '100%',
                 fontSize: '0.84rem',
                 color: 'var(--pitch-black-950)',

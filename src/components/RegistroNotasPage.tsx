@@ -13,11 +13,7 @@ import {
   NotePencil,
   FileText,
   CaretDown,
-  CaretLeft,
-  CaretRight,
   FilePdf,
-  ArrowSquareOut,
-  DownloadSimple,
 } from '@phosphor-icons/react';
 import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
@@ -25,6 +21,8 @@ import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
 import { notasApi } from '../services/api';
 import { isPdfUrl } from '../utils/fileUtils';
+import { GalleryLightbox } from './Lightbox';
+import { formatarDataIsoBR } from '../utils/data';
 
 interface RegistroNotasPageProps {
   obras: Obra[];
@@ -52,7 +50,6 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     index: number;
     titulo?: string;
   } | null>(null);
-  const touchLightboxX = React.useRef<number | null>(null);
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -61,39 +58,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     titulo: string;
   } | null>(null);
 
-  // Teclado para navegar entre fotos e fechar lightbox
-  useEffect(() => {
-    if (!lightboxState) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxState(null);
-      if (e.key === 'ArrowLeft') {
-        setLightboxState((prev) =>
-          prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-        );
-      }
-      if (e.key === 'ArrowRight') {
-        setLightboxState((prev) =>
-          prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-        );
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxState]);
-
-  const formatarData = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
+  const formatarData = formatarDataIsoBR;
 
   // Filtragem de obras por seleção direta
   const obrasFiltradas = useMemo(() => {
@@ -346,7 +311,6 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
             style={{
               width: '100%',
               border: 'none',
-              outline: 'none',
               background: 'transparent',
               fontWeight: 600,
               fontSize: '0.88rem',
@@ -640,7 +604,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                   borderRadius: 100,
                                   backdropFilter: 'blur(4px)',
                                   boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                                  zIndex: 2,
+                                  zIndex: 'var(--z-raised)',
                                   pointerEvents: 'none',
                                 }}
                               >
@@ -671,7 +635,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                   justifyContent: 'center',
                                   cursor: 'pointer',
                                   transition: 'background 0.15s ease',
-                                  zIndex: 2,
+                                  zIndex: 'var(--z-raised)',
                                 }}
                                 title="Visualizar foto ampliada"
                               >
@@ -705,7 +669,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                 justifyContent: 'center',
                                 cursor: 'pointer',
                                 transition: 'background 0.15s ease',
-                                zIndex: 2,
+                                zIndex: 'var(--z-raised)',
                               }}
                               title="Excluir nota"
                             >
@@ -1026,7 +990,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                       borderRadius: 100,
                                       backdropFilter: 'blur(4px)',
                                       boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                                      zIndex: 2,
+                                      zIndex: 'var(--z-raised)',
                                       pointerEvents: 'none',
                                     }}
                                   >
@@ -1056,7 +1020,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       cursor: 'pointer',
-                                      zIndex: 2,
+                                      zIndex: 'var(--z-raised)',
                                     }}
                                     title="Visualizar foto ampliada"
                                   >
@@ -1088,7 +1052,7 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     cursor: 'pointer',
-                                    zIndex: 2,
+                                    zIndex: 'var(--z-raised)',
                                   }}
                                   title="Excluir nota"
                                 >
@@ -1175,443 +1139,14 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
 
       {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
       {lightboxState && (
-        <div
-          onClick={() => setLightboxState(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.94)',
-            zIndex: 10000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            touchAction: 'pan-y',
-            userSelect: 'none',
-          }}
-        >
-          {/* Cabeçalho do Lightbox */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 960,
-              color: '#ffffff',
-              padding: '6px 4px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: '#ffffff',
-                }}
-              >
-                {lightboxState.titulo || 'Visualização da Nota'}
-              </span>
-              {lightboxState.fotos.length > 1 && (
-                <span
-                  style={{
-                    fontSize: '0.76rem',
-                    background: 'rgba(255, 255, 255, 0.22)',
-                    padding: '2px 9px',
-                    borderRadius: 100,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    color: '#ffffff',
-                  }}
-                >
-                  {lightboxState.index + 1} / {lightboxState.fotos.length}
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setLightboxState(null)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                color: '#ffffff',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-              title="Fechar (Escape)"
-            >
-              <X size={20} weight="bold" />
-            </button>
-          </div>
-
-          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: 960,
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 0,
-              touchAction: 'pan-y',
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              touchLightboxX.current = e.touches[0].clientX;
-            }}
-            onTouchEnd={(e) => {
-              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
-              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
-              touchLightboxX.current = null;
-              if (diff > 35) {
-                // Arrasto para a esquerda -> próxima foto
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                );
-              } else if (diff < -35) {
-                // Arrasto para a direita -> foto anterior
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                );
-              }
-            }}
-          >
-            {/* Seta Lateral Esquerda */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  left: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Foto anterior"
-                aria-label="Foto anterior"
-              >
-                <CaretLeft size={24} weight="bold" />
-              </button>
-            )}
-
-            {isPdfUrl(lightboxState.fotos[lightboxState.index]) ? (
-              <div
-                style={{
-                  width: '92vw',
-                  maxWidth: 860,
-                  height: '75vh',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <FilePdf size={22} weight="fill" color="#dc2626" />
-                    <span
-                      style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {lightboxState.titulo || 'Documento PDF'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        color: 'var(--text-main)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <ArrowSquareOut size={14} weight="bold" />
-                      <span>Abrir</span>
-                    </a>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      download
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: 'var(--primary-accent)',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <DownloadSimple size={14} weight="bold" />
-                      <span>Baixar</span>
-                    </a>
-                  </div>
-                </div>
-
-                <iframe
-                  src={lightboxState.fotos[lightboxState.index]}
-                  title="Documento PDF"
-                  style={{
-                    width: '100%',
-                    flex: 1,
-                    border: 'none',
-                    backgroundColor: '#525659',
-                  }}
-                />
-              </div>
-            ) : (
-              <img
-                src={lightboxState.fotos[lightboxState.index]}
-                alt=""
-                draggable={false}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  borderRadius: '6px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                  userSelect: 'none',
-                }}
-              />
-            )}
-
-            {/* Seta Lateral Direita */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Próxima foto"
-                aria-label="Próxima foto"
-              >
-                <CaretRight size={24} weight="bold" />
-              </button>
-            )}
-          </div>
-
-          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
-          {lightboxState.fotos.length > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                maxWidth: 960,
-                padding: '6px 0',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <CaretLeft size={16} weight="bold" />
-                  <span>Anterior</span>
-                </button>
-
-                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
-                  {lightboxState.index + 1} de {lightboxState.fotos.length}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>Próxima</span>
-                  <CaretRight size={16} weight="bold" />
-                </button>
-              </div>
-
-              {/* Faixa de Miniaturas */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  padding: '4px',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {lightboxState.fotos.map((fUrl, fIdx) => (
-                  isPdfUrl(fUrl) ? (
-                    <div
-                      key={fIdx}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        backgroundColor: '#fff5f5',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.65,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        color: '#dc2626',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                      title="Documento PDF"
-                    >
-                      <FilePdf size={20} weight="fill" />
-                      <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#991b1b', lineHeight: 1 }}>PDF</span>
-                    </div>
-                  ) : (
-                    <img
-                      key={fIdx}
-                      src={fUrl}
-                      alt=""
-                      draggable={false}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.55,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                    />
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <GalleryLightbox
+          fotos={lightboxState.fotos}
+          index={lightboxState.index}
+          titulo={lightboxState.titulo}
+          tituloPadrao="Visualização da Nota"
+          onIndexChange={(i) => setLightboxState((prev) => (prev ? { ...prev, index: i } : null))}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );

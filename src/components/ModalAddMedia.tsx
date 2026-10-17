@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Camera, NotePencil, X, Check, CaretDown, CaretUp, Sparkle, Plus } from '@phosphor-icons/react';
 import { Tarefa, Etapa } from '../types/obra';
+import { useFileIntake } from '../utils/useFileIntake';
+import { blobToDataUrl } from '../utils/fileIntake';
 
 export interface ModalAddMediaData {
   fotoBase64?: string;
@@ -25,63 +28,33 @@ export const ModalAddMedia: React.FC<ModalAddMediaProps> = ({
 }) => {
   const [openSection, setOpenSection] = useState<'none' | 'foto' | 'nota' | 'both'>('none');
   const [anotacao, setAnotacao] = useState('');
-  const [fotosPreview, setFotosPreview] = useState<string[]>([]);
+  const { items: fotoItems, handleInputChange: handleFilesChange, remove: handleRemoveFoto, clear: clearFotos } = useFileIntake();
+  const fotosPreview = fotoItems.map((f) => f.previewUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen || !tarefa) return null;
 
-  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const fileList = Array.from(files);
-      const readPromises = fileList.map((file) => {
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.readAsDataURL(file);
-        });
-      });
-
-      Promise.all(readPromises).then((novasFotos) => {
-        setFotosPreview((prev) => [...prev, ...novasFotos]);
-      });
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleRemoveFoto = (indexToRemove: number) => {
-    setFotosPreview((prev) => prev.filter((_, idx) => idx !== indexToRemove));
-  };
-
   const hasContent = Boolean(fotosPreview.length > 0 || anotacao.trim());
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
+    // Fotos já comprimidas pela política única de entrada; contrato legado recebe data URLs
+    const fotosDataUrl = await Promise.all(fotoItems.map((f) => blobToDataUrl(f.blob)));
     onSaveMedia({
-      fotosBase64: fotosPreview.length > 0 ? fotosPreview : undefined,
-      fotoBase64: fotosPreview.length > 0 ? fotosPreview[0] : undefined,
+      fotosBase64: fotosDataUrl.length > 0 ? fotosDataUrl : undefined,
+      fotoBase64: fotosDataUrl.length > 0 ? fotosDataUrl[0] : undefined,
       anotacao: anotacao.trim() || undefined,
     });
     setAnotacao('');
-    setFotosPreview([]);
+    clearFotos();
     setOpenSection('none');
     onClose();
   };
 
   const handleFecharSemSalvar = () => {
     setAnotacao('');
-    setFotosPreview([]);
+    clearFotos();
     setOpenSection('none');
     onClose();
   };
@@ -316,7 +289,7 @@ export const ModalAddMedia: React.FC<ModalAddMediaProps> = ({
                         </span>
                         <button
                           type="button"
-                          onClick={() => setFotosPreview([])}
+                          onClick={clearFotos}
                           style={{
                             fontSize: '0.75rem',
                             color: '#b91c1c',

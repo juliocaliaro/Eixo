@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
-  Blueprint,
   FilePdf,
   Plus,
   Trash,
@@ -12,7 +13,6 @@ import {
   X,
   User,
   CalendarBlank,
-  Check,
   ShareNetwork,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario, ProjetoPDF, TipoProjeto } from '../types/obra';
@@ -20,6 +20,7 @@ import { TIPOS_PROJETO_LISTA, getTipoProjetoConfig, formatBytes } from '../utils
 import { ModalUploadProjeto } from './ModalUploadProjeto';
 import { ModalConfirm } from './ModalConfirm';
 import { ModalShareUploadProjeto } from './ModalShareUploadProjeto';
+import { formatarDataIsoBR } from '../utils/data';
 
 interface ProjetosTabProps {
   obra: Obra;
@@ -59,36 +60,12 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const filterContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fechar popups ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (searchContainerRef.current && !searchContainerRef.current.contains(target)) {
-        setIsSearchOpen(false);
-      }
-      if (filterContainerRef.current && !filterContainerRef.current.contains(target)) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Fechar popups ao clicar fora (ou Escape)
+  usePopoverDismiss(searchContainerRef, isSearchOpen, () => setIsSearchOpen(false));
+  usePopoverDismiss(filterContainerRef, isFilterOpen, () => setIsFilterOpen(false));
 
-  // Fechar preview do PDF e menu de filtro com tecla Escape
-  useEffect(() => {
-    if (!previewProjeto && !isFilterOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (previewProjeto) {
-          setPreviewProjeto(null);
-        } else if (isFilterOpen) {
-          setIsFilterOpen(false);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewProjeto, isFilterOpen]);
+  // Escape: preview do PDF (topo) antes do menu de filtro.
+  useEscapeKey(() => setPreviewProjeto(null), !!previewProjeto);
 
   const projetos = obra.projetos || [];
 
@@ -116,18 +93,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
     }
   };
 
-  const formatarData = (dataIso: string) => {
-    try {
-      const d = new Date(dataIso);
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return dataIso;
-    }
-  };
+  const formatarData = (dataIso: string) => formatarDataIsoBR(dataIso);
 
   const filtroAtivoConfig = tipoFiltro !== 'todos' ? getTipoProjetoConfig(tipoFiltro) : null;
 
@@ -145,7 +111,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px', margin: 0 }}>
+          <h2 className="tab-title" style={{ margin: 0 }}>
             Projetos e Documentos
           </h2>
         </div>
@@ -194,13 +160,13 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   position: 'absolute',
                   top: 'calc(100% + 8px)',
                   right: 0,
-                  width: 300,
+                  width: 'min(300px, calc(100vw - 32px))',
                   background: '#ffffff',
                   border: '1px solid var(--border-hairline)',
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-floating)',
                   padding: '12px',
-                  zIndex: 200,
+                  zIndex: 'var(--z-popover)',
                   animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
@@ -218,9 +184,6 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                     onChange={(e) => setBuscaTexto(e.target.value)}
                     autoFocus
                     style={{ paddingLeft: 34, paddingRight: buscaTexto ? 30 : 10, fontSize: '0.86rem', paddingBlock: '8px' }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') setIsSearchOpen(false);
-                    }}
                   />
                   {buscaTexto && (
                     <button
@@ -286,7 +249,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-floating)',
                   padding: '12px',
-                  zIndex: 200,
+                  zIndex: 'var(--z-popover)',
                   animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
@@ -740,7 +703,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
         <div
           className="modal-backdrop"
           onClick={() => setPreviewProjeto(null)}
-          style={{ zIndex: 1100 }}
+          style={{ zIndex: 'var(--z-modal-stacked)' }}
         >
           <div
             className="modal-card"

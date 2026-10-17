@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ArrowLeft,
   Wrench,
@@ -7,7 +7,6 @@ import {
   BuildingApartment,
   X,
   ArrowsOut,
-  CalendarBlank,
   Clock,
   CheckCircle,
   Warning,
@@ -17,11 +16,7 @@ import {
   ArrowsClockwise,
   FloppyDisk,
   CircleNotch,
-  CaretLeft,
-  CaretRight,
   FilePdf,
-  ArrowSquareOut,
-  DownloadSimple,
 } from '@phosphor-icons/react';
 import { Obra, RegistroLocacao, PerfilUsuario } from '../types/obra';
 import { ModalRegistroLocacao, NovaLocacaoData } from './ModalRegistroLocacao';
@@ -29,6 +24,20 @@ import { ModalConfirm } from './ModalConfirm';
 import { generateUUID } from '../utils/uuid';
 import { locacoesApi } from '../services/api';
 import { isPdfUrl } from '../utils/fileUtils';
+import { GalleryLightbox } from './Lightbox';
+import { somarDiasData } from '../utils/data';
+import {
+  hojeLocal,
+  statusLocacao,
+  mapaStatusLocacoes,
+  contarKpis,
+  filtrarLocacoes,
+  sugerirNovoVencimento,
+  renovarLocacao,
+  desfazerRenovacao,
+  alternarDevolucao,
+  atualizarLocacaoNaLista,
+} from '../utils/locacao';
 
 interface RegistroLocacoesPageProps {
   obras: Obra[];
@@ -57,7 +66,6 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     index: number;
     titulo?: string;
   } | null>(null);
-  const touchLightboxX = React.useRef<number | null>(null);
 
   // Confirmação de devolução em 2 etapas
   const [devolverTarget, setDevolverTarget] = useState<{
@@ -96,10 +104,8 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     });
   }, [obras]);
 
-  // Data atual de referência sem horas (YYYY-MM-DD)
-  const hojeStr = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
-  }, []);
+  // Data atual de referência no calendário LOCAL (YYYY-MM-DD)
+  const hoje = useMemo(() => hojeLocal(), []);
 
   // Formatação de data (YYYY-MM-DD para DD/MM/AAAA)
   const formatarData = (isoDate?: string) => {
@@ -115,130 +121,58 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     }
   };
 
-  // Cálculo do status de vencimento
-  const calcularStatusVencimento = (dataVencimento: string, status?: string) => {
-    if (status === 'devolvido') {
-      return {
-        tipo: 'devolvido' as const,
-        label: 'Devolvido',
-        badgeBg: '#f3f4f6',
-        badgeColor: '#4b5563',
-        badgeBorder: '#e5e7eb',
-        dias: 0,
-      };
+  // Status de domínio calculado uma única vez por locação
+  const statusPorId = useMemo(
+    () => mapaStatusLocacoes(todasLocacoes.map((i) => i.locacao), hoje),
+    [todasLocacoes, hoje]
+  );
+
+  // Apresentação (rótulo e cores) a partir do status de domínio
+  const apresentarStatus = (locacao: RegistroLocacao) => {
+    const s = statusPorId.get(locacao.id) ?? statusLocacao(locacao, hoje);
+    const pl = (n: number) => (n === 1 ? 'dia' : 'dias');
+    switch (s.tipo) {
+      case 'devolvido':
+        return { tipo: s.tipo, label: 'Devolvido', badgeBg: '#f3f4f6', badgeColor: '#4b5563', badgeBorder: '#e5e7eb' };
+      case 'ativo':
+        return { tipo: s.tipo, label: 'Em Aberto', badgeBg: '#f3f4f6', badgeColor: '#374151', badgeBorder: '#e5e7eb' };
+      case 'vencido':
+        return {
+          tipo: s.tipo,
+          label: `Vencido há ${Math.abs(s.dias)} ${pl(Math.abs(s.dias))}`,
+          badgeBg: '#fef2f2',
+          badgeColor: '#b91c1c',
+          badgeBorder: '#fecaca',
+        };
+      case 'hoje':
+        return { tipo: s.tipo, label: 'Vence Hoje!', badgeBg: '#fff7ed', badgeColor: '#c2410c', badgeBorder: '#ffedd5' };
+      case 'urgente':
+        return {
+          tipo: s.tipo,
+          label: `Vence em ${s.dias} ${pl(s.dias)}`,
+          badgeBg: '#fffbeb',
+          badgeColor: '#b45309',
+          badgeBorder: '#fef3c7',
+        };
+      default:
+        return {
+          tipo: s.tipo,
+          label: `Vence em ${s.dias} dias (${formatarData(locacao.dataVencimento)})`,
+          badgeBg: '#f8fafc',
+          badgeColor: '#334155',
+          badgeBorder: '#e2e8f0',
+        };
     }
-
-    if (!dataVencimento) {
-      return {
-        tipo: 'ativo' as const,
-        label: 'Em Aberto',
-        badgeBg: '#f3f4f6',
-        badgeColor: '#374151',
-        badgeBorder: '#e5e7eb',
-        dias: 0,
-      };
-    }
-
-    const hoje = new Date(hojeStr);
-    const venc = new Date(dataVencimento.split('T')[0]);
-    const diffMs = venc.getTime() - hoje.getTime();
-    const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDias < 0) {
-      return {
-        tipo: 'vencido' as const,
-        label: `Vencido há ${Math.abs(diffDias)} ${Math.abs(diffDias) === 1 ? 'dia' : 'dias'}`,
-        badgeBg: '#fef2f2',
-        badgeColor: '#b91c1c',
-        badgeBorder: '#fecaca',
-        dias: diffDias,
-      };
-    }
-
-    if (diffDias === 0) {
-      return {
-        tipo: 'hoje' as const,
-        label: 'Vence Hoje!',
-        badgeBg: '#fff7ed',
-        badgeColor: '#c2410c',
-        badgeBorder: '#ffedd5',
-        dias: diffDias,
-      };
-    }
-
-    if (diffDias <= 3) {
-      return {
-        tipo: 'urgente' as const,
-        label: `Vence em ${diffDias} ${diffDias === 1 ? 'dia' : 'dias'}`,
-        badgeBg: '#fffbeb',
-        badgeColor: '#b45309',
-        badgeBorder: '#fef3c7',
-        dias: diffDias,
-      };
-    }
-
-    return {
-      tipo: 'em_dia' as const,
-      label: `Vence em ${diffDias} dias (${formatarData(dataVencimento)})`,
-      badgeBg: '#f8fafc',
-      badgeColor: '#334155',
-      badgeBorder: '#e2e8f0',
-      dias: diffDias,
-    };
   };
 
   // KPIs
-  const kpis = useMemo(() => {
-    let total = 0;
-    let ativos = 0;
-    let vencidos = 0;
-    let devolvidos = 0;
-
-    todasLocacoes.forEach(({ locacao }) => {
-      total++;
-      if (locacao.status === 'devolvido') {
-        devolvidos++;
-      } else {
-        ativos++;
-        const info = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
-        if (info.tipo === 'vencido' || info.tipo === 'hoje') {
-          vencidos++;
-        }
-      }
-    });
-
-    return { total, ativos, vencidos, devolvidos };
-  }, [todasLocacoes, hojeStr]);
+  const kpis = useMemo(() => contarKpis(statusPorId.values()), [statusPorId]);
 
   // Filtragem
-  const locacoesFiltradas = useMemo(() => {
-    return todasLocacoes.filter(({ locacao, obra }) => {
-      // Filtro por obra
-      if (filtroObraId !== 'todas' && obra.id !== filtroObraId) {
-        return false;
-      }
-
-      // Filtro por status
-      const info = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
-      if (filtroStatus === 'ativos' && locacao.status === 'devolvido') return false;
-      if (filtroStatus === 'devolvidos' && locacao.status !== 'devolvido') return false;
-      if (filtroStatus === 'vencidos') {
-        if (locacao.status === 'devolvido') return false;
-        if (info.tipo !== 'vencido' && info.tipo !== 'hoje') return false;
-      }
-
-      // Filtro por busca textual
-      if (termoBusca.trim()) {
-        const query = termoBusca.toLowerCase().trim();
-        const noItem = locacao.itemLocado.toLowerCase().includes(query);
-        const naObra = obra.nome.toLowerCase().includes(query);
-        const noFornecedor = (locacao.fornecedor || '').toLowerCase().includes(query);
-        if (!noItem && !naObra && !noFornecedor) return false;
-      }
-
-      return true;
-    });
-  }, [todasLocacoes, filtroObraId, filtroStatus, termoBusca, hojeStr]);
+  const locacoesFiltradas = useMemo(
+    () => filtrarLocacoes(todasLocacoes, { obraId: filtroObraId, status: filtroStatus, termo: termoBusca }, statusPorId),
+    [todasLocacoes, filtroObraId, filtroStatus, termoBusca, statusPorId]
+  );
 
   // Abertura do modal para adicionar locação
   const handleOpenAdd = (obraId?: string) => {
@@ -282,11 +216,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
   // Iniciar fluxo para prolongar o prazo no card
   const handleIniciarProlongamento = (locacao: RegistroLocacao) => {
-    const base = locacao.dataVencimento
-      ? new Date(locacao.dataVencimento.split('T')[0])
-      : new Date();
-    base.setDate(base.getDate() + 30);
-    setNovaDataProlongada(base.toISOString().split('T')[0]);
+    setNovaDataProlongada(sugerirNovoVencimento(locacao, hojeLocal()));
     setProlongandoLocacaoId(locacao.id);
   };
 
@@ -296,17 +226,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     if (!obraAlvo) return;
 
     const dataRestaurada = locacao.vencimentoOriginal || locacao.dataVencimento;
-    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-      if (l.id === locacao.id) {
-        return {
-          ...l,
-          renovado: false,
-          renovadoEm: undefined,
-          dataVencimento: dataRestaurada,
-        };
-      }
-      return l;
-    });
+    const updatedLocacoes = atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacao.id, desfazerRenovacao);
 
     onUpdateObra({
       ...obraAlvo,
@@ -330,21 +250,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
     setIsSavingProlongamento(true);
     try {
-      const vencimentoOriginal = locacao.vencimentoOriginal || locacao.dataVencimento;
-
-      const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-        if (l.id === locacao.id) {
-          return {
-            ...l,
-            dataVencimento: novaDataProlongada.trim(),
-            vencimentoOriginal,
-            renovado: true,
-            renovadoEm: new Date().toISOString(),
-            status: 'ativo' as const, // reativa caso estivesse devolvido
-          };
-        }
-        return l;
-      });
+      const updatedLocacoes = atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacao.id, (l) =>
+        renovarLocacao(l, { novoVencimento: novaDataProlongada })
+      );
 
       onUpdateObra({
         ...obraAlvo,
@@ -370,14 +278,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     const locacaoExistente = (obraAlvo.locacoes || []).find((l) => l.id === locacaoId);
     if (!locacaoExistente) return;
 
-    const novoStatus: 'ativo' | 'devolvido' = locacaoExistente.status === 'devolvido' ? 'ativo' : 'devolvido';
+    const novoStatus = alternarDevolucao(locacaoExistente).status;
 
-    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-      if (l.id === locacaoId) {
-        return { ...l, status: novoStatus };
-      }
-      return l;
-    });
+    const updatedLocacoes = atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacaoId, alternarDevolucao);
 
     const updatedObra: Obra = {
       ...obraAlvo,
@@ -649,7 +552,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
             <select
               value={filtroObraId}
               onChange={(e) => setFiltroObraId(e.target.value)}
-              className="form-select"
+              className="form-select field-bare"
               style={{
                 width: '100%',
                 border: 'none',
@@ -657,7 +560,6 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                 fontSize: '0.86rem',
                 color: 'var(--text-main)',
                 fontWeight: 600,
-                outline: 'none',
                 cursor: 'pointer',
               }}
             >
@@ -685,13 +587,13 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
           >
             <MagnifyingGlass size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
             <input
+              className="field-bare"
               type="text"
               value={termoBusca}
               onChange={(e) => setTermoBusca(e.target.value)}
               placeholder="Buscar equipamento, locadora..."
               style={{
                 border: 'none',
-                outline: 'none',
                 fontSize: '0.86rem',
                 width: '100%',
                 backgroundColor: 'transparent',
@@ -722,6 +624,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
         {/* Linha 2: Chips de Status com Rolagem Suave */}
         <div
+          className="locacoes-chips-row"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -845,7 +748,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       ) : (
         <div className="locacoes-cards-grid" style={{ alignItems: 'start' }}>
           {locacoesFiltradas.map(({ locacao, obra }) => {
-            const statusInfo = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
+            const statusInfo = apresentarStatus(locacao);
             const primeiraFoto = (locacao.fotos && locacao.fotos.length > 0) ? locacao.fotos[0] : null;
 
             return (
@@ -930,7 +833,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           fontSize: '0.68rem',
-                          zIndex: 2,
+                          zIndex: 'var(--z-raised)',
                         }}
                       >
                         <ArrowsOut size={11} weight="bold" />
@@ -971,7 +874,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                         padding: '2px 7px',
                         borderRadius: 100,
                         backdropFilter: 'blur(3px)',
-                        zIndex: 2,
+                        zIndex: 'var(--z-raised)',
                         pointerEvents: 'none',
                       }}
                     >
@@ -1203,7 +1106,8 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                   </div>
                 )}
 
-                {/* 4. Bloco de Prolongamento no Card (sem input checkbox Renovar) */}
+                {/* 4. Bloco de Prolongamento no Card (somente construtor; cliente é read-only) */}
+                {perfilAtivo === 'construtor' && (
                   <div
                     style={{
                       padding: '8px 10px',
@@ -1300,7 +1204,6 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                           borderRadius: '5px',
                           border: '1px solid var(--border-hairline)',
                           fontSize: '0.78rem',
-                          outline: 'none',
                         }}
                         required
                       />
@@ -1318,10 +1221,9 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                             type="button"
                             onClick={() => {
                               const base = locacao.dataVencimento
-                                ? new Date(locacao.dataVencimento.split('T')[0])
-                                : new Date();
-                              base.setDate(base.getDate() + btn.dias);
-                              setNovaDataProlongada(base.toISOString().split('T')[0]);
+                                ? locacao.dataVencimento.split('T')[0]
+                                : hojeLocal();
+                              setNovaDataProlongada(somarDiasData(base, btn.dias));
                             }}
                             style={{
                               padding: '4px 6px',
@@ -1373,7 +1275,8 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                       </button>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1417,443 +1320,14 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
       {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
       {lightboxState && (
-        <div
-          onClick={() => setLightboxState(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.94)',
-            zIndex: 10000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            touchAction: 'pan-y',
-            userSelect: 'none',
-          }}
-        >
-          {/* Cabeçalho do Lightbox */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 960,
-              color: '#ffffff',
-              padding: '6px 4px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: '#ffffff',
-                }}
-              >
-                {lightboxState.titulo || 'Visualização do Equipamento'}
-              </span>
-              {lightboxState.fotos.length > 1 && (
-                <span
-                  style={{
-                    fontSize: '0.76rem',
-                    background: 'rgba(255, 255, 255, 0.22)',
-                    padding: '2px 9px',
-                    borderRadius: 100,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    color: '#ffffff',
-                  }}
-                >
-                  {lightboxState.index + 1} / {lightboxState.fotos.length}
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setLightboxState(null)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                color: '#ffffff',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-              title="Fechar (Escape)"
-            >
-              <X size={20} weight="bold" />
-            </button>
-          </div>
-
-          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: 960,
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 0,
-              touchAction: 'pan-y',
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              touchLightboxX.current = e.touches[0].clientX;
-            }}
-            onTouchEnd={(e) => {
-              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
-              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
-              touchLightboxX.current = null;
-              if (diff > 35) {
-                // Arrasto para a esquerda -> próxima foto
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                );
-              } else if (diff < -35) {
-                // Arrasto para a direita -> foto anterior
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                );
-              }
-            }}
-          >
-            {/* Seta Lateral Esquerda */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  left: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Foto anterior"
-                aria-label="Foto anterior"
-              >
-                <CaretLeft size={24} weight="bold" />
-              </button>
-            )}
-
-            {isPdfUrl(lightboxState.fotos[lightboxState.index]) ? (
-              <div
-                style={{
-                  width: '92vw',
-                  maxWidth: 860,
-                  height: '75vh',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <FilePdf size={22} weight="fill" color="#dc2626" />
-                    <span
-                      style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {lightboxState.titulo || 'Documento PDF'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        color: 'var(--text-main)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <ArrowSquareOut size={14} weight="bold" />
-                      <span>Abrir</span>
-                    </a>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      download
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: 'var(--primary-accent)',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <DownloadSimple size={14} weight="bold" />
-                      <span>Baixar</span>
-                    </a>
-                  </div>
-                </div>
-
-                <iframe
-                  src={lightboxState.fotos[lightboxState.index]}
-                  title="Documento PDF"
-                  style={{
-                    width: '100%',
-                    flex: 1,
-                    border: 'none',
-                    backgroundColor: '#525659',
-                  }}
-                />
-              </div>
-            ) : (
-              <img
-                src={lightboxState.fotos[lightboxState.index]}
-                alt=""
-                draggable={false}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  borderRadius: '6px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                  userSelect: 'none',
-                }}
-              />
-            )}
-
-            {/* Seta Lateral Direita */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Próxima foto"
-                aria-label="Próxima foto"
-              >
-                <CaretRight size={24} weight="bold" />
-              </button>
-            )}
-          </div>
-
-          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
-          {lightboxState.fotos.length > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                maxWidth: 960,
-                padding: '6px 0',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <CaretLeft size={16} weight="bold" />
-                  <span>Anterior</span>
-                </button>
-
-                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
-                  {lightboxState.index + 1} de {lightboxState.fotos.length}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>Próxima</span>
-                  <CaretRight size={16} weight="bold" />
-                </button>
-              </div>
-
-              {/* Faixa de Miniaturas */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  padding: '4px',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {lightboxState.fotos.map((fUrl, fIdx) => (
-                  isPdfUrl(fUrl) ? (
-                    <div
-                      key={fIdx}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        backgroundColor: '#fff5f5',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.65,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        color: '#dc2626',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                      title="Documento PDF"
-                    >
-                      <FilePdf size={20} weight="fill" />
-                      <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#991b1b', lineHeight: 1 }}>PDF</span>
-                    </div>
-                  ) : (
-                    <img
-                      key={fIdx}
-                      src={fUrl}
-                      alt=""
-                      draggable={false}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.55,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                    />
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <GalleryLightbox
+          fotos={lightboxState.fotos}
+          index={lightboxState.index}
+          titulo={lightboxState.titulo}
+          tituloPadrao="Visualização do Equipamento"
+          onIndexChange={(i) => setLightboxState((prev) => (prev ? { ...prev, index: i } : null))}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );

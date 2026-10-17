@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   SignOut,
@@ -61,21 +62,13 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
   onOpenLogin,
 }) => {
   // Tecla Escape fecha o drawer
+  useEscapeKey(onClose, isOpen);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
+    if (isOpen) document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -90,7 +83,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
         width: '100%',
         height: '100dvh',
         maxHeight: '100dvh',
-        zIndex: 9999,
+        zIndex: 'var(--z-drawer)',
         display: 'flex',
         justifyContent: 'flex-start', // Desliza da tela esquerda
       }}
@@ -124,7 +117,7 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
           boxShadow: '8px 0 32px rgba(0, 0, 0, 0.16)',
           display: 'flex',
           flexDirection: 'column',
-          zIndex: 1,
+          zIndex: 'var(--z-base)',
           animation: 'drawerSlideRight 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           overflow: 'hidden',
         }}
@@ -279,6 +272,38 @@ export const SandwichMenu: React.FC<SandwichMenuProps> = ({
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <span>Registro de Locação</span>
+            </button>
+          )}
+
+          {/* 4. Modelos de obra (somente construtor) */}
+          {onOpenSettings && perfilAtivo === 'construtor' && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenSettings();
+              }}
+              style={{
+                width: '100%',
+                padding: '16px 20px',
+                minHeight: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                border: 'none',
+                borderBottom: '1px solid var(--border-hairline)',
+                background: 'transparent',
+                color: 'var(--text-main)',
+                fontSize: '0.94rem',
+                fontWeight: 600,
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span>Modelos de obra</span>
             </button>
           )}
         </div>

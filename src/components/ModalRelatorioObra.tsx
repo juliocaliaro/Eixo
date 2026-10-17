@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   FileText,
   DownloadSimple,
   Buildings,
   CheckCircle,
-  Printer
 } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
+import { useSessionUser } from '../hooks/useSession';
+import { progressoDaObra } from '../utils/obraMetrics';
 
 interface ModalRelatorioObraProps {
   isOpen: boolean;
@@ -26,25 +28,19 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
   showToast,
   onEmitirRelatorio,
 }) => {
+  const sessionUser = useSessionUser();
   // Preencher automaticamente com os dados da empresa cadastrada que registrou a obra
   const getEmpresaCadastrada = () => {
     if (obra.empresaResponsavel && obra.empresaResponsavel.trim()) {
       return obra.empresaResponsavel.trim();
     }
-    try {
-      const saved = localStorage.getItem('eixo_empresa_cadastrada');
-      if (saved && saved.trim()) return saved.trim();
-    } catch {}
-    return '';
+    return sessionUser?.empresa?.trim() || '';
   };
 
   const [empresaEmpreiteiro, setEmpresaEmpreiteiro] = useState(getEmpresaCadastrada);
 
   // Análise de progresso físico defensiva
-  const todasTarefas = (obra.etapas || []).flatMap((e) => e.tarefas || []);
-  const totalTarefas = todasTarefas.length;
-  const concluidas = todasTarefas.filter((t) => t.concluida).length;
-  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+  const { totalTarefas, concluidas, percentual } = progressoDaObra(obra);
   // Obra só é concluída se tiver ao menos 1 tarefa e todas estiverem concluídas
   const temAtividadesNaoConcluidas = totalTarefas === 0 || concluidas < totalTarefas;
 
@@ -55,15 +51,7 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
     }
   }, [isOpen, obra]);
 
-  // Fechar com tecla Escape
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -72,10 +60,6 @@ export const ModalRelatorioObra: React.FC<ModalRelatorioObraProps> = ({
 
     // Persistir os dados da empresa caso tenham sido preenchidos/ajustados
     if (empresaEmpreiteiro.trim()) {
-      try {
-        localStorage.setItem('eixo_empresa_cadastrada', empresaEmpreiteiro.trim());
-      } catch {}
-
       if (onUpdateObra && obra.empresaResponsavel !== empresaEmpreiteiro.trim()) {
         onUpdateObra({
           ...obra,

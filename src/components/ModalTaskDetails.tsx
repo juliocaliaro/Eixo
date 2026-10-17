@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Lightbox } from './Lightbox';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   Camera,
@@ -11,7 +13,8 @@ import {
   FolderOpen,
   CircleNotch,
 } from '@phosphor-icons/react';
-import { storageApi, evidenciasApi } from '../services/api';
+import { evidenciasApi } from '../services/api';
+import { normalizeFile, releasePreview, storeNormalized, buildStoragePath } from '../utils/fileIntake';
 import { Tarefa } from '../types/obra';
 import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
 
@@ -37,27 +40,15 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
   isReadOnly = false,
 }) => {
   const [isUploadingFoto, setIsUploadingFoto] = useState(false);
+  const [uploadErro, setUploadErro] = useState('');
   const [activeTab, setActiveTab] = useState<'tudo' | 'fotos' | 'notas'>('tudo');
   const [novaNota, setNovaNota] = useState('');
   const [isAddingNota, setIsAddingNota] = useState(false);
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fechar com tecla Escape (fecha lightbox primeiro se estiver aberto, senão fecha o modal)
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (lightboxFoto) {
-          setLightboxFoto(null);
-        } else {
-          onClose();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, lightboxFoto, onClose]);
+  // Escape: o lightbox (empilhado depois) fecha primeiro; depois o modal.
+  useEscapeKey(onClose, isOpen);
 
   const canEdit = !isReadOnly && Boolean(onUpdateTaskMedia);
 
@@ -84,68 +75,25 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
     }
   };
 
-  const processarImagemBlob = (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 1400;
-          let { width, height } = img;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => resolve(blob || file), 'image/jpeg', 0.82);
-          } else {
-            resolve(file);
-          }
-        };
-        img.onerror = () => resolve(file);
-        img.src = e.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0 && onUpdateTaskMedia) {
       const fileList = Array.from(files);
       setIsUploadingFoto(true);
+      setUploadErro('');
       try {
         const uploadedUrls: string[] = [];
         for (let i = 0; i < fileList.length; i++) {
           const file = fileList[i];
-          const blob = await processarImagemBlob(file);
-          const path = `${obraId || 'obra'}/diario/${tarefa.id}_${Date.now()}_${i}.jpg`;
-          const remoteUrl = await storageApi.uploadBlob('evidencias-diario', path, blob, 'image/jpeg');
-
-          if (remoteUrl) {
-            uploadedUrls.push(remoteUrl);
-          } else {
-            const fallback = await new Promise<string>((res) => {
-              const r = new FileReader();
-              r.onload = () => res(r.result as string);
-              r.readAsDataURL(blob);
-            });
-            uploadedUrls.push(fallback);
-          }
+          const item = await normalizeFile(file);
+          releasePreview(item);
+          const path = buildStoragePath(`${obraId || 'obra'}/diario/${tarefa.id}_${Date.now()}_${i}`, item);
+          uploadedUrls.push(await storeNormalized(item, { bucket: 'evidencias-diario', path }));
         }
         onUpdateTaskMedia(etapaId, tarefa.id, [...fotos, ...uploadedUrls], anotacoes);
       } catch (err) {
         console.error('Erro ao enviar fotos da tarefa:', err);
+        setUploadErro('Não foi possível enviar as fotos. Verifique a conexão e tente novamente.');
       } finally {
         setIsUploadingFoto(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -386,6 +334,10 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
                     </button>
                   )}
                 </div>
+
+                {uploadErro && (
+                  <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginBottom: 10 }}>{uploadErro}</div>
+                )}
 
                 {temFotos ? (
                   <div
@@ -680,59 +632,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
       </div>
 
       {/* Lightbox / Zoom em Tela Cheia da Foto */}
-      {lightboxFoto && (
-        <div
-          className="modal-backdrop"
-          style={{ zIndex: 120, background: 'rgba(15, 12, 4, 0.92)' }}
-          onClick={() => setLightboxFoto(null)}
-        >
-          <div
-            style={{
-              position: 'relative',
-              maxWidth: '92vw',
-              maxHeight: '90vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={lightboxFoto}
-              alt="Ampliada"
-              style={{
-                maxWidth: '100%',
-                maxHeight: '85vh',
-                borderRadius: 'var(--radius-sm)',
-                objectFit: 'contain',
-                boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setLightboxFoto(null)}
-              style={{
-                position: 'absolute',
-                top: -16,
-                right: -16,
-                background: 'var(--pitch-black-900)',
-                color: '#ffffff',
-                border: '2px solid rgba(255,255,255,0.2)',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-              title="Fechar visualização"
-            >
-              <X size={18} weight="bold" />
-            </button>
-          </div>
-        </div>
-      )}
+      {lightboxFoto && <Lightbox src={lightboxFoto} alt="Ampliada" onClose={() => setLightboxFoto(null)} />}
     </>
   );
 };

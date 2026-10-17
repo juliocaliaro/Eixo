@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   FilePdf,
@@ -9,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import { TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
-import { storageApi } from '../services/api';
+import { storeFile } from '../utils/fileIntake';
 import { generateUUID } from '../utils/uuid';
 
 interface ModalUploadProjetoProps {
@@ -46,15 +47,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -111,16 +104,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
       const sanitizedName = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${obraId || 'geral'}/projetos/${projId}_${sanitizedName}`;
 
-      let finalUrl = await storageApi.uploadFile('projetos-pdf', storagePath, arquivo);
-
-      if (!finalUrl) {
-        // Fallback se upload direto falhar/offline
-        finalUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(arquivo);
-        });
-      }
+      const finalUrl = await storeFile(arquivo, { bucket: 'projetos-pdf', path: storagePath });
 
       onUpload({
         titulo: titulo.trim(),

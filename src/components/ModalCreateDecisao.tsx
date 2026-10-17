@@ -1,14 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, Camera, CircleNotch } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
 import { parseMoedaBR, formatarMoeda, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 import { generateUUID } from '../utils/uuid';
+import { useFileIntake } from '../utils/useFileIntake';
+import { blobToDataUrl } from '../utils/fileIntake';
+import { atualizarPrazo, diasAssinados, novaDataPrevista } from '../utils/prazoDecisao';
+import { formatarDataBR } from '../utils/data';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
   onClose: () => void;
   perfilAtivo: PerfilUsuario;
   nomeUsuario: string;
+  /** Data prevista atual da obra (YYYY-MM-DD), usada para exibir a nova data. */
+  dataPrevistaObra?: string;
   onSubmit: (novaDecisao: Decisao) => void;
 }
 
@@ -17,44 +24,22 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
   onClose,
   perfilAtivo,
   nomeUsuario,
+  dataPrevistaObra,
   onSubmit,
 }) => {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [aditivo, setAditivo] = useState<string>('');
   const [supressivo, setSupressivo] = useState<string>('');
-  const [impactoPrazoDias, setImpactoPrazoDias] = useState<string>('');
-  const [fotos, setFotos] = useState<string[]>([]);
+  const [prazo, setPrazo] = useState({ acrescimo: '', reducao: '' });
+  const { items: fotoItems, handleInputChange: handleFileUpload, remove: handleRemoveFoto, clear: clearFotos } = useFileIntake();
+  const fotos = fotoItems.map((f) => f.previewUrl);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotos((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleAditivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const masked = mascararMoedaInput(e.target.value);
@@ -74,11 +59,14 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titulo.trim() || !descricao.trim()) return;
-
+    if (!titulo.trim() || !descricao.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
     const agora = new Date().toISOString();
+    // Fotos comprimidas pela política única; o contrato de Decisao carrega data URLs até o save (services/assets.ts sobe ao Storage)
+    const fotosDataUrl = await Promise.all(fotoItems.map((f) => blobToDataUrl(f.blob)));
 
     const parsedAditivo = parseMoedaBR(aditivo);
     const parsedSupressivo = parseMoedaBR(supressivo);
@@ -109,7 +97,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
       tipoImpactoFinanceiro: tipoImpacto,
       valorAditivo: valorAditivoFinal,
       valorSupressivo: valorSupressivoFinal,
-      impactoPrazoDias: impactoPrazoDias ? parseInt(impactoPrazoDias, 10) : undefined,
+      impactoPrazoDias: diasAssinados(prazo),
       criadaPor: perfilAtivo,
       criadorNome: nomeUsuario,
       criadaEm: agora,
@@ -119,11 +107,9 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
         nomeSignatario: nomeUsuario,
         assinadoEm: agora,
       },
-      fotos: fotos.length > 0 ? fotos : undefined,
+      fotos: fotosDataUrl.length > 0 ? fotosDataUrl : undefined,
     };
 
-    setIsSubmitting(true);
-    try {
       onSubmit(decisao);
       onClose();
 
@@ -132,13 +118,15 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
       setDescricao('');
       setAditivo('');
       setSupressivo('');
-      setImpactoPrazoDias('');
-      setFotos([]);
+      setPrazo({ acrescimo: '', reducao: '' });
+      clearFotos();
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const diasPrazo = diasAssinados(prazo);
+  const novaData = novaDataPrevista(dataPrevistaObra, diasPrazo);
   const numAditivo = parseMoedaBR(aditivo);
   const numSupressivo = parseMoedaBR(supressivo);
   const hasAditivo = numAditivo !== undefined && numAditivo > 0;
@@ -189,11 +177,11 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: hasAditivo || hasSupressivo ? 8 : 14 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Aditivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: hasSupressivo ? 'var(--text-muted)' : 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, marginBottom: hasAditivo || hasSupressivo ? 8 : 14 }}>
+              <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 20 }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>Aditivo (R$)</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.70rem', color: hasSupressivo ? 'var(--text-muted)' : 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
                 </label>
                 <input
                   type="text"
@@ -206,10 +194,10 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                 />
               </div>
 
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Supressivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: hasAditivo ? 'var(--text-muted)' : '#16a34a', fontWeight: 600 }}>- Redução</span>
+              <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 20 }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>Supressivo (R$)</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.70rem', color: hasAditivo ? 'var(--text-muted)' : '#16a34a', fontWeight: 600 }}>- Redução</span>
                 </label>
                 <input
                   type="text"
@@ -262,6 +250,66 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                 <span style={{ color: '#15803d', fontWeight: 600 }}>Impacto no Contrato:</span>
                 <strong style={{ color: '#15803d', fontWeight: 700 }}>
                   - {formatarMoeda(numSupressivo)} (Supressivo / Redução)
+                </strong>
+              </div>
+            )}
+
+            {/* Impacto no prazo (exclusão mútua) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12, marginBottom: diasPrazo ? 8 : 14 }}>
+              <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 20 }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>Acréscimo de Prazo</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.70rem', color: (diasPrazo ?? 0) < 0 ? 'var(--text-muted)' : 'var(--primary-accent)', fontWeight: 600 }}>+ Dias</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-input"
+                  placeholder="0"
+                  aria-label="Acréscimo de Prazo (+ Dias)"
+                  value={prazo.acrescimo}
+                  onChange={(e) => setPrazo((p) => atualizarPrazo('acrescimo', e.target.value, p))}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minHeight: 20 }}>
+                  <span style={{ whiteSpace: 'nowrap' }}>Redução de Prazo</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.70rem', color: (diasPrazo ?? 0) > 0 ? 'var(--text-muted)' : '#16a34a', fontWeight: 600 }}>- Dias</span>
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-input"
+                  placeholder="0"
+                  aria-label="Redução de Prazo (- Dias)"
+                  value={prazo.reducao}
+                  onChange={(e) => setPrazo((p) => atualizarPrazo('reducao', e.target.value, p))}
+                />
+              </div>
+            </div>
+
+            {diasPrazo !== undefined && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  padding: '8px 12px',
+                  background: 'var(--dark-coffee-50)',
+                  border: '1px solid var(--border-hairline)',
+                  borderRadius: 'var(--radius-sm)',
+                  marginBottom: 14,
+                  fontSize: '0.80rem',
+                }}
+              >
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Prazo: {diasPrazo > 0 ? `+${diasPrazo}` : diasPrazo} {Math.abs(diasPrazo) === 1 ? 'dia' : 'dias'}
+                </span>
+                <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>
+                  {novaData ? `Nova data prevista: ${formatarDataBR(novaData)}` : 'Obra sem data prevista'}
                 </strong>
               </div>
             )}

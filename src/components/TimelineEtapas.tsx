@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { prefersReducedMotion } from '../utils/motion';
+import { useIsMobile, isMobileViewport } from '../hooks/useIsMobile';
 import {
   CaretDown,
-  CaretUp,
   Plus,
   Trash,
   PencilSimple,
@@ -16,7 +17,7 @@ import {
   SquaresFour,
   DotsThreeVertical
 } from '@phosphor-icons/react';
-import { Obra, Etapa, Tarefa } from '../types/obra';
+import { Obra, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
 import { ModalEditTask } from './ModalEditTask';
 import { ModalMoveTask } from './ModalMoveTask';
@@ -24,6 +25,9 @@ import { ModalConfirm } from './ModalConfirm';
 import { ModalTaskDetails } from './ModalTaskDetails';
 import { ModalCreateTask } from './ModalCreateTask';
 import { getEtapaIcon } from '../utils/etapaIcons';
+import { progressoDeEtapa } from '../utils/obraMetrics';
+import { isTarefaConcluida } from '../utils/cronogramaStatus';
+import { formatarDataHoraBR } from '../utils/data';
 
 interface TimelineEtapasProps {
   obra: Obra;
@@ -66,20 +70,10 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   isReadOnly = false,
   targetTaskNavigation,
 }) => {
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
-  });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>(() => {
-    const mobile = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
+    const mobile = isMobileViewport();
     const initial: { [key: string]: boolean } = {};
     obra.etapas.forEach((e) => {
       initial[e.id] = !mobile;
@@ -88,7 +82,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   });
 
 
-  const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
   // Estado para menu de ações de cada tarefa no mobile [...]
   const [activeTaskMenu, setActiveTaskMenu] = useState<{ etapaId: string; tarefaId: string } | null>(null);
@@ -128,7 +121,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const [creatingGroupEtapaId, setCreatingGroupEtapaId] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<{ etapaId: string; oldName: string; currentName: string } | null>(null);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<{ etapaId: string; nome: string; count: number } | null>(null);
-  const [selectedAddAmbiente, setSelectedAddAmbiente] = useState<{ [etapaId: string]: string }>({});
 
   // Estado para Modal de Detalhes da Tarefa (Fotos e Anotações)
   const [viewingTaskDetails, setViewingTaskDetails] = useState<{
@@ -209,20 +201,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const [draggedTask, setDraggedTask] = useState<{ etapaId: string; index: number } | null>(null);
   const [dragOverTask, setDragOverTask] = useState<{ etapaId: string; index: number } | null>(null);
 
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      const dia = String(d.getDate()).padStart(2, '0');
-      const mes = String(d.getMonth() + 1).padStart(2, '0');
-      const ano = d.getFullYear();
-      const hora = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${dia}/${mes}/${ano} às ${hora}:${min}`;
-    } catch {
-      return '';
-    }
-  };
+  const formatarDataHora = formatarDataHoraBR;
 
   const toggleAccordion = (etapaId: string) => {
     setOpenAccordions((prev) => {
@@ -232,14 +211,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         [etapaId]: !current,
       };
     });
-  };
-
-  const handleQuickAddTask = (etapaId: string) => {
-    const text = newTaskInput[etapaId]?.trim();
-    if (!text) return;
-    const amb = selectedAddAmbiente[etapaId];
-    onAddTaskToEtapa(etapaId, text, undefined, amb && amb !== '__SEM_GRUPO__' ? amb : undefined);
-    setNewTaskInput((prev) => ({ ...prev, [etapaId]: '' }));
   };
 
   // Drag handlers de Etapa
@@ -395,7 +366,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
       {/* Título de Seção */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+          <h2 className="tab-title" style={{ margin: 0 }}>
             Cronograma Físico
           </h2>
         </div>
@@ -431,9 +402,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             const isOpen = openAccordions[etapa.id] ?? (!isMobile);
             const totalTarefas = etapa.tarefas.length;
 
-            const concluidas = etapa.tarefas.filter((t) => t.concluida).length;
-            const todasConcluidas = totalTarefas > 0 && concluidas === totalTarefas;
-            const percEtapa = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+            const { concluidas, percentual: percEtapa, concluida: todasConcluidas } = progressoDeEtapa(etapa);
             const etapaIconCfg = getEtapaIcon(etapa.nome, etapa.id);
             const EtapaIcon = etapaIconCfg.Icon;
             const isDragging = draggedEtapaIndex === etapaIndex;
@@ -482,7 +451,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             onDragStart={(e) => handleEtapaDragStart(e, etapaIndex)}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
-                            className="drag-handle-grip"
+                            className="drag-handle-grip etapa-header-handle"
                             title="Arrastar para reordenar etapa"
                           >
                             <DotsSixVertical size={18} weight="bold" />
@@ -507,7 +476,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span className="timeline-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span className="timeline-title etapa-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {etapa.nome}
                             </span>
                             {etapa.tipoOrigem && (
@@ -531,6 +500,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {!isReadOnly && (
                           <div
+                            className="etapa-header-actions"
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
@@ -600,7 +570,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             style={{
                               opacity: isTaskDragging ? 0.35 : 1,
                               position: isMenuOpen ? 'relative' : undefined,
-                              zIndex: isMenuOpen ? 150 : undefined,
+                              zIndex: isMenuOpen ? 'calc(var(--z-popover) + 1)' : undefined,
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -626,7 +596,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                 onChange={() => {
                                   if (isReadOnly) return;
                                   onToggleTask(etapa.id, tarefa.id);
-                                  if (!tarefa.concluida) {
+                                  if (!tarefa.concluida && !prefersReducedMotion()) {
                                     import('canvas-confetti')
                                       .then((confettiModule) => {
                                         const fire = confettiModule.default || confettiModule;
@@ -734,7 +704,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             </div>
 
                             {/* Ações da Tarefa no Mobile (Menu Compacto [...]) */}
-                            <div className="mobile-task-actions" style={{ position: 'relative', zIndex: isMenuOpen ? 160 : undefined }}>
+                            <div className="mobile-task-actions" style={{ position: 'relative', zIndex: isMenuOpen ? 'calc(var(--z-popover) + 2)' : undefined }}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -829,6 +799,28 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
                       return (
                         <div className="tasks-block">
+                          {/* Mobile: editar/excluir etapa saem do cabeçalho e ficam no corpo expandido */}
+                          {!isReadOnly && (
+                            <div className="etapa-body-actions">
+                              <button
+                                type="button"
+                                onClick={() => setEditingEtapa({ id: etapa.id, nome: etapa.nome })}
+                                className="btn-secondary"
+                              >
+                                <PencilSimple size={15} weight="bold" />
+                                <span>Editar etapa</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteEtapaTarget({ id: etapa.id, nome: etapa.nome })}
+                                className="btn-secondary"
+                                style={{ color: 'var(--coral-glow-600)' }}
+                              >
+                                <Trash size={15} />
+                                <span>Excluir etapa</span>
+                              </button>
+                            </div>
+                          )}
                           {/* Barra discreta de Agrupamentos por Ambiente */}
                           {(!isReadOnly || hasAgrupamentos) && (
                             <div className="agrupamento-toolbar">
@@ -880,7 +872,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                   .filter(({ tarefa }) => !tarefa.ambiente || !etapaAmbientes.includes(tarefa.ambiente));
 
                                 if (semGrupo.length === 0 && !hasAgrupamentos) return null;
-                                const concluidasCount = semGrupo.filter(({ tarefa }) => tarefa.concluida).length;
+                                const concluidasCount = semGrupo.filter(({ tarefa }) => isTarefaConcluida(tarefa)).length;
                                 const isGeralOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === '__SEM_GRUPO__';
                                 const isGeralOpen = isAgrupamentoOpen(etapa.id, '__SEM_GRUPO__');
 
@@ -968,7 +960,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                   .map((t, idx) => ({ tarefa: t, originalIndex: idx }))
                                   .filter(({ tarefa }) => tarefa.ambiente === ambienteNome);
 
-                                const concluidasCount = grupoTarefas.filter(({ tarefa }) => tarefa.concluida).length;
+                                const concluidasCount = grupoTarefas.filter(({ tarefa }) => isTarefaConcluida(tarefa)).length;
                                 const isGroupOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === ambienteNome;
                                 const isGroupOpen = isAgrupamentoOpen(etapa.id, ambienteNome);
 
@@ -1178,7 +1170,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             if (onCreateAgrupamento) {
               onCreateAgrupamento(creatingGroupEtapaId, novoNome);
             }
-            setSelectedAddAmbiente((prev) => ({ ...prev, [creatingGroupEtapaId]: novoNome }));
             setCreatingGroupEtapaId(null);
           }}
         />

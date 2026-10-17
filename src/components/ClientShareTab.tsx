@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
-import { Copy, Check, ShieldCheck, Eye, PenNib, ArrowSquareOut } from '@phosphor-icons/react';
-import { Obra, PerfilUsuario } from '../types/obra';
+import { Copy, Check, ShieldCheck, Eye, PenNib, ArrowSquareOut, EnvelopeSimple, PencilSimple } from '@phosphor-icons/react';
+import { Obra, } from '../types/obra';
+import { emailsDaObra } from '../utils/emailsCliente';
 
 interface ClientShareTabProps {
   obra: Obra;
   onSwitchToClient?: () => void;
+  /** Abre a edicao da obra (onde os e-mails do cliente sao cadastrados). */
+  onEditObra?: () => void;
   showToast?: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
 export const ClientShareTab: React.FC<ClientShareTabProps> = ({
   obra,
   onSwitchToClient,
+  onEditObra,
   showToast,
 }) => {
+  const emailsCliente = emailsDaObra(obra);
   const [copied, setCopied] = useState(false);
 
   const clientUrl = `${window.location.origin}${window.location.pathname}?perfil=cliente&obra=${obra.id}`;
@@ -21,7 +26,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
     navigator.clipboard.writeText(clientUrl);
     setCopied(true);
     if (showToast) {
-      showToast('Link copiado!', 'O link de acesso do cliente foi copiado para a área de transferência.');
+      showToast('Link copiado!', 'O link da obra foi copiado para a área de transferência.');
     }
     setTimeout(() => setCopied(false), 2600);
   };
@@ -31,11 +36,48 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
       {/* Cabeçalho */}
       <div>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px', margin: 0 }}>
-          Link de Acesso do Cliente
+          Acesso do Cliente
         </h2>
         <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: 4 }}>
-          Envie este link direto para <strong>{obra.cliente}</strong> acompanhar o cronograma, fotos e assinar decisões da obra sem precisar de login.
+          <strong>{obra.cliente}</strong> acompanha o cronograma, as fotos e assina decisões entrando no Eixo com o e-mail cadastrado nesta obra. Se ainda não tiver conta, basta criar uma com esse mesmo e-mail.
         </p>
+      </div>
+
+      {/* E-mails com acesso */}
+      <div style={{ borderTop: '1px solid var(--border-hairline)', borderBottom: '1px solid var(--border-hairline)', padding: '14px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <EnvelopeSimple size={18} weight="bold" color="var(--primary-accent)" />
+            E-mails com acesso
+          </div>
+          {onEditObra && emailsCliente.length > 0 && (
+            <button type="button" className="btn-secondary" onClick={onEditObra} style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <PencilSimple size={14} weight="bold" />
+              <span>Editar</span>
+            </button>
+          )}
+        </div>
+        {emailsCliente.length > 0 ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {emailsCliente.map((email) => (
+              <span key={email} style={{ padding: '4px 12px', borderRadius: 999, background: 'var(--dark-coffee-50)', border: '1px solid var(--border-hairline)', fontSize: '0.8rem', color: 'var(--text-main)', wordBreak: 'break-all' }}>
+                {email}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              Nenhum cliente vinculado. Cadastre o e-mail do cliente para que ele consiga ver esta obra.
+            </span>
+            {onEditObra && (
+              <button type="button" className="btn-primary" onClick={onEditObra} style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <PencilSimple size={16} weight="bold" />
+                <span>Adicionar e-mail do cliente</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Caixa do Link */}
@@ -52,6 +94,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
         }}
       >
         <input
+          className="field-bare"
           type="text"
           readOnly
           value={clientUrl}
@@ -61,7 +104,6 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
             fontSize: '0.88rem',
             color: 'var(--text-main)',
             flex: 1,
-            outline: 'none',
             fontFamily: 'monospace',
             textOverflow: 'ellipsis',
           }}
@@ -129,7 +171,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
         }}
       >
         <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)' }}>
-          Permissões e Segurança do Cliente
+          Permissões do Cliente
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -154,7 +196,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
                 Acompanhamento Físico
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Visualiza percentual de avanço, datas e fotos das etapas sem poder alterar os serviços.
+                Vê o avanço, as datas, as fotos e os arquivos da obra, somente para consulta.
               </div>
             </div>
           </div>
@@ -180,7 +222,7 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
                 Assinatura Digital
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Pode aprovar, recusar e propor decisões e escolhas de acabamentos com registro de data/hora.
+                Na aba Decisões, propõe, aprova ou recusa, com registro de data e hora.
               </div>
             </div>
           </div>
@@ -203,10 +245,10 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                Ambiente Protegido
+                Acesso Individual
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Não consegue criar outras obras, excluir projetos nem modificar configurações técnicas.
+                Só vê as obras ligadas ao seu e-mail e não altera etapas, serviços nem arquivos.
               </div>
             </div>
           </div>

@@ -23,13 +23,12 @@ import { authApi } from '../services/api';
 export type UserRole = 'Construtor' | 'Cliente';
 
 interface LoginPageProps {
-  onLogin: (role: UserRole, email?: string, nome?: string, empresa?: string, userId?: string) => void;
   initialRole?: UserRole;
   initialMode?: 'login' | 'cadastro';
 }
 
+// A sessao e hidratada pelo App via onAuthStateChange (Supabase); esta tela apenas autentica.
 export const LoginPage: React.FC<LoginPageProps> = ({
-  onLogin,
   initialRole = 'Construtor',
   initialMode = 'login',
 }) => {
@@ -40,7 +39,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
 
   // Campos de Cadastro
   const [nomeCadastro, setNomeCadastro] = useState('');
@@ -50,10 +48,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswordCadastro, setShowPasswordCadastro] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [aceitouTermos, setAceitouTermos] = useState(true);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
 
   // Estado de Mensagens de Erro e Carregamento
   const [erro, setErro] = useState('');
+  const [aviso, setAviso] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Validação em Tempo Real dos Requisitos da Senha
@@ -130,15 +129,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         return;
       }
 
-      const meta = res.user?.user_metadata || {};
-      const roleFromDb: UserRole = meta.role === 'cliente' ? 'Cliente' : 'Construtor';
-      const nomeFromDb = meta.nome || undefined;
-      const empresaFromDb = meta.empresa || undefined;
-      const userIdFromDb = res.user?.id || undefined;
-
-      onLogin(roleFromDb || selectedRole, email.trim(), nomeFromDb, empresaFromDb, userIdFromDb);
-    } catch {
-      onLogin(selectedRole, email.trim());
+      // Sucesso: o App recebe SIGNED_IN do Supabase e hidrata a sessao (papel vem do perfil da conta).
+    } catch (err: any) {
+      setErro(err?.message || 'Não foi possível autenticar. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -212,30 +205,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         return;
       }
 
-      // Cadastro aprovado e gravado no Supabase
-      onLogin(
-        selectedRole,
-        emailCadastro.trim(),
-        nomeCadastro.trim(),
-        selectedRole === 'Construtor' ? empresaCadastro.trim() || undefined : undefined,
-        res.user?.id || undefined
-      );
+      // Com confirmacao de e-mail ativa o Supabase nao devolve sessao: orienta o usuario.
+      if (!res.session) {
+        setAviso('Conta criada. Confirme seu e-mail para acessar o Eixo e depois faça login.');
+        setModo('login');
+        setEmail(emailCadastro.trim());
+      }
     } catch (err: any) {
       setErro(err?.message || 'Erro ao registrar conta no servidor.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Acesso Rápido para Testes
-  const handleQuickLogin = (role: UserRole) => {
-    const demoEmail = role === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com';
-    const demoNome = role === 'Construtor' ? 'Eng. Roberto Albuquerque' : 'Dra. Carolina Mendes';
-    const demoEmpresa = role === 'Construtor' ? 'Albuquerque Engenharia' : undefined;
-    setSelectedRole(role);
-    setEmail(demoEmail);
-    setPassword('senha123');
-    onLogin(role, demoEmail, demoNome, demoEmpresa);
   };
 
   // Envio da recuperação de senha
@@ -349,6 +329,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             >
               <WarningCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
               <span>{erro}</span>
+            </div>
+          )}
+
+          {aviso && (
+            <div
+              role="status"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: 'var(--radius-sm)',
+                color: '#15803d',
+                fontSize: '0.82rem',
+                marginBottom: 16,
+              }}
+            >
+              <CheckCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
+              <span>{aviso}</span>
             </div>
           )}
 
@@ -523,34 +524,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
               </div>
 
-              {/* Linha Lembrar de Mim */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                <label
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    cursor: 'pointer',
-                    fontSize: '0.82rem',
-                    color: 'var(--text-body)',
-                    userSelect: 'none',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    style={{
-                      accentColor: 'var(--primary-accent)',
-                      cursor: 'pointer',
-                      width: 15,
-                      height: 15,
-                    }}
-                  />
-                  <span>Lembrar de mim neste dispositivo</span>
-                </label>
-              </div>
-
               {/* Botão Submit (Entrar) */}
               <button
                 type="submit"
@@ -571,32 +544,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 )}
               </button>
 
-              {/* Atalhos Rápidos para Demonstração (visíveis ESTRITAMENTE em ambiente de desenvolvimento local) */}
-              {(import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))) && (
-                <div className="login-demo-section">
-                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
-                    Acesso rápido para desenvolvimento (visível apenas em localhost):
-                  </span>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('Construtor')}
-                      className="btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '0.76rem' }}
-                    >
-                      Demo Construtor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('Cliente')}
-                      className="btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '0.76rem' }}
-                    >
-                      Demo Cliente
-                    </button>
-                  </div>
-                </div>
-              )}
             </form>
           ) : (
             /* ========================================================================= */
@@ -742,7 +689,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         color: isSenhaValida ? '#15803d' : 'var(--text-muted)',
                       }}
                     >
-                      {isSenhaValida ? 'Senha Forte ✓' : 'Pendente'}
+                      {isSenhaValida ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <Check size={13} weight="bold" />
+                          <span>Senha Forte</span>
+                        </span>
+                      ) : 'Pendente'}
                     </span>
                   </div>
                   {[

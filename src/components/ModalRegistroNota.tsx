@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, Camera, FloppyDisk, WarningCircle, Plus, Receipt, Trash, CircleNotch, FilePdf } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
-import { storageApi } from '../services/api';
 import { generateUUID } from '../utils/uuid';
-import { isPdfFile } from '../utils/fileUtils';
+import { useFileIntake } from '../utils/useFileIntake';
+import { storeNormalized, buildStoragePath } from '../utils/fileIntake';
 
 export interface NovaNotaData {
   obraId: string;
@@ -20,13 +21,6 @@ interface ModalRegistroNotaProps {
   onSave: (dados: NovaNotaData) => void;
 }
 
-interface FotoPreview {
-  blob: Blob;
-  previewUrl: string;
-  name?: string;
-  isPdf?: boolean;
-}
-
 export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   isOpen,
   onClose,
@@ -37,8 +31,13 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
   const [obraId, setObraId] = useState<string>(preselectedObraId || '');
   const [titulo, setTitulo] = useState<string>('');
   const [observacoes, setObservacoes] = useState<string>('');
-  const [fotos, setFotos] = useState<FotoPreview[]>([]);
   const [erro, setErro] = useState<string>('');
+  const {
+    items: fotos,
+    handleInputChange: handleFilesChange,
+    remove: handleRemoveFoto,
+    clear: clearFotos,
+  } = useFileIntake(setErro);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -50,106 +49,15 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
       setObraId(preselectedObraId || (obras.length === 1 ? obras[0].id : ''));
       setTitulo('');
       setObservacoes('');
-      setFotos((prev) => {
-        prev.forEach((f) => URL.revokeObjectURL(f.previewUrl));
-        return [];
-      });
+      clearFotos();
       setErro('');
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, preselectedObraId]);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
-
-  // Processamento e compressão de imagem para Blob binário ou retenção direta de PDF
-  const processarArquivo = (file: File): Promise<{ blob: Blob; isPdf: boolean; name: string }> => {
-    return new Promise((resolve) => {
-      const isPdf = isPdfFile(file);
-      if (isPdf) {
-        resolve({ blob: file, isPdf: true, name: file.name });
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const maxDim = 1400;
-          let { width, height } = img;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob(
-              (blob) => resolve({ blob: blob || file, isPdf: false, name: file.name }),
-              'image/jpeg',
-              0.82
-            );
-          } else {
-            resolve({ blob: file, isPdf: false, name: file.name });
-          }
-        };
-        img.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
-        img.src = e.target?.result as string;
-      };
-      reader.onerror = () => resolve({ blob: file, isPdf: false, name: file.name });
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    try {
-      const fileList = Array.from(files);
-      const novosBlobs = await Promise.all(fileList.map((f) => processarArquivo(f)));
-      const novosItens: FotoPreview[] = novosBlobs.map(({ blob, isPdf, name }) => ({
-        blob,
-        isPdf,
-        name,
-        previewUrl: URL.createObjectURL(blob),
-      }));
-      setFotos((prev) => [...prev, ...novosItens]);
-      if (erro) setErro('');
-    } catch {
-      setErro('Erro ao processar arquivo.');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (pdfInputRef.current) pdfInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => {
-      const item = prev[index];
-      if (item?.previewUrl) {
-        URL.revokeObjectURL(item.previewUrl);
-      }
-      return prev.filter((_, i) => i !== index);
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,28 +81,15 @@ export const ModalRegistroNota: React.FC<ModalRegistroNotaProps> = ({
       // Envia os arquivos binários diretamente para o Supabase Storage (sem base64)
       for (let i = 0; i < fotos.length; i++) {
         const item = fotos[i];
-        const isPdf = item.isPdf || item.blob.type === 'application/pdf';
-        const ext = isPdf ? 'pdf' : 'jpg';
-        const mimeType = isPdf ? 'application/pdf' : 'image/jpeg';
-        const path = `${obraId}/notas/${notaId}_${i}.${ext}`;
-        const remoteUrl = await storageApi.uploadBlob('registro-notas', path, item.blob, mimeType);
-
-        if (remoteUrl) {
-          urlsUpload.push(remoteUrl);
-        } else {
-          // Fallback offline seguro se Supabase não estiver disponível
-          const fallback = await new Promise<string>((res) => {
-            const r = new FileReader();
-            r.onload = () => res(r.result as string);
-            r.readAsDataURL(item.blob);
-          });
-          urlsUpload.push(fallback);
-        }
+        urlsUpload.push(
+          await storeNormalized(item, {
+            bucket: 'registro-notas',
+            path: buildStoragePath(`${obraId}/notas/${notaId}_${i}`, item),
+          })
+        );
       }
 
-      // Libera as referências da memória local do navegador
-      fotos.forEach((f) => URL.revokeObjectURL(f.previewUrl));
-      setFotos([]);
+      clearFotos();
 
       onSave({
         obraId,

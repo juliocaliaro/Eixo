@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
 import {
   List,
   User,
@@ -62,20 +63,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  // Fecha o dropdown de notificações ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setIsNotifOpen(false);
-      }
-    };
-    if (isNotifOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isNotifOpen]);
+  // Fecha o dropdown de notificações ao clicar fora (ou Escape)
+  usePopoverDismiss(notifRef, isNotifOpen, () => setIsNotifOpen(false));
 
   // Coleta todas as decisões pendentes da assinatura do perfil logado
   const notificacoesPendentes: NotificacaoPendente[] = [];
@@ -234,12 +223,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   top: '100%',
                   right: 0,
                   marginTop: 8,
-                  width: 320,
+                  width: 'min(320px, calc(100vw - 32px))',
                   background: '#ffffff',
                   border: '1px solid var(--border-hairline)',
                   borderRadius: 'var(--radius-md, 8px)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                  zIndex: 80,
+                  boxShadow: 'var(--shadow-floating)',
+                  zIndex: 'var(--z-popover)',
                   overflow: 'hidden',
                   animation: 'modalIn 0.15s ease',
                 }}

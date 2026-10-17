@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
 import {
-  HardHat,
   Plus,
-  Buildings,
   MapPin,
   CalendarBlank,
   User,
   ArrowRight,
   Trash,
-  CheckCircle,
-  Clock,
   Copy,
   Check,
   CircleNotch,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
+import { progressoDaObra } from '../utils/obraMetrics';
 
 interface ObraListProps {
   obras: Obra[];
@@ -279,7 +276,7 @@ export const ObraList: React.FC<ObraListProps> = ({
 
         {perfilAtivo !== 'cliente' && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={onOpenCreateModal} className="btn-primary">
+            <button onClick={onOpenCreateModal} className="btn-primary" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
               <Plus size={18} weight="bold" />
               <span>Nova Obra</span>
             </button>
@@ -289,10 +286,7 @@ export const ObraList: React.FC<ObraListProps> = ({
 
       <div className="cardless-section">
         {obras.map((obra) => {
-          const todasTarefas = obra.etapas.flatMap((e) => e.tarefas);
-          const totalTarefas = todasTarefas.length;
-          const concluidas = todasTarefas.filter((t) => t.concluida).length;
-          const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+          const { totalTarefas, concluidas, percentual } = progressoDaObra(obra);
 
           return (
             <React.Fragment key={obra.id}>
@@ -538,9 +532,9 @@ export const ObraList: React.FC<ObraListProps> = ({
                         <MapPin size={15} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
                         <span
                           style={{
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                            lineHeight: 1.35,
                             color: 'var(--text-body)',
                           }}
                           title={obra.endereco}

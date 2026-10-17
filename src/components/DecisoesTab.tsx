@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import { useToggleMap } from '../hooks/useToggleMap';
+import { Lightbox } from './Lightbox';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   Scales,
   Plus,
@@ -9,22 +13,28 @@ import {
   ShieldCheck,
   Money,
   CalendarBlank,
-  Camera,
   ArrowsOut,
   X,
-  WarningCircle,
   Check,
   User,
   Tag,
   WhatsappLogo,
   CurrencyDollar,
-  TrendUp,
   CaretDown,
   Funnel,
 } from '@phosphor-icons/react';
 import { Obra, Decisao, PerfilUsuario } from '../types/obra';
 import { ModalCreateDecisao } from './ModalCreateDecisao';
 import { ModalConfirm } from './ModalConfirm';
+import { formatarMoeda as formatarMoedaBR, formatarValorBR } from '../utils/moeda';
+import { formatarDataHoraBR } from '../utils/data';
+import {
+  impactoDaDecisao,
+  totaisFinanceiros,
+  montarMensagemWhatsApp,
+  montarUrlDecisao,
+  linkWhatsApp,
+} from '../utils/obraMetrics';
 
 interface DecisoesTabProps {
   obra: Obra;
@@ -48,133 +58,36 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
   const [confirmSignDecisao, setConfirmSignDecisao] = useState<Decisao | null>(null);
   const [confirmRecusarDecisao, setConfirmRecusarDecisao] = useState<Decisao | null>(null);
-  const [expandedMobileIds, setExpandedMobileIds] = useState<Record<string, boolean>>({});
+  const [expandedMobileIds, toggleMobileExpand] = useToggleMap();
   const [isPainelFinanceiroOpenMobile, setIsPainelFinanceiroOpenMobile] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const mobileFilterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isMobileFilterOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (mobileFilterRef.current && !mobileFilterRef.current.contains(e.target as Node)) {
-        setIsMobileFilterOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsMobileFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isMobileFilterOpen]);
+  usePopoverDismiss(mobileFilterRef, isMobileFilterOpen, () => setIsMobileFilterOpen(false));
 
-  const toggleMobileExpand = (id: string) => {
-    setExpandedMobileIds((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
 
   const decisoes = obra.decisoes || [];
 
-  // Cálculos Financeiros de Aditivos e Supressivos
-  const orcamentoBase = obra.orcamentoInicial || 0;
-  const aditivosAprovados = decisoes
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-  const supressivosAprovados = decisoes
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-  const saldoAprovados = aditivosAprovados + supressivosAprovados;
+  // Cálculos Financeiros de Aditivos e Supressivos (fonte única: utils/obraMetrics)
+  const totais = totaisFinanceiros(obra);
+  const orcamentoBase = totais.orcamentoBase;
+  const aditivosAprovados = totais.aprovadas.aditivos;
+  const supressivosAprovados = totais.aprovadas.supressivos;
+  const aditivosPendentes = totais.pendentes.aditivos;
+  const supressivosPendentes = totais.pendentes.supressivos;
+  const totalInvestimento = totais.investimentoAtualizado;
 
-  const aditivosPendentes = decisoes
-    .filter((d) => d.status === 'pendente')
-    .reduce((acc, d) => {
-      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-  const supressivosPendentes = decisoes
-    .filter((d) => d.status === 'pendente')
-    .reduce((acc, d) => {
-      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-
-  const totalInvestimento = orcamentoBase + saldoAprovados;
-
-  const formatarMoeda = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-  };
+  // Painel financeiro em valores inteiros (sem centavos)
+  const formatarMoeda = (val: number) => formatarMoedaBR(val, 0);
 
   const gerarLinkWhatsAppDecisao = (decisao: Decisao) => {
     const urlObra = typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?obra=${obra.id}&perfil=${decisao.criadaPor === 'construtor' ? 'cliente' : 'construtor'}&tab=decisoes`
+      ? montarUrlDecisao(`${window.location.origin}${window.location.pathname}`, obra.id, decisao.criadaPor)
       : '';
-
-    let msg = `*Eixo - Decisão de Obra Pendente*\n\n`;
-    msg += `Olá! Há uma decisão aguardando validação e assinatura digital na obra *${obra.nome}*:\n\n`;
-    msg += `📌 *${decisao.titulo}*\n`;
-    if (decisao.descricao) {
-      const resumo = decisao.descricao.length > 140 ? decisao.descricao.substring(0, 137) + '...' : decisao.descricao;
-      msg += `📝 _"${resumo}"_\n`;
-    }
-    const temAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0 && decisao.valorSupressivo === undefined);
-    const temSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0 && decisao.valorAditivo === undefined);
-
-    if (decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined) {
-      const saldo = decisao.valorAditivo - decisao.valorSupressivo;
-      const saldoStr = saldo > 0
-        ? `+${saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
-        : saldo < 0
-        ? `-${Math.abs(saldo).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
-        : 'R$ 0,00';
-      msg += `💰 Impacto Financeiro: *+${decisao.valorAditivo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo) / -${decisao.valorSupressivo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo)* [Saldo: *${saldoStr}*]\n`;
-    } else if (temAditivo) {
-      const val = decisao.valorAditivo ?? (decisao.impactoFinanceiro || 0);
-      msg += `💰 Impacto Financeiro: *+${val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Aditivo)*\n`;
-    } else if (temSupressivo) {
-      const val = decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0);
-      msg += `💰 Impacto Financeiro: *-${val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Supressivo / Redução)*\n`;
-    }
-    if (decisao.impactoPrazoDias && decisao.impactoPrazoDias > 0) {
-      msg += `⏱️ Impacto no Prazo: *+${decisao.impactoPrazoDias} dias*\n`;
-    }
-    if (urlObra) {
-      msg += `\nPara analisar os detalhes e assinar formalmente, acesse:\n👉 ${urlObra}`;
-    }
-
-    return `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    return linkWhatsApp(montarMensagemWhatsApp({ obraNome: obra.nome, decisao, urlObra }));
   };
 
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      const data = d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-      const hora = d.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      return `${data} às ${hora}`;
-    } catch {
-      return isoStr;
-    }
-  };
+  const formatarDataHora = formatarDataHoraBR;
 
   const getCategoriaLabel = (cat: Decisao['categoria']) => {
     switch (cat) {
@@ -269,81 +182,32 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
     );
   };
 
-  const renderValorBadge = (decisao: Decisao) => {
-    if (decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined) {
-      return (
-        <>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: 'var(--cinnamon-wood-700)',
-              background: 'var(--cinnamon-wood-50)',
-              border: '1px solid var(--cinnamon-wood-200)',
-              padding: '3px 8px',
-              borderRadius: 6,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <Money size={13} weight="bold" />
-            Aditivo: +R$ {decisao.valorAditivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              color: '#15803d',
-              background: '#dcfce7',
-              border: '1px solid #bbf7d0',
-              padding: '3px 8px',
-              borderRadius: 6,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <Money size={13} weight="bold" />
-            Supressivo: -R$ {decisao.valorSupressivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </span>
-        </>
-      );
-    }
+  const renderValorBadge = (decisao: Decisao, tamanho: 'compact' | 'regular' = 'compact') => {
+    const impacto = impactoDaDecisao(decisao);
+    if (!impacto.temImpactoFinanceiro) return null;
 
-    if (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) {
-      const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
-      const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
-      const valor = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
-
-      if (valor === 0 && !isAditivo && !isSupressivo) return null;
-
-      return (
-        <span
-          style={{
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            color: isAditivo ? 'var(--cinnamon-wood-700)' : isSupressivo ? '#15803d' : 'var(--text-muted)',
-            background: isAditivo ? 'var(--cinnamon-wood-50)' : isSupressivo ? '#dcfce7' : 'var(--dark-coffee-50)',
-            border: `1px solid ${isAditivo ? 'var(--cinnamon-wood-200)' : isSupressivo ? '#bbf7d0' : 'var(--border-hairline)'}`,
-            padding: '3px 8px',
-            borderRadius: 6,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-          }}
-        >
-          <Money size={13} weight="bold" />
-          {isAditivo
-            ? `Aditivo: +R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-            : isSupressivo
-            ? `Supressivo: -R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-            : 'Sem impacto'}
-        </span>
-      );
-    }
-
-    return null;
+    const regular = tamanho === 'regular';
+    return (
+      <span
+        style={{
+          fontSize: regular ? '0.8rem' : '0.75rem',
+          fontWeight: 600,
+          color: impacto.temAditivo ? 'var(--cinnamon-wood-700)' : '#15803d',
+          background: impacto.temAditivo ? 'var(--cinnamon-wood-50)' : '#dcfce7',
+          border: `1px solid ${impacto.temAditivo ? 'var(--cinnamon-wood-200)' : '#bbf7d0'}`,
+          padding: regular ? '4px 10px' : '3px 8px',
+          borderRadius: 6,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: regular ? 5 : 4,
+        }}
+      >
+        <Money size={regular ? 15 : 13} weight="bold" />
+        {impacto.temAditivo
+          ? `Aditivo: +R$ ${formatarValorBR(impacto.aditivo)}`
+          : `Supressivo: -R$ ${formatarValorBR(impacto.supressivo)}`}
+      </span>
+    );
   };
 
   const renderBlocoAssinaturas = (decisao: Decisao, pendenteParaMim: boolean, isRecusada: boolean) => (
@@ -529,7 +393,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
+          <h2 className="tab-title" style={{ margin: 0 }}>
             Decisões e Aprovações
           </h2>
         </div>
@@ -597,7 +461,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
           </div>
 
           {/* Supressivos Aprovados */}
-          {supressivosAprovados < 0 && (
+          {supressivosAprovados > 0 && (
             <div style={{ padding: '12px 14px', background: '#f0fdf4', borderRadius: 'var(--radius-sm)', border: '1px solid #bbf7d0' }}>
               <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#15803d', fontWeight: 700, display: 'block' }}>
                 Supressivos Aprovados
@@ -614,20 +478,20 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
               Investimento Atualizado
             </span>
             <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary-accent)', marginTop: 4 }}>
-              {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados < 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
+              {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados > 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
             </div>
           </div>
 
           {/* Propostas em Análise */}
-          {(aditivosPendentes > 0 || supressivosPendentes < 0) && (
+          {(aditivosPendentes > 0 || supressivosPendentes > 0) && (
             <div style={{ padding: '12px 14px', background: '#fef3c7', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
               <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#b45309', fontWeight: 700, display: 'block' }}>
                 Propostas em Análise
               </span>
               <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#b45309', marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {aditivosPendentes > 0 && <span>+{formatarMoeda(aditivosPendentes)}</span>}
-                {aditivosPendentes > 0 && supressivosPendentes < 0 && <span style={{ color: '#d97706' }}>|</span>}
-                {supressivosPendentes < 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
+                {aditivosPendentes > 0 && supressivosPendentes > 0 && <span style={{ color: '#d97706' }}>|</span>}
+                {supressivosPendentes > 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
               </div>
             </div>
           )}
@@ -664,7 +528,6 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
             justifyContent: 'space-between',
             cursor: 'pointer',
             userSelect: 'none',
-            outline: 'none',
             minHeight: '44px',
           }}
         >
@@ -744,7 +607,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
             </div>
 
             {/* Supressivos Aprovados */}
-            {supressivosAprovados < 0 && (
+            {supressivosAprovados > 0 && (
               <div style={{ padding: '12px 14px', background: '#f0fdf4', borderRadius: 'var(--radius-sm)', border: '1px solid #bbf7d0' }}>
                 <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#15803d', fontWeight: 700, display: 'block' }}>
                   Supressivos Aprovados
@@ -761,20 +624,20 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                 Investimento Atualizado
               </span>
               <div style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--primary-accent)', marginTop: 4 }}>
-                {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados < 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
+                {orcamentoBase > 0 || aditivosAprovados > 0 || supressivosAprovados > 0 ? formatarMoeda(totalInvestimento) : 'A definir'}
               </div>
             </div>
 
             {/* Propostas em Análise */}
-            {(aditivosPendentes > 0 || supressivosPendentes < 0) && (
+            {(aditivosPendentes > 0 || supressivosPendentes > 0) && (
               <div style={{ padding: '12px 14px', background: '#fef3c7', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
                 <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#b45309', fontWeight: 700, display: 'block' }}>
                   Propostas em Análise
                 </span>
                 <div style={{ fontSize: '1.10rem', fontWeight: 800, color: '#b45309', marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {aditivosPendentes > 0 && <span>+{formatarMoeda(aditivosPendentes)}</span>}
-                  {aditivosPendentes > 0 && supressivosPendentes < 0 && <span style={{ color: '#d97706' }}>|</span>}
-                  {supressivosPendentes < 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
+                  {aditivosPendentes > 0 && supressivosPendentes > 0 && <span style={{ color: '#d97706' }}>|</span>}
+                  {supressivosPendentes > 0 && <span style={{ color: '#15803d' }}>-{formatarMoeda(Math.abs(supressivosPendentes))}</span>}
                 </div>
               </div>
             )}
@@ -881,7 +744,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                   borderRadius: 'var(--radius-md)',
                   boxShadow: 'var(--shadow-floating)',
                   padding: '12px',
-                  zIndex: 200,
+                  zIndex: 'var(--z-popover)',
                   animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               >
@@ -1402,96 +1265,9 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
                       </p>
 
                       {/* Impactos de Custo e Prazo (se existirem) */}
-                      {(decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined || decisao.impactoPrazoDias !== undefined) && (
+                      {(impactoDaDecisao(decisao).temImpactoFinanceiro || decisao.impactoPrazoDias !== undefined) && (
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-                          {decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined ? (
-                            <>
-                              <span
-                                style={{
-                                  fontSize: '0.8rem',
-                                  fontWeight: 600,
-                                  color: 'var(--cinnamon-wood-700)',
-                                  background: 'var(--cinnamon-wood-50)',
-                                  border: '1px solid var(--cinnamon-wood-200)',
-                                  padding: '4px 10px',
-                                  borderRadius: 6,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                }}
-                              >
-                                <Money size={15} weight="bold" />
-                                Aditivo: +R$ {decisao.valorAditivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-
-                              <span
-                                style={{
-                                  fontSize: '0.8rem',
-                                  fontWeight: 600,
-                                  color: '#15803d',
-                                  background: '#dcfce7',
-                                  border: '1px solid #bbf7d0',
-                                  padding: '4px 10px',
-                                  borderRadius: 6,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                }}
-                              >
-                                <Money size={15} weight="bold" />
-                                Supressivo: -R$ {decisao.valorSupressivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-
-                              {decisao.impactoFinanceiro !== undefined && (
-                                <span
-                                  style={{
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    color: decisao.impactoFinanceiro > 0 ? 'var(--cinnamon-wood-700)' : decisao.impactoFinanceiro < 0 ? '#15803d' : 'var(--text-muted)',
-                                    background: 'var(--dark-coffee-50)',
-                                    border: '1px solid var(--border-hairline)',
-                                    padding: '4px 10px',
-                                    borderRadius: 6,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                  }}
-                                >
-                                  Saldo: {decisao.impactoFinanceiro > 0 ? `+R$ ${decisao.impactoFinanceiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : decisao.impactoFinanceiro < 0 ? `-R$ ${Math.abs(decisao.impactoFinanceiro).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'}
-                                </span>
-                              )}
-                            </>
-                          ) : (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) ? (
-                            (() => {
-                              const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
-                              const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
-                              const valor = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
-
-                              return (
-                                <span
-                                  style={{
-                                    fontSize: '0.8rem',
-                                    fontWeight: 600,
-                                    color: isAditivo ? 'var(--cinnamon-wood-700)' : isSupressivo ? '#15803d' : 'var(--text-muted)',
-                                    background: isAditivo ? 'var(--cinnamon-wood-50)' : isSupressivo ? '#dcfce7' : 'var(--dark-coffee-50)',
-                                    border: `1px solid ${isAditivo ? 'var(--cinnamon-wood-200)' : isSupressivo ? '#bbf7d0' : 'var(--border-hairline)'}`,
-                                    padding: '4px 10px',
-                                    borderRadius: 6,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                  }}
-                                >
-                                  <Money size={15} weight="bold" />
-                                  {isAditivo
-                                    ? `Aditivo: +R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                    : isSupressivo
-                                    ? `Supressivo: -R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                    : 'Sem impacto financeiro'}
-                                </span>
-                              );
-                            })()
-                          ) : null}
+                          {renderValorBadge(decisao, 'regular')}
 
                           {decisao.impactoPrazoDias !== undefined && (
                             <span
@@ -1975,6 +1751,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
         onClose={() => setIsCreateModalOpen(false)}
         perfilAtivo={perfilAtivo}
         nomeUsuario={nomeUsuario}
+        dataPrevistaObra={obra.dataPrevista}
         onSubmit={onAddDecisao}
       />
 
@@ -2013,44 +1790,7 @@ export const DecisoesTab: React.FC<DecisoesTabProps> = ({
       )}
 
       {/* Lightbox para fotos de amostra */}
-      {lightboxFoto && (
-        <div
-          className="modal-backdrop"
-          style={{ zIndex: 120, background: 'rgba(15, 12, 4, 0.92)' }}
-          onClick={() => setLightboxFoto(null)}
-        >
-          <div
-            style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={lightboxFoto}
-              alt=""
-              style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: 8 }}
-            />
-            <button
-              onClick={() => setLightboxFoto(null)}
-              style={{
-                position: 'absolute',
-                top: -16,
-                right: -16,
-                background: '#000',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '50%',
-                width: 34,
-                height: 34,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <X size={18} weight="bold" />
-            </button>
-          </div>
-        </div>
-      )}
+      {lightboxFoto && <Lightbox src={lightboxFoto} onClose={() => setLightboxFoto(null)} />}
     </div>
   );
 };

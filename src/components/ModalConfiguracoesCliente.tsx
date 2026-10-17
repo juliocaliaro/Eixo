@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   User,
-  HardHat,
   FloppyDisk,
   CheckCircle,
 } from '@phosphor-icons/react';
@@ -12,7 +12,8 @@ interface ModalConfiguracoesClienteProps {
   isOpen: boolean;
   onClose: () => void;
   perfilAtivo: PerfilUsuario;
-  onTogglePerfil: (novoPerfil: PerfilUsuario) => void;
+  /** Obsoleto: o papel da conta vem do servidor e nao e alteravel aqui. */
+  onTogglePerfil?: (novoPerfil: PerfilUsuario) => void;
   userName: string;
   userEmail: string;
   userEmpresa?: string;
@@ -22,8 +23,6 @@ interface ModalConfiguracoesClienteProps {
 export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps> = ({
   isOpen,
   onClose,
-  perfilAtivo,
-  onTogglePerfil,
   userName,
   userEmail,
   userEmpresa = '',
@@ -40,19 +39,7 @@ export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps>
     setEmpresa(userEmpresa);
   }, [userName, userEmail, userEmpresa, isOpen]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -71,7 +58,7 @@ export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps>
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Configurações do Cliente">
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Configurações da conta">
       <div
         className="modal-card"
         style={{ maxWidth: 460, width: '100%' }}
@@ -96,10 +83,10 @@ export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps>
             </div>
             <div>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                Configurações do Cliente
+                Configurações da conta
               </h2>
               <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Dados do perfil e preferências de acesso
+                Seus dados de identificação
               </span>
             </div>
           </div>
@@ -117,70 +104,6 @@ export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Seletor de Perfil Ativo */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
-              Perfil de Acesso
-            </label>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 8,
-                background: 'var(--dark-coffee-50)',
-                padding: 4,
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-hairline)',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => onTogglePerfil('construtor')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: '9px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: perfilAtivo === 'construtor' ? 'var(--dark-coffee-800)' : 'transparent',
-                  color: perfilAtivo === 'construtor' ? '#ffffff' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <HardHat size={16} weight={perfilAtivo === 'construtor' ? 'fill' : 'bold'} />
-                <span>Construtor</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onTogglePerfil('cliente')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: '9px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: perfilAtivo === 'cliente' ? 'var(--primary-accent)' : 'transparent',
-                  color: perfilAtivo === 'cliente' ? '#ffffff' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <User size={16} weight={perfilAtivo === 'cliente' ? 'fill' : 'bold'} />
-                <span>Cliente</span>
-              </button>
-            </div>
-          </div>
-
           {/* Nome */}
           <div>
             <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   ArrowRight,
@@ -13,7 +14,6 @@ import {
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 import { PresetEtapa, PresetTipoObra } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
-import { loadTemplatesFromStorage } from '../utils/storage';
 import { generateUUID } from '../utils/uuid';
 
 interface ModalCreateEtapaWizardProps {
@@ -35,7 +35,7 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   templates,
   onAddEtapa,
 }) => {
-  const availableTemplates = templates && templates.length > 0 ? templates : loadTemplatesFromStorage();
+  const availableTemplates = templates && templates.length > 0 ? templates : PRESET_TIPOS_OBRA;
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [selectedTipo, setSelectedTipo] = useState<PresetTipoObra | null>(availableTemplates[0] || null);
   const [isTipoPersonalizado, setIsTipoPersonalizado] = useState(false);
@@ -46,15 +46,7 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   const [novaTarefaTexto, setNovaTarefaTexto] = useState('');
   const [erroMsg, setErroMsg] = useState('');
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 

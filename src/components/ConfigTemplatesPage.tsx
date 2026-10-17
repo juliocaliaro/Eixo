@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   ArrowLeft,
   Gear,
@@ -13,14 +14,13 @@ import {
   ArrowUp,
   ArrowDown,
   ListChecks,
-  Buildings,
   FolderSimple,
   Sparkle
 } from '@phosphor-icons/react';
 import { PresetTipoObra, PresetEtapa, PresetTarefa } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { ModalConfirm } from './ModalConfirm';
-import { resetTemplatesToDefault } from '../utils/storage';
+import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 
 interface ConfigTemplatesPageProps {
   templates: PresetTipoObra[];
@@ -75,17 +75,8 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
   } | null>(null);
 
   // Fechar modais de criação com tecla Escape
-  useEffect(() => {
-    if (!isAddTemplateOpen && !isAddEtapaOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isAddTemplateOpen) setIsAddTemplateOpen(false);
-        if (isAddEtapaOpen) setIsAddEtapaOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAddTemplateOpen, isAddEtapaOpen]);
+  useEscapeKey(() => setIsAddTemplateOpen(false), isAddTemplateOpen);
+  useEscapeKey(() => setIsAddEtapaOpen(false), isAddEtapaOpen);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) || templates[0];
 
@@ -367,7 +358,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
 
   // --- Reset de Fábrica ---
   const handleResetToDefaults = () => {
-    const padroes = resetTemplatesToDefault();
+    const padroes = PRESET_TIPOS_OBRA;
     onUpdateTemplates(padroes);
     if (padroes.length > 0) {
       setActiveTemplateId(padroes[0].id);

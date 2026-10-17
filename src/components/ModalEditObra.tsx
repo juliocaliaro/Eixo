@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar, CircleNotch } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
+import { EmailChipsInput } from './EmailChipsInput';
+import { emailsDaObra } from '../utils/emailsCliente';
 import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalEditObraProps {
@@ -15,6 +18,8 @@ interface ModalEditObraProps {
     dataPrevista: string;
     empresaResponsavel?: string;
     orcamentoInicial?: number;
+    emailsClientes?: string[];
+    clienteEmail?: string;
   }) => void;
 }
 
@@ -29,6 +34,7 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   const [endereco, setEndereco] = useState('');
   const [orcamentoInicial, setOrcamentoInicial] = useState<string>('');
   const [dataPrevista, setDataPrevista] = useState('');
+  const [emailsClientes, setEmailsClientes] = useState<string[]>([]);
   const [erro, setErro] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,18 +45,12 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
       setOrcamentoInicial(obra.orcamentoInicial !== undefined ? mascararMoedaInput(obra.orcamentoInicial) : '');
+      setEmailsClientes(emailsDaObra(obra));
       setErro('');
     }
   }, [obra, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen || !obra) return null;
 
@@ -84,6 +84,8 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
         endereco: endereco.trim() || 'Endereço não informado',
         dataPrevista: dataPrevista || obra.dataPrevista,
         orcamentoInicial: valorNumerico,
+        emailsClientes: emailsClientes.length ? emailsClientes : undefined,
+        clienteEmail: emailsClientes[0],
       });
     } finally {
       setIsSubmitting(false);
@@ -161,6 +163,8 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
                 onChange={(e) => setCliente(e.target.value)}
               />
             </div>
+
+            <EmailChipsInput value={emailsClientes} onChange={setEmailsClientes} />
 
             <div className="form-group">
               <label className="form-label">

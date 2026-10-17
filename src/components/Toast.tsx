@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { ToastMessage } from '../types/obra';
 import { CheckCircle, Info, Warning, XCircle, X } from '@phosphor-icons/react';
 
@@ -8,22 +9,9 @@ interface ToastProps {
 }
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 768;
-  });
+  const isMobile = useIsMobile();
 
   const [isRegisteringOrFilling, setIsRegisteringOrFilling] = useState<boolean>(false);
-
-  // Monitorar tamanho da janela
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Monitorar se há preenchimento ou registro ativo
   useEffect(() => {

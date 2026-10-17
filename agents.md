@@ -125,7 +125,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Toda entidade (Obras, Etapas, Tarefas, Evidências, Decisões, Arquivos, Locações, Perfis de Usuário) é estruturada em tabelas relacionais com chaves estrangeiras, índices e políticas de segurança RLS (Row Level Security).
   - Toda comunicação e sincronização é realizada através de serviços de API tipados (`src/services/api.ts`).
   - Scripts DDL versionados em `supabase/*.sql` para qualquer alteração estrutural no banco de dados.
-  - O `localStorage` atua exclusivamente como cache offline temporário de leitura rápida para resiliência de rede, e nunca como arquitetura principal ou substituto de banco de dados.
+  - O app **não usa `localStorage`/`sessionStorage`**: não há cache local nem modo offline (ADR 0001). O único armazenamento no navegador é o da sessão do próprio `supabase-js`.
 
 ---
 
@@ -138,7 +138,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Customização de serviços padrão dentro de cada etapa (adição rápida, edição inline, exclusão e reordenação).
   - Opção de **Restaurar Padrões de Fábrica** para recuperar os conjuntos originais de *Construção* e *Reforma*.
 - **Sincronização com o Wizard de Etapas**:
-  - O `ModalCreateEtapaWizard` consome dinamicamente os modelos ativos em `localStorage`.
+  - O `ModalCreateEtapaWizard` consome dinamicamente os modelos ativos carregados do banco (`templatesApi`, tabela `modelos_etapas_templates`, por usuário).
   - Quaisquer alterações ou novos modelos criados ficam imediatamente disponíveis para inclusão em qualquer obra.
 
 ---
@@ -201,7 +201,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Emissão e Entrega: **Baixar Relatório** (visualização executiva e impressão nativa A4 / Salvar como PDF via motor do navegador, 100% gratuita).
 - **Vinculação de Empresa/Empreiteiro e Transição para Login**:
   - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
-  - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
+  - O login é obrigatório: a empresa da obra vem do perfil do usuário autenticado (`profiles.empresa`) e é gravada em `obra.empresaResponsavel`.
   - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
 
 ---
@@ -339,7 +339,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 19. Autenticação Frontend Mockada & Gerenciamento de Estado de Role
+## 19. Autenticação (Supabase Auth) & Gerenciamento de Estado de Role
 
 - **Tela de Autenticação Completa com Login e Cadastro (`LoginPage.tsx`)**:
   - Interface moderna, segura e minimalista alinhada ao design system do Eixo (paleta terrosa, ícones Phosphor, zero emojis e zero alerts nativos).
@@ -348,9 +348,8 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
       - Seletor de Perfil (`[ Construtor ]` / `[ Cliente ]`).
       - Campo **E-mail** com validação de formato e ícone `<EnvelopeSimple />`.
       - Campo **Senha** com toggle de visibilidade de senha (ícones `<Eye />` e `<EyeSlash />`).
-      - Checkbox padrão **Lembrar de mim neste dispositivo**.
       - Link **Esqueceu a senha?** com modal acessível de envio simulado de link de recuperação e listener de tecla `Escape`.
-      - Botão primário `Entrar como [Perfil]` e atalhos rápidos de demonstração com 1 clique (`Demo Construtor`, `Demo Cliente`).
+      - Botão primário `Entrar como [Perfil]`. Não há atalhos de demonstração nem "Lembrar de mim" (a sessão é gerenciada pelo Supabase Auth).
       - Link de rodapé para alternância direta: *"Ainda não possui uma conta? Cadastre-se gratuitamente"*.
     - **Aba "Criar Conta" (Cadastro / Registro)**:
       - Seletor de Tipo de Conta (`[ Construtor ]` / `[ Cliente ]`).
@@ -363,7 +362,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
       - Botão primário `Criar Conta e Acessar` e badge de segurança criptográfica com `<ShieldCheck />`.
       - Link de rodapé para retorno ao login: *"Já possui uma conta cadastrada? Fazer Login"*.
   - **Persistência de Dados Cadastrais**:
-    - Ao cadastrar-se, o sistema autentica diretamente e armazena os dados locais (`eixo_auth_isLogged = true`, `eixo_auth_role`, `eixo_auth_userName`, `eixo_auth_userEmail`, `eixo_empresa_cadastrada`), integrando-os de imediato ao cabeçalho, perfil do usuário e relatórios emitidos.
+    - Ao cadastrar-se, a conta é criada no Supabase Auth e o perfil em `profiles` (nome, papel e empresa); nada é guardado em `localStorage`. A senha exige 8 caracteres com maiúscula, minúscula, número e símbolo.
 - **Permissões Visuais e Renderização Condicional por Role**:
   - **`Role === 'Construtor'`**:
     - Acesso integral a menus de edição, criação de novas obras e gerenciamento de modelos de etapas (`ConfigTemplatesPage`).
@@ -392,7 +391,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
     - **Aba "Configurar Perfil"**:
       - Seletor de perfil de acesso (`[ Construtor ]` / `[ Cliente ]`) com descrição contextual dos recursos de cada perfil.
       - Campos de dados cadastrais editáveis: Nome Completo / Exibição, E-mail de Contato e Empresa / Construtora.
-      - Botão "Salvar Perfil" com feedback de sucesso em tempo real e persistência em `localStorage`.
+      - Botão "Salvar Perfil" com feedback de sucesso, gravando nome e empresa em `profiles`.
 - **Área de Sessão / Login no Rodapé do Sandwich Menu**:
   - Fixado no rodapé da gaveta com divisor sutil (`border-top: 1px solid var(--border-hairline)`).
   - Exibe avatar dinâmico com ícone temático (`<HardHat />` ou `<User />`), nome do usuário conectado, e-mail da sessão e badge de perfil ativo.
@@ -532,9 +531,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - `src/services/supabaseClient.ts`: Inicialização segura do cliente Supabase a partir de `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
   - `src/services/dbTypes.ts`: Tipagem formal do schema relacional do PostgreSQL (snake_case) com mapeamento bidirecional para os tipos de domínio do Eixo (camelCase).
   - `src/services/api.ts`: Camada centralizada de chamadas RESTful assíncronas (`obrasApi`, `decisoesApi`, `storageApi`, `authApi`, `templatesApi`).
-- **Modo de Operação Híbrido Resiliente**:
+- **Modo de Operação Único (sem fallback local)**:
   - Quando as credenciais do Supabase estão configuradas no arquivo `.env`, o sistema conecta-se ao banco de dados PostgreSQL na nuvem e ao Object Storage.
-  - Caso não estejam configuradas (desenvolvimento offline ou demonstração local), a camada de serviço ativa automaticamente o fallback para `localStorage`, garantindo zero quebras de compilação ou execução.
+  - Sem `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` o app mostra `ConfigErrorScreen`; não existe fallback para `localStorage` nem modo demonstração.
 - **Row Level Security (RLS) & Regras de Acesso**:
   - Construtor possui permissões plenas de gerenciamento (`CRUD`) nas suas obras, etapas, tarefas, projetos e notas.
   - Cliente possui permissão de leitura (`SELECT`) nas obras associadas e permissão ativa exclusiva (`INSERT` / `UPDATE`) na tabela `decisoes` e `decisao_assinaturas`.
@@ -570,5 +569,16 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Tabela `public.registro_locacoes` criada no PostgreSQL com colunas `renovado`, `renovado_em` e `vencimento_original`, chaves estrangeiras, índices e políticas de Row Level Security (RLS).
   - Sincronização bidirecional na nuvem (`obrasApi.saveAll`, `obrasApi.list`, `locacoesApi`) e cache local isolado por ID do usuário autenticado.
 
+---
 
+## 25. Engenharia pós-refatoração "banco como fonte única" (leia antes de mexer)
 
+Documentação completa em `docs/ARQUITETURA.md` (mapa do código, fluxo de dados, como adicionar funcionalidades, migrations), `docs/adr/` (decisões), `docs/BACKLOG.md` (pendências) e `GLOSSARY.md` (linguagem do domínio).
+
+- **Persistência**: `ObraStore` (`src/services/obraStore.ts`) salva por diff e reconcilia exclusões; adapters Supabase e em memória. Erros viram `ObraStoreError` e aparecem em português simples (`utils/mensagensErro.ts`).
+- **Regras de negócio** em módulos puros de `src/utils/` (`obraMetrics`, `obraTransitions`, `diarioExtrato`, `locacao`, `routeState`, `fileIntake`). Não reimplemente cálculos dentro de componentes nem nos testes.
+- **Prazo da decisão**: `proporDecisao` ajusta `obra.dataPrevista` ao registrar; `recusarDecisao` desfaz uma única vez.
+- **Acesso do cliente**: `obraAccess.ts` no cliente e `private.can_access_obra` no banco; o cliente é vinculado pelo campo "E-mail do cliente" da obra. `?perfil=` na URL nunca concede privilégio.
+- **Overlays**: Escape via `useEscapeKey` (só o do topo fecha), breakpoint via `useIsMobile`, lightbox via `Lightbox`/`GalleryLightbox`, tokens `--z-*` e `--fs-*` em vez de números soltos. `initModalBackdropGuard()` é chamada em `main.tsx`.
+- **Migrations**: `supabase/migrations/` na ordem dos timestamps; `schema.sql` só para instalação nova.
+- **Testes**: `npm run build` e `npm test` devem passar; `noLocalStorage.test.ts` falha se `localStorage` voltar.

@@ -1,28 +1,24 @@
 import React, { useEffect, useMemo } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useSessionUser } from '../hooks/useSession';
 import {
   Printer,
-  DownloadSimple,
   ArrowLeft,
   X,
   CheckCircle,
   Clock,
-  CalendarBlank,
-  MapPin,
-  User,
-  Buildings,
-  Scales,
-  Camera,
   FilePdf,
-  ShieldCheck,
   SealCheck,
   Check,
   NotePencil,
   Receipt
 } from '@phosphor-icons/react';
 import { Obra, Decisao } from '../types/obra';
-import { getEtapaIcon } from '../utils/etapaIcons';
 import { getTipoProjetoConfig, formatBytes } from '../utils/projetoConfig';
-import { getTarefaStatus, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
+import { getTarefaStatus, isTarefaConcluida, STATUS_CRONOGRAMA_CONFIG } from '../utils/cronogramaStatus';
+import { progressoDaObra, progressoDeEtapa, totaisFinanceiros, impactoDaDecisao } from '../utils/obraMetrics';
+import { formatarMoeda as formatarMoedaBR } from '../utils/moeda';
+import { formatarDataBR, formatarDataHoraBR } from '../utils/data';
 
 interface ModalPreviewRelatorioProps {
   isOpen: boolean;
@@ -37,6 +33,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   obra,
   autoPrint = false,
 }) => {
+  const sessionUser = useSessionUser();
   // Disparar a impressão nativa automaticamente caso solicitado (após breve delay para renderização completa)
   useEffect(() => {
     if (isOpen && autoPrint) {
@@ -47,27 +44,18 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
     }
   }, [isOpen, autoPrint]);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   // Cálculos de Indicadores da Obra (Memorizados para evitar recálculos em re-renders)
   const metricas = useMemo(() => {
     const etapas = obra?.etapas || [];
-    const todasTarefas = etapas.flatMap((e) => e.tarefas || []);
-    const totalTarefas = todasTarefas.length;
-    const tarefasConcluidas = todasTarefas.filter((t) => t.concluida).length;
-    const tarefasEmAndamento = todasTarefas.filter(
-      (t) => !t.concluida && getTarefaStatus(t) === 'em_andamento'
-    ).length;
-    const tarefasPendentes = Math.max(0, totalTarefas - tarefasConcluidas - tarefasEmAndamento);
-    const percentual = totalTarefas > 0 ? Math.round((tarefasConcluidas / totalTarefas) * 100) : 0;
+    const {
+      totalTarefas,
+      concluidas: tarefasConcluidas,
+      emAndamento: tarefasEmAndamento,
+      pendentes: tarefasPendentes,
+      percentual,
+    } = progressoDaObra(obra);
     // Uma obra é considerada com pendências se não tiver tarefas ou se o avanço for < 100%
     const temAtividadesNaoConcluidas = totalTarefas === 0 || percentual < 100 || tarefasEmAndamento > 0 || tarefasPendentes > 0;
 
@@ -88,17 +76,14 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
     const decisoesAprovadas = decisoes.filter((d) => d.status === 'aprovada');
     const projetos = obra?.projetos || [];
 
-    const orcamentoInicial = obra?.orcamentoInicial || 0;
-    const totalAditivosAprovados = decisoesAprovadas.reduce((acc, d) => {
-      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-    const totalSupressivosAprovados = decisoesAprovadas.reduce((acc, d) => {
-      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-    const saldoAlteracoes = totalAditivosAprovados + totalSupressivosAprovados;
-    const investimentoTotal = orcamentoInicial + saldoAlteracoes;
+    // Totais financeiros (fonte única: utils/obraMetrics, idêntica à aba Decisões).
+    // Supressivos são magnitudes positivas; o saldo líquido já desconta os supressivos.
+    const totais = totaisFinanceiros(obra);
+    const orcamentoInicial = totais.orcamentoBase;
+    const totalAditivosAprovados = totais.aprovadas.aditivos;
+    const totalSupressivosAprovados = totais.aprovadas.supressivos;
+    const saldoAlteracoes = totais.aprovadas.saldo;
+    const investimentoTotal = totais.investimentoAtualizado;
 
     const agora = new Date();
     const dataEmissaoHoje = agora.toLocaleDateString('pt-BR', {
@@ -160,44 +145,11 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
   const nomeEmpresa =
     obra.empresaResponsavel && obra.empresaResponsavel.trim()
       ? obra.empresaResponsavel.trim()
-      : typeof window !== 'undefined'
-      ? localStorage.getItem('eixo_empresa_cadastrada') || 'Empresa Responsável'
-      : 'Empresa Responsável';
+      : sessionUser?.empresa?.trim() || 'Empresa Responsável';
 
-  const formatarData = (dataStr?: string) => {
-    if (!dataStr) return 'Não informada';
-    try {
-      const [ano, mes, dia] = dataStr.split('-');
-      if (ano && mes && dia) return `${dia}/${mes}/${ano}`;
-      const d = new Date(dataStr);
-      return d.toLocaleDateString('pt-BR');
-    } catch {
-      return dataStr;
-    }
-  };
-
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
-
-  const formatarMoeda = (valor: number) => {
-    return valor.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
+  const formatarData = (dataStr?: string) => formatarDataBR(dataStr);
+  const formatarDataHora = (isoStr?: string) => formatarDataHoraBR(isoStr, { separador: ', ' });
+  const formatarMoeda = (valor: number) => formatarMoedaBR(valor);
 
   const handlePrint = () => {
     window.print();
@@ -415,11 +367,8 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {obra.etapas.map((etapa, idx) => {
-                const iconConfig = getEtapaIcon(etapa.nome, etapa.id);
                 const tarefasEtapa = etapa.tarefas || [];
-                const concluidasEtapa = tarefasEtapa.filter((t) => t.concluida).length;
-                const percentualEtapa =
-                  tarefasEtapa.length > 0 ? Math.round((concluidasEtapa / tarefasEtapa.length) * 100) : 0;
+                const { concluidas: concluidasEtapa, percentual: percentualEtapa } = progressoDeEtapa(etapa);
 
                 return (
                   <div key={etapa.id} className="relatorio-etapa-card print-avoid-break">
@@ -456,7 +405,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                             const statusT = getTarefaStatus(tarefa);
                             const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
                             return (
-                              <tr key={tarefa.id} className={tarefa.concluida ? 'row-concluida' : 'row-pendente'}>
+                              <tr key={tarefa.id} className={isTarefaConcluida(tarefa) ? 'row-concluida' : 'row-pendente'}>
                                 <td>
                                   <span
                                     className={`relatorio-status-badge ${configT.badgeClass}`}
@@ -478,7 +427,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                                   </span>
                                 </td>
                                 <td>
-                                  <span style={{ fontWeight: tarefa.concluida ? 600 : 400, color: '#1a130a' }}>
+                                  <span style={{ fontWeight: isTarefaConcluida(tarefa) ? 600 : 400, color: '#1a130a' }}>
                                     {tarefa.nome}
                                   </span>
                                 </td>
@@ -621,7 +570,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
               </p>
             </div>
 
-            {(orcamentoInicial > 0 || totalAditivosAprovados > 0 || totalSupressivosAprovados < 0) && (
+            {(orcamentoInicial > 0 || totalAditivosAprovados > 0 || totalSupressivosAprovados > 0) && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                 {orcamentoInicial > 0 && (
                   <div style={{ padding: '8px 12px', background: '#f8f3ed', border: '1px solid #e2cfb6', borderRadius: 6, fontSize: '0.80rem' }}>
@@ -635,10 +584,10 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                     <strong style={{ color: '#c2350a' }}>+{formatarMoeda(totalAditivosAprovados)}</strong>
                   </div>
                 )}
-                {totalSupressivosAprovados < 0 && (
+                {totalSupressivosAprovados > 0 && (
                   <div style={{ padding: '8px 12px', background: '#dcfce7', border: '1px solid #bbf7d0', borderRadius: 6, fontSize: '0.80rem' }}>
                     <span style={{ color: '#16a34a', display: 'block', fontSize: '0.70rem', textTransform: 'uppercase', fontWeight: 700 }}>Supressões Aprovadas</span>
-                    <strong style={{ color: '#16a34a' }}>-{formatarMoeda(Math.abs(totalSupressivosAprovados))}</strong>
+                    <strong style={{ color: '#16a34a' }}>-{formatarMoeda(totalSupressivosAprovados)}</strong>
                   </div>
                 )}
                 <div style={{ padding: '8px 12px', background: '#fbf7ea', border: '1px solid #f2e3be', borderRadius: 6, fontSize: '0.80rem' }}>
@@ -688,37 +637,17 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
                         {/* Impactos */}
                         <div style={{ textAlign: 'right', fontSize: '0.80rem' }}>
-                          {decisao.valorAditivo !== undefined && decisao.valorSupressivo !== undefined ? (
-                            <div>
-                              <div style={{ fontWeight: 700, color: '#b91c1c' }}>
-                                + {formatarMoeda(decisao.valorAditivo)} (Aditivo)
+                          {(() => {
+                            const impacto = impactoDaDecisao(decisao);
+                            if (!impacto.temImpactoFinanceiro) return null;
+                            return (
+                              <div style={{ fontWeight: 700, color: impacto.temAditivo ? '#b91c1c' : '#16a34a' }}>
+                                {impacto.temAditivo
+                                  ? `+ ${formatarMoeda(impacto.aditivo)} (Aditivo)`
+                                  : `- ${formatarMoeda(impacto.supressivo)} (Supressivo)`}
                               </div>
-                              <div style={{ fontWeight: 700, color: '#16a34a' }}>
-                                - {formatarMoeda(decisao.valorSupressivo)} (Supressivo)
-                              </div>
-                              {decisao.impactoFinanceiro !== undefined && (
-                                <div style={{ fontSize: '0.74rem', color: '#6e512b', fontWeight: 600 }}>
-                                  Saldo: {decisao.impactoFinanceiro >= 0 ? '+' : '-'}{formatarMoeda(Math.abs(decisao.impactoFinanceiro))}
-                                </div>
-                              )}
-                            </div>
-                          ) : (decisao.impactoFinanceiro !== undefined || decisao.valorAditivo !== undefined || decisao.valorSupressivo !== undefined) ? (
-                            (() => {
-                              const isAditivo = (decisao.valorAditivo !== undefined && decisao.valorAditivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro > 0);
-                              const isSupressivo = (decisao.valorSupressivo !== undefined && decisao.valorSupressivo > 0) || (decisao.impactoFinanceiro !== undefined && decisao.impactoFinanceiro < 0);
-                              const val = decisao.valorAditivo ?? (decisao.valorSupressivo ?? Math.abs(decisao.impactoFinanceiro || 0));
-
-                              return (
-                                <div style={{ fontWeight: 700, color: isAditivo ? '#b91c1c' : isSupressivo ? '#16a34a' : '#6e512b' }}>
-                                  {isAditivo
-                                    ? `+ ${formatarMoeda(val)} (Aditivo)`
-                                    : isSupressivo
-                                    ? `- ${formatarMoeda(val)} (Supressivo)`
-                                    : 'Sem impacto financeiro'}
-                                </div>
-                              );
-                            })()
-                          ) : null}
+                            );
+                          })()}
                           {decisao.impactoPrazoDias !== undefined && (
                             <div style={{ color: '#6e512b', fontSize: '0.74rem' }}>
                               {decisao.impactoPrazoDias > 0 ? `+ ${decisao.impactoPrazoDias} dias no prazo` : 'Sem alteração de prazo'}
@@ -1014,7 +943,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
                         <tbody>
                           {(obra.etapas || []).flatMap((etapa) =>
                             (etapa.tarefas || [])
-                              .filter((t) => !t.concluida)
+                              .filter((t) => !isTarefaConcluida(t))
                               .map((t) => {
                                 const statusT = getTarefaStatus(t);
                                 const configT = STATUS_CRONOGRAMA_CONFIG[statusT];

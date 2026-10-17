@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Kanban, Scales, BookOpen, Plus, ArrowLeft, ShareNetwork, Blueprint, PencilSimple } from '@phosphor-icons/react';
-import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, PunchListItem } from '../types/obra';
-import { generateUUID } from '../utils/uuid';
+import { Obra, AnexoItem, Tarefa, Etapa, Decisao, PerfilUsuario, PresetTipoObra, PunchListItem } from '../types/obra';
+import * as T from '../utils/obraTransitions';
+import { defaultTab } from '../utils/routeState';
 import { ObraHeader } from './ObraHeader';
 import { TimelineEtapas } from './TimelineEtapas';
 import { VistoriaPunchList } from './VistoriaPunchList';
@@ -44,7 +45,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
 }) => {
   // Controle de Abas: 'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'
   const [localActiveTab, setLocalActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(
-    perfilAtivo === 'cliente' ? 'diario' : 'etapas'
+    defaultTab(perfilAtivo)
   );
   const rawActiveTab = activeTabProp || localActiveTab;
   const activeTab = rawActiveTab === 'anexos' ? 'diario' : rawActiveTab;
@@ -94,12 +95,9 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     endereco: string;
     dataPrevista: string;
     empresaResponsavel?: string;
+    emailsClientes?: string[];
+    clienteEmail?: string;
   }) => {
-    if (updatedData.empresaResponsavel) {
-      try {
-        localStorage.setItem('eixo_empresa_cadastrada', updatedData.empresaResponsavel);
-      } catch {}
-    }
     onUpdateObra({
       ...obra,
       ...updatedData,
@@ -107,6 +105,8 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     setIsEditObraOpen(false);
     showToast('Obra atualizada!', 'As informações principais foram salvas com sucesso.');
   };
+
+  const nomeUsuarioAtivo = perfilAtivo === 'construtor' ? 'Engenheiro Responsável' : obra.cliente;
 
   // --- Handlers de Etapa ---
   const handleOpenWizard = (insertIndex: number | null = null) => {
@@ -120,330 +120,91 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     insertIndex?: number | null
   ) => {
     if (perfilAtivo === 'cliente') return;
-    const novaEtapa: Etapa = {
-      id: generateUUID(),
-      nome: novaEtapaData.nome,
-      tipoOrigem: novaEtapaData.tipoOrigem,
-      tarefas: novaEtapaData.tarefas.map((t) => ({
-        id: generateUUID(),
-        nome: t.nome,
-        concluida: false,
-      })),
-    };
-
-    let updatedEtapas = [...obra.etapas];
-    if (insertIndex !== null && insertIndex !== undefined && insertIndex >= 0) {
-      updatedEtapas.splice(insertIndex, 0, novaEtapa);
-    } else {
-      updatedEtapas.push(novaEtapa);
-    }
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.adicionarEtapa(obra, novaEtapaData, insertIndex));
   };
 
   const handleDeleteEtapa = (etapaId: string) => {
-    // 1. Exclui imediatamente do Supabase e registra no tombstone
+    // Exclui imediatamente do Supabase e registra no tombstone
     obrasApi.deleteEtapa(etapaId).catch((err) => console.warn('Erro ao excluir etapa na nuvem:', err));
-
-    const updatedEtapas = obra.etapas.filter((e) => e.id !== etapaId);
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.removerEtapa(obra, etapaId));
   };
 
   const handleEditEtapaNome = (etapaId: string, novoNome: string) => {
-    const updatedEtapas = obra.etapas.map((e) =>
-      e.id === etapaId ? { ...e, nome: novoNome } : e
-    );
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.renomearEtapa(obra, etapaId, novoNome));
   };
 
   const handleReorderEtapas = (draggedIndex: number, targetIndex: number) => {
     if (draggedIndex === targetIndex) return;
-    const updatedEtapas = [...obra.etapas];
-    const [moved] = updatedEtapas.splice(draggedIndex, 1);
-    updatedEtapas.splice(targetIndex, 0, moved);
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.reordenarEtapas(obra, draggedIndex, targetIndex));
   };
 
   // --- Handlers de Tarefas ---
   const handleToggleTask = (etapaId: string, tarefaId: string) => {
-    let tarefaConcluidaAgora: Tarefa | null = null;
-    let etapaDaTarefa: Etapa | null = null;
-
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      etapaDaTarefa = e;
-      const updatedTarefas = e.tarefas.map((t) => {
-        if (t.id === tarefaId) {
-          const novoStatus = !t.concluida;
-          const tarefaAtualizada = {
-            ...t,
-            concluida: novoStatus,
-            concluidaEm: novoStatus ? new Date().toISOString() : undefined,
-          };
-          if (novoStatus) {
-            tarefaConcluidaAgora = tarefaAtualizada;
-          }
-          return tarefaAtualizada;
-        }
-        return t;
-      });
-
-      // Checa se todas as tarefas da etapa foram concluídas para registrar data e hora
-      const todasTarefasFeitas = updatedTarefas.length > 0 && updatedTarefas.every((t) => t.concluida);
-      const etapaConcluidaEm = todasTarefasFeitas
-        ? (e.concluidaEm || new Date().toISOString())
-        : undefined;
-
-      return {
-        ...e,
-        tarefas: updatedTarefas,
-        concluida: todasTarefasFeitas,
-        concluidaEm: etapaConcluidaEm,
-      };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    const r = T.alternarTarefa(obra, etapaId, tarefaId);
+    onUpdateObra(r.obra);
 
     // Se marcou como concluída, dispara o modal perguntando se quer foto/anotação
-    if (tarefaConcluidaAgora && etapaDaTarefa) {
-      setMediaModalData({
-        tarefa: tarefaConcluidaAgora,
-        etapa: etapaDaTarefa,
-      });
-
-      // Checa se a obra inteira atingiu 100% de conclusão para toast especial!
-      const todas = updatedEtapas.flatMap((et) => et.tarefas);
-      if (todas.length > 0 && todas.every((t) => t.concluida)) {
+    if (r.tarefaConcluida && r.etapaDaTarefa) {
+      setMediaModalData({ tarefa: r.tarefaConcluida, etapa: r.etapaDaTarefa });
+      if (r.obraConcluida) {
         showToast('Obra 100% Concluída!', 'Todas as etapas e serviços foram finalizados com êxito.');
       }
     }
   };
 
   const handleDeleteTask = (etapaId: string, tarefaId: string) => {
-    // 1. Exclui imediatamente do Supabase e registra no tombstone
+    // Exclui imediatamente do Supabase e registra no tombstone
     obrasApi.deleteTask(tarefaId).catch((err) => console.warn('Erro ao excluir tarefa na nuvem:', err));
-
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      return {
-        ...e,
-        tarefas: e.tarefas.filter((t) => t.id !== tarefaId),
-      };
-    });
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.removerTarefa(obra, etapaId, tarefaId));
   };
 
   const handleEditTaskNome = (etapaId: string, tarefaId: string, novoNome: string) => {
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      return {
-        ...e,
-        tarefas: e.tarefas.map((t) => (t.id === tarefaId ? { ...t, nome: novoNome } : t)),
-      };
-    });
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.renomearTarefa(obra, etapaId, tarefaId, novoNome));
   };
 
-  const handleEditTask = (
-    etapaId: string,
-    tarefaId: string,
-    novoNome: string,
-    novoAmbiente?: string
-  ) => {
-    const ambTrim = novoAmbiente && novoAmbiente.trim() ? novoAmbiente.trim() : undefined;
-    const nomeTrim = novoNome.trim();
-
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const tarefasAtualizadas = e.tarefas.map((t) => {
-        if (t.id !== tarefaId) return t;
-        return {
-          ...t,
-          nome: nomeTrim || t.nome,
-          ambiente: ambTrim,
-        };
-      });
-      let ambientes = e.ambientes ? [...e.ambientes] : [];
-      if (ambTrim && !ambientes.includes(ambTrim)) {
-        ambientes.push(ambTrim);
-      }
-      return { ...e, ambientes, tarefas: tarefasAtualizadas };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+  const handleEditTask = (etapaId: string, tarefaId: string, novoNome: string, novoAmbiente?: string) => {
+    onUpdateObra(T.editarTarefa(obra, etapaId, tarefaId, novoNome, novoAmbiente));
   };
 
   const handleReorderTasks = (etapaId: string, draggedIndex: number, targetIndex: number) => {
     if (draggedIndex === targetIndex) return;
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const tarefas = [...e.tarefas];
-      const [moved] = tarefas.splice(draggedIndex, 1);
-      tarefas.splice(targetIndex, 0, moved);
-      return { ...e, tarefas };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.reordenarTarefas(obra, etapaId, draggedIndex, targetIndex));
   };
 
   const handleAddTaskToEtapa = (etapaId: string, taskNome: string, insertAtIndex?: number, ambiente?: string) => {
-    const ambTrim = ambiente && ambiente.trim() ? ambiente.trim() : undefined;
-    const novaTarefa: Tarefa = {
-      id: generateUUID(),
-      nome: taskNome,
-      concluida: false,
-      ambiente: ambTrim,
-    };
-
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const tarefas = [...e.tarefas];
-      if (insertAtIndex !== undefined && insertAtIndex >= 0) {
-        tarefas.splice(insertAtIndex, 0, novaTarefa);
-      } else {
-        tarefas.push(novaTarefa);
-      }
-      let ambientes = e.ambientes ? [...e.ambientes] : [];
-      if (ambTrim && !ambientes.includes(ambTrim)) {
-        ambientes.push(ambTrim);
-      }
-      return { ...e, ambientes, tarefas };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.adicionarTarefa(obra, etapaId, taskNome, insertAtIndex, ambiente));
   };
 
   const handleCreateAgrupamento = (etapaId: string, nomeAgrupamento: string) => {
     const nomeTrim = nomeAgrupamento.trim();
     if (!nomeTrim) return;
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const ambientesAtuais = e.ambientes ? [...e.ambientes] : [];
-      if (!ambientesAtuais.includes(nomeTrim)) {
-        ambientesAtuais.push(nomeTrim);
-      }
-      return { ...e, ambientes: ambientesAtuais };
-    });
-    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    onUpdateObra(T.criarAgrupamento(obra, etapaId, nomeTrim));
     showToast('Agrupamento criado!', `Ambiente "${nomeTrim}" adicionado.`);
   };
 
   const handleRenameAgrupamento = (etapaId: string, nomeAntigo: string, novoNome: string) => {
     const novoTrim = novoNome.trim();
     if (!novoTrim || novoTrim === nomeAntigo) return;
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      let ambientesAtuais = (e.ambientes || []).map((a) => (a === nomeAntigo ? novoTrim : a));
-      if (!ambientesAtuais.includes(novoTrim)) {
-        ambientesAtuais.push(novoTrim);
-      }
-      ambientesAtuais = Array.from(new Set(ambientesAtuais.filter((a) => a !== nomeAntigo)));
-      const tarefasAtualizadas = e.tarefas.map((t) =>
-        t.ambiente === nomeAntigo ? { ...t, ambiente: novoTrim } : t
-      );
-      return { ...e, ambientes: ambientesAtuais, tarefas: tarefasAtualizadas };
-    });
-    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    onUpdateObra(T.renomearAgrupamento(obra, etapaId, nomeAntigo, novoTrim));
     showToast('Agrupamento renomeado', `"${nomeAntigo}" agora é "${novoTrim}".`);
   };
 
   const handleDeleteAgrupamento = (etapaId: string, nomeAgrupamento: string) => {
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const ambientesAtuais = (e.ambientes || []).filter((a) => a !== nomeAgrupamento);
-      const tarefasAtualizadas = e.tarefas.map((t) =>
-        t.ambiente === nomeAgrupamento ? { ...t, ambiente: undefined } : t
-      );
-      return { ...e, ambientes: ambientesAtuais, tarefas: tarefasAtualizadas };
-    });
-    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    onUpdateObra(T.removerAgrupamento(obra, etapaId, nomeAgrupamento));
     showToast('Agrupamento removido', 'Os serviços foram movidos para "Sem agrupamento".', 'info');
   };
 
   const handleMoveTaskAgrupamento = (etapaId: string, tarefaId: string, novoAmbiente?: string) => {
-    const ambTrim = novoAmbiente && novoAmbiente.trim() ? novoAmbiente.trim() : undefined;
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const tarefasAtualizadas = e.tarefas.map((t) => {
-        if (t.id !== tarefaId) return t;
-        return {
-          ...t,
-          ambiente: ambTrim,
-        };
-      });
-      let ambientes = e.ambientes ? [...e.ambientes] : [];
-      if (ambTrim && !ambientes.includes(ambTrim)) {
-        ambientes.push(ambTrim);
-      }
-      return { ...e, ambientes, tarefas: tarefasAtualizadas };
-    });
-    onUpdateObra({ ...obra, etapas: updatedEtapas });
+    onUpdateObra(T.moverTarefaParaAgrupamento(obra, etapaId, tarefaId, novoAmbiente));
   };
-
 
   // --- Handlers de Mídia (Fotos e Anotações) ---
   const handleSaveMediaOnTask = (data: { fotoBase64?: string; fotosBase64?: string[]; anotacao?: string }) => {
     if (!mediaModalData) return;
     const { tarefa, etapa } = mediaModalData;
+    onUpdateObra(T.adicionarMidiaNaTarefa(obra, etapa.id, tarefa.id, data));
 
-    const fotosToAdd = data.fotosBase64 && data.fotosBase64.length > 0
-      ? data.fotosBase64
-      : data.fotoBase64
-        ? [data.fotoBase64]
-        : [];
-
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapa.id) return e;
-      const tarefas = e.tarefas.map((t) => {
-        if (t.id !== tarefa.id) return t;
-        const fotos = t.fotos ? [...t.fotos, ...fotosToAdd] : [...fotosToAdd];
-        const anotacoes = t.anotacoes ? [...t.anotacoes] : [];
-        if (data.anotacao) anotacoes.push(data.anotacao);
-        return {
-          ...t,
-          fotos,
-          anotacoes,
-        };
-      });
-      return { ...e, tarefas };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
-
-    const qtdFotos = fotosToAdd.length;
+    const qtdFotos = data.fotosBase64 && data.fotosBase64.length > 0 ? data.fotosBase64.length : data.fotoBase64 ? 1 : 0;
     let desc = 'Registro salvo com sucesso.';
     if (qtdFotos > 0 && data.anotacao) {
       desc = `${qtdFotos} ${qtdFotos === 1 ? 'foto' : 'fotos'} e observação registradas no Diário.`;
@@ -457,37 +218,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleUpdateTaskMedia = (etapaId: string, tarefaId: string, fotos: string[], anotacoes: string[]) => {
-    const updatedEtapas = obra.etapas.map((e) => {
-      if (e.id !== etapaId) return e;
-      const tarefas = e.tarefas.map((t) => {
-        if (t.id !== tarefaId) return t;
-        return {
-          ...t,
-          fotos,
-          anotacoes,
-        };
-      });
-      return { ...e, tarefas };
-    });
-
-    onUpdateObra({
-      ...obra,
-      etapas: updatedEtapas,
-    });
+    onUpdateObra(T.definirMidiaDaTarefa(obra, etapaId, tarefaId, fotos, anotacoes));
   };
 
   const handleAddAnexoGeral = (novoAnexo: Omit<AnexoItem, 'id' | 'data'>) => {
-    const item: AnexoItem = {
-      ...novoAnexo,
-      id: `anexo_geral_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      data: new Date().toISOString(),
-    };
-
-    onUpdateObra({
-      ...obra,
-      anexosGerais: [...(obra.anexosGerais || []), item],
-    });
-
+    onUpdateObra(T.adicionarAnexoGeral(obra, novoAnexo));
     showToast('Anexo adicionado!', 'O item já está disponível na galeria.');
   };
 
@@ -496,20 +231,13 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     if (anexoAlvo && anexoAlvo.tipo === 'foto' && anexoAlvo.conteudo) {
       storageApi.deleteFileFromUrl('evidencias-diario', anexoAlvo.conteudo);
     }
-    onUpdateObra({
-      ...obra,
-      anexosGerais: (obra.anexosGerais || []).filter((a) => a.id !== anexoId),
-    });
+    onUpdateObra(T.removerAnexoGeral(obra, anexoId));
     showToast('Anexo removido', 'Item excluído da galeria.', 'info');
   };
 
-  // --- Handlers de Decisões ---
+  // --- Handlers de Decisões (prazo aplicado/revertido pelo módulo de transições) ---
   const handleAddDecisao = (novaDecisao: Decisao) => {
-    const updatedDecisoes = [novaDecisao, ...(obra.decisoes || [])];
-    onUpdateObra({
-      ...obra,
-      decisoes: updatedDecisoes,
-    });
+    onUpdateObra(T.proporDecisao(obra, novaDecisao));
 
     if (perfilAtivo === 'construtor') {
       showToast('Decisão Registrada!', 'O Cliente foi notificado e aguardamos sua assinatura digital.');
@@ -519,96 +247,29 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleAssinarDecisao = (decisaoId: string) => {
-    const agora = new Date().toISOString();
-    const nomeSignatario = perfilAtivo === 'construtor' ? 'Engenheiro Responsável' : obra.cliente;
-
-    const updatedDecisoes = (obra.decisoes || []).map((d) => {
-      if (d.id !== decisaoId) return d;
-      return {
-        ...d,
-        status: 'aprovada' as const,
-        assinaturaContraparte: {
-          autor: perfilAtivo,
-          nomeSignatario,
-          assinadoEm: agora,
-        },
-      };
-    });
-
-    onUpdateObra({
-      ...obra,
-      decisoes: updatedDecisoes,
-    });
-
+    onUpdateObra(T.assinarDecisao(obra, decisaoId, perfilAtivo, nomeUsuarioAtivo));
     showToast('Decisão Assinada por Ambos!', 'O acordo tem validade digital e ambas as partes concordaram.');
   };
 
   const handleRecusarDecisao = (decisaoId: string) => {
-    const updatedDecisoes = (obra.decisoes || []).map((d) => {
-      if (d.id !== decisaoId) return d;
-      return {
-        ...d,
-        status: 'recusada' as const,
-      };
-    });
-
-    onUpdateObra({
-      ...obra,
-      decisoes: updatedDecisoes,
-    });
-
+    onUpdateObra(T.recusarDecisao(obra, decisaoId, perfilAtivo));
     showToast('Decisão Recusada', 'A proposta foi recusada e a contraparte foi avisada para revisão.', 'warning');
   };
 
   // --- Handlers de Projetos em PDF ---
-  const handleAddProjeto = (dados: {
-    titulo: string;
-    tipo: TipoProjeto;
-    tipoCustomizado?: string;
-    arquivoNome: string;
-    tamanhoBytes: number;
-    url: string;
-    versao?: string;
-    descricao?: string;
-  }) => {
-    const novoProjeto: ProjetoPDF = {
-      id: generateUUID(),
-      titulo: dados.titulo,
-      tipo: dados.tipo,
-      tipoCustomizado: dados.tipoCustomizado,
-      arquivoNome: dados.arquivoNome,
-      tamanhoBytes: dados.tamanhoBytes,
-      dataUpload: new Date().toISOString(),
-      enviadoPor: perfilAtivo,
-      enviadoPorNome: perfilAtivo === 'construtor' ? 'Engenheiro Responsável' : obra.cliente,
-      url: dados.url,
-      versao: dados.versao,
-      descricao: dados.descricao,
-    };
-
-    const updatedProjetos = [novoProjeto, ...(obra.projetos || [])];
-    onUpdateObra({
-      ...obra,
-      projetos: updatedProjetos,
-    });
+  const handleAddProjeto = (dados: T.DadosProjeto) => {
+    onUpdateObra(T.adicionarProjeto(obra, dados, perfilAtivo, nomeUsuarioAtivo));
   };
 
   const handleDeleteProjeto = (projetoId: string) => {
     const projAlvo = (obra.projetos || []).find((p) => p.id === projetoId);
-    const updatedProjetos = (obra.projetos || []).filter((p) => p.id !== projetoId);
-    onUpdateObra({
-      ...obra,
-      projetos: updatedProjetos,
-    });
+    onUpdateObra(T.removerProjeto(obra, projetoId));
     projetosApi.delete(projetoId, projAlvo?.url);
   };
 
   // --- Handler da Vistoria Final ---
   const handleUpdatePunchList = (newItems: PunchListItem[]) => {
-    onUpdateObra({
-      ...obra,
-      punchList: newItems,
-    });
+    onUpdateObra(T.definirPunchList(obra, newItems));
   };
 
   // Contagem de decisões pendentes de assinatura do perfil atual
@@ -631,6 +292,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
           <button
             type="button"
             onClick={onBackToObras}
+            className="touch-target-44"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -865,6 +527,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         <ClientShareTab
           obra={obra}
           onSwitchToClient={onSwitchToClient}
+          onEditObra={() => setIsEditObraOpen(true)}
           showToast={showToast}
         />
       )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { X, FloppyDisk, PencilSimple, HouseLine } from '@phosphor-icons/react';
 
 interface ModalEditTaskProps {
@@ -26,14 +27,7 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
     setAmbiente(initialAmbiente || '');
   }, [initialNome, initialAmbiente, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
