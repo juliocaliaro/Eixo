@@ -1,15 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
-import {
-  List,
-  User,
-  Bell,
-  BellRinging,
-  PenNib,
-  CircleNotch,
-} from '@phosphor-icons/react';
+import { createPortal } from 'react-dom';
+import { List, User, Bell, BellRinging, CaretRight, CheckCircle, X, CircleNotch } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
-import { SandwichMenu, NotificacaoPendente } from './SandwichMenu';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { EmptyState } from './EmptyState';
+import { SandwichMenu, NotificacaoPendente, MenuView } from './SandwichMenu';
 import { ModalConfiguracoesCliente } from './ModalConfiguracoesCliente';
 
 interface NavbarProps {
@@ -21,6 +17,8 @@ interface NavbarProps {
   onNavigateToDecisao?: (obraId: string) => void;
   onOpenSettings?: () => void;
   isConfigOpen?: boolean;
+  /** Tela em que o usuário está, para marcar o item ativo do menu lateral. */
+  activeView?: MenuView;
   onLogout?: () => void;
   onOpenCreateObra?: () => void;
   onOpenRegistroNota?: () => void;
@@ -36,6 +34,40 @@ interface NavbarProps {
   isApiLoading?: boolean;
 }
 
+interface NotifListProps {
+  itens: NotificacaoPendente[];
+  onSelect: (obraId: string) => void;
+}
+
+/** Lista de decisões que aguardam a assinatura do perfil ativo (popover no desktop, sheet no mobile). */
+const NotifList: React.FC<NotifListProps> = ({ itens, onSelect }) => {
+  if (itens.length === 0) {
+    return (
+      <EmptyState icon={CheckCircle} title="Nada pendente por enquanto." />
+    );
+  }
+  return (
+    <div className="notif-list">
+      {itens.map((item) => (
+        <button
+          key={`${item.obraId}-${item.decisaoId}`}
+          type="button"
+          className="list-row notif-row"
+          onClick={() => onSelect(item.obraId)}
+        >
+          <span className="list-row-main">
+            <span className="list-row-title">{item.titulo}</span>
+            <span className="list-row-sub">
+              {item.obraNome} · proposta de {item.criadaPorNome}
+            </span>
+          </span>
+          <CaretRight size={16} weight="bold" className="notif-row-chevron" aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export const Navbar: React.FC<NavbarProps> = ({
   currentObra,
   onBackToObras,
@@ -44,8 +76,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   obras,
   onNavigateToDecisao,
   onOpenSettings,
+  isConfigOpen,
+  activeView,
   onLogout,
-  onOpenCreateObra,
   onOpenRegistroNota,
   onOpenRegistroLocacao,
   userName = '',
@@ -54,17 +87,28 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSaveProfile,
   isLogged = true,
   onOpenLogin,
-  activeTab,
-  onChangeTab,
   isApiLoading = false,
 }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isConfigClienteOpen, setIsConfigClienteOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
-  // Fecha o dropdown de notificações ao clicar fora (ou Escape)
-  usePopoverDismiss(notifRef, isNotifOpen, () => setIsNotifOpen(false));
+  const fecharNotif = () => setIsNotifOpen(false);
+
+  // Escape fecha (e entra na pilha de overlays: trava a rolagem do fundo quando é sheet)
+  useEscapeKey(fecharNotif, isNotifOpen);
+
+  // No desktop o popover fecha ao clicar fora; no mobile a sheet tem backdrop próprio.
+  useEffect(() => {
+    if (!isNotifOpen || isMobile) return;
+    const onOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) fecharNotif();
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [isNotifOpen, isMobile]);
 
   // Coleta todas as decisões pendentes da assinatura do perfil logado
   const notificacoesPendentes: NotificacaoPendente[] = [];
@@ -85,268 +129,107 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const temNotificacoes = notificacoesPendentes.length > 0;
 
+  const irParaDecisao = (obraId: string) => {
+    fecharNotif();
+    if (onNavigateToDecisao) onNavigateToDecisao(obraId);
+  };
+
+  const view: MenuView = activeView ?? (isConfigOpen ? 'modelos' : 'obras');
+
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        {/* Canto Superior Esquerdo: Menu Hambúrguer (gatilho do drawer) + Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="nav-group">
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className="btn-icon"
-            style={{
-              position: 'relative',
-              width: 38,
-              height: 38,
-              borderRadius: 'var(--radius-sm, 6px)',
-              border: '1px solid var(--border-hairline)',
-              background: '#ffffff',
-              color: 'var(--text-main)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            title="Abrir menu de navegação"
-            aria-label="Abrir menu de navegação"
+            className="btn-icon nav-btn"
+            title="Abrir menu"
+            aria-label="Abrir menu"
+            aria-haspopup="dialog"
           >
             <List size={22} weight="bold" />
           </button>
 
-          <div
-            onClick={onBackToObras}
-            className="brand-logo"
-            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}
-          >
-            <img
-              src="/eixo-icon.jpg"
-              alt="Eixo"
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                objectFit: 'cover',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
-              }}
-            />
-            <div>
-              <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'block', lineHeight: 1.1 }}>
-                Eixo
-              </span>
-              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Canteiro & Decisões
-              </span>
-            </div>
-          </div>
+          <button type="button" onClick={onBackToObras} className="nav-brand" aria-label="Eixo: ir para a lista de obras">
+            <img src="/eixo-icon.jpg" alt="" />
+            <span>
+              <span className="nav-brand-name">Eixo</span>
+              <span className="nav-brand-sub">Canteiro &amp; Decisões</span>
+            </span>
+          </button>
         </div>
 
-        {/* Canto Superior Direito: Notificações + Ícone de Perfil de Usuário */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Indicador Discreto de Sincronização / API em Andamento */}
+        <div className="nav-group nav-group--end">
+          {/* Indicador discreto de sincronização */}
           {isApiLoading && (
-            <div
-              className="navbar-sync-badge"
-              title="Sincronizando dados com o servidor em tempo real"
-              role="status"
-              aria-live="polite"
-            >
+            <div className="navbar-sync-badge" title="Sincronizando dados com o servidor" role="status" aria-live="polite">
               <CircleNotch size={13} className="spin-animate" weight="bold" />
               <span>Sincronizando...</span>
             </div>
           )}
 
-          {/* Sininho de Notificações de Decisões */}
-          <div style={{ position: 'relative' }} ref={notifRef}>
+          {/* Sino: decisões que aguardam a assinatura do perfil ativo */}
+          <div className="nav-notif" ref={notifRef}>
             <button
               type="button"
               onClick={() => setIsNotifOpen((prev) => !prev)}
-              className="btn-icon"
-              style={{
-                position: 'relative',
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
-                border: '1px solid var(--border-hairline)',
-                background: isNotifOpen ? 'var(--dark-coffee-100)' : '#ffffff',
-                color: temNotificacoes ? 'var(--primary-accent)' : 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
+              className={`btn-icon nav-btn nav-btn--round${temNotificacoes ? ' nav-btn--alert' : ''}`}
               title={
                 temNotificacoes
                   ? `${notificacoesPendentes.length} decisão(ões) aguardando sua assinatura`
-                  : 'Nenhuma notificação no momento'
+                  : 'Nenhuma notificação'
               }
-              aria-label="Notificações de Decisões"
+              aria-label={
+                temNotificacoes
+                  ? `Notificações: ${notificacoesPendentes.length} aguardando sua assinatura`
+                  : 'Notificações'
+              }
+              aria-haspopup="dialog"
+              aria-expanded={isNotifOpen}
             >
-              {temNotificacoes ? (
-                <BellRinging size={20} weight="fill" />
-              ) : (
-                <Bell size={20} weight="regular" />
-              )}
-
-              {/* Badge Contador */}
-              {temNotificacoes && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: 2,
-                    right: 2,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 10,
-                    background: 'var(--coral-glow-500, #e05a47)',
-                    color: '#ffffff',
-                    fontSize: '0.65rem',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0 4px',
-                    boxShadow: '0 0 0 2px #ffffff',
-                  }}
-                >
-                  {notificacoesPendentes.length}
-                </span>
-              )}
+              {temNotificacoes ? <BellRinging size={20} weight="fill" /> : <Bell size={20} weight="regular" />}
+              {temNotificacoes && <span className="nav-badge">{notificacoesPendentes.length}</span>}
             </button>
 
-            {/* Dropdown de Notificações */}
-            {isNotifOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: 8,
-                  width: 'min(320px, calc(100vw - 32px))',
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md, 8px)',
-                  boxShadow: 'var(--shadow-floating)',
-                  zIndex: 'var(--z-popover)',
-                  overflow: 'hidden',
-                  animation: 'modalIn 0.15s ease',
-                }}
-              >
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: 'var(--dark-coffee-50, #fcfaf8)',
-                  }}
-                >
-                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
-                    Notificações de Decisões
-                  </strong>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {perfilAtivo === 'construtor' ? 'Construtor' : 'Cliente'}
-                  </span>
-                </div>
-
-                <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                  {temNotificacoes ? (
-                    notificacoesPendentes.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          setIsNotifOpen(false);
-                          if (onNavigateToDecisao) {
-                            onNavigateToDecisao(item.obraId);
-                          }
-                        }}
-                        style={{
-                          padding: '12px 16px',
-                          borderBottom: '1px solid var(--border-hairline)',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s ease',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 10,
-                        }}
-                        className="notif-dropdown-item"
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--dark-coffee-50)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <PenNib size={16} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)', lineHeight: 1.3 }}>
-                            {item.titulo}
-                          </div>
-                          <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                            {item.obraNome} • Proposta por {item.criadaPorNome}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--primary-accent)', fontWeight: 600, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <PenNib size={12} weight="bold" />
-                            <span>Clique para assinar ou revisar</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                      Nenhuma decisão pendente da sua assinatura no momento.
-                    </div>
-                  )}
-                </div>
+            {isNotifOpen && !isMobile && (
+              <div className="notif-popover" role="dialog" aria-label="Aguardando sua assinatura">
+                <div className="notif-popover-title">Aguardando sua assinatura</div>
+                <NotifList itens={notificacoesPendentes} onSelect={irParaDecisao} />
               </div>
             )}
           </div>
 
-          {/* Ícone de Perfil de Usuário (atalho para Configurações do Cliente) */}
           <button
             type="button"
             onClick={() => setIsConfigClienteOpen(true)}
-            className="btn-icon"
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: '50%',
-              border: '1px solid var(--border-hairline)',
-              background: '#ffffff',
-              color: 'var(--text-main)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            title="Configurações do Cliente"
-            aria-label="Configurações do Cliente"
+            className="btn-icon nav-btn nav-btn--round"
+            title="Minha conta"
+            aria-label="Minha conta"
+            aria-haspopup="dialog"
           >
             <User size={21} weight="regular" />
           </button>
         </div>
       </div>
 
-      {/* Menu Lateral Esquerdo (Side Drawer) */}
       <SandwichMenu
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        currentObra={currentObra}
-        activeTab={activeTab}
-        onChangeTab={onChangeTab}
-        notificacoes={notificacoesPendentes}
-        onNavigateToDecisao={onNavigateToDecisao}
-        onOpenCreateObra={onOpenCreateObra}
+        activeView={view}
         onOpenRegistroNota={onOpenRegistroNota}
         onOpenRegistroLocacao={onOpenRegistroLocacao}
         onOpenSettings={onOpenSettings}
         onBackToObras={onBackToObras}
         perfilAtivo={perfilAtivo}
+        userName={userName}
+        userEmail={userEmail}
+        userEmpresa={userEmpresa}
         isLogged={isLogged}
         onLogout={onLogout}
         onOpenLogin={onOpenLogin}
       />
 
-      {/* Modal de Configurações do Cliente */}
       <ModalConfiguracoesCliente
         isOpen={isConfigClienteOpen}
         onClose={() => setIsConfigClienteOpen(false)}
@@ -359,6 +242,34 @@ export const Navbar: React.FC<NavbarProps> = ({
           if (onSaveProfile) onSaveProfile(dados);
         }}
       />
+
+      {/* Notificações no mobile: bottom sheet (nunca um dropdown cortado na borda) */}
+      {isNotifOpen &&
+        isMobile &&
+        createPortal(
+          <div className="modal-backdrop" onClick={fecharNotif}>
+            <div
+              className="modal-card notif-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="notif-sheet-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2 className="modal-title" id="notif-sheet-title">
+                  Aguardando sua assinatura
+                </h2>
+                <button type="button" className="btn-icon" onClick={fecharNotif} aria-label="Fechar">
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+              <div className="modal-body">
+                <NotifList itens={notificacoesPendentes} onSelect={irParaDecisao} />
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </header>
   );
 };

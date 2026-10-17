@@ -83,7 +83,7 @@ Componente -> setObras(fn)  -> useObras -> ObraStore.save(next)
 
 - O papel (`construtor` ou `cliente`) vem de `profiles.role`, protegido por trigger no banco: o usuário não consegue alterá-lo. Sem perfil carregado, o papel cai para `cliente`.
 - `?perfil=` na URL é só preferência de visualização. `resolvePerfil(papelDaConta, perfilDaUrl)` garante que conta cliente é sempre cliente e que o construtor pode usar `?perfil=cliente` apenas como pré-visualização.
-- O cliente enxerga uma obra se o e-mail confirmado da sessão estiver em `emails_clientes`/`cliente_email`, ou se for o `cliente_id`. O construtor vincula clientes pelo campo "E-mail do cliente" ao criar ou editar a obra.
+- O cliente enxerga uma obra se o e-mail confirmado da sessão estiver em `emails_clientes`/`cliente_email`, ou se for o `cliente_id`. O construtor mantém a lista de acesso na aba Compartilhar da obra (e-mails salvos na hora em `emails_clientes`, com `cliente_email` = primeiro da lista). Os e-mails podem ser informados já na criação da obra (campo opcional) e depois são gerenciados só na aba Compartilhar; a edição da obra não tem esse campo.
 - Decisões: só a contraparte de quem propôs pode aprovar ou recusar; valores, prazo e texto não mudam depois de criados (trigger no banco).
 
 ## Banco de dados e migrations
@@ -111,3 +111,12 @@ Depois de aplicar a 2ª, rode no SQL Editor `SELECT policyname, cmd, roles, qual
 - O desktop (>768px) não muda por causa de ajustes mobile.
 - Z-index e escala de fonte usam tokens de `:root` (`--z-nav`, `--z-popover`, `--z-modal`, `--z-toast`, `--z-lightbox`, `--z-drawer`, `--z-top`; `--fs-xs` a `--fs-xl`). Não use números soltos.
 - Empilhamento: nav < popover < modal < confirmação/preview < toast < lightbox < drawer < relatório.
+
+## Interface: fundação mobile-first
+
+Detalhes em `docs/design/PADROES-MOBILE.md` e `docs/adr/0007-redesenho-mobile-first.md`.
+
+- **CSS**: `src/index.css` (legado e tokens), `src/styles/foundation.css` (espaçamento, `.page`, `.toolbar`, `.badge--*`, `.list-row`, `.empty-state`, bottom sheet, `.bottom-tab-bar`, scrollbar fina) e um arquivo por área (`obra-etapas-arquivos.css`, `decisoes-diario.css`, `home-auth.css`, `registros-modelos.css`). A ordem de importação em `main.tsx` é parte do contrato: CSS global primeiro, CSS dos componentes depois.
+- **Componentes compartilhados**: `PageHeader`, `BottomTabBar`, `EmptyState`, `OverflowMenu`, `SegmentedControl`, `Lightbox`/`GalleryLightbox`, `UploadArquivos`, `EmailChipsInput`.
+- **Comportamento**: `bodyScrollLock` (rolagem da página travada com overlay aberto, ligado à `overlayStack`), `sheetFocus` (campo focado vai para o centro do sheet), `useKeyboardOpen` (a barra de abas some com o teclado aberto).
+- **Regras de tela**: uma ação principal por tela, estados vazios via `EmptyState`, cliente somente leitura fora de Decisões e da própria aba Compartilhar sem lista de e-mails. A lista tela a tela está em `agents.md` §26.

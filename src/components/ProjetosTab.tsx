@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { OverflowMenu } from './OverflowMenu';
+import { EmptyState } from './EmptyState';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   FilePdf,
+  Files,
   Plus,
   Trash,
   DownloadSimple,
@@ -96,103 +100,50 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
   const formatarData = (dataIso: string) => formatarDataIsoBR(dataIso);
 
   const filtroAtivoConfig = tipoFiltro !== 'todos' ? getTipoProjetoConfig(tipoFiltro) : null;
+  const ehConstrutor = perfilAtivo === 'construtor';
+  const isMobile = useIsMobile();
+
+  const dataLinha = (p: ProjetoPDF, config: ReturnType<typeof getTipoProjetoConfig>) =>
+    [config.label, p.versao, formatBytes(p.tamanhoBytes), formatarData(p.dataUpload)].filter(Boolean).join(' · ');
 
   return (
-    <div style={{ maxWidth: '1040px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Header da Aba com Resumo, Ações e Popups de Busca e Filtro */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-          flexWrap: 'wrap',
-          gap: 14,
-        }}
-      >
-        <div>
-          <h2 className="tab-title" style={{ margin: 0 }}>
-            Projetos e Documentos
-          </h2>
-        </div>
+    <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+      {/* Título + única ação primária (Anexar) + barra de ícones (busca, filtro, mais) */}
+      <div className={`arquivos-head ${ehConstrutor ? '' : 'arquivos-head--readonly'}`}>
+        <h2 className="tab-title arquivos-title">Arquivos</h2>
 
-        {/* Grupo de Ações do Topo: Lupa, Filtro e Anexar Projeto */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* BOTÃO LUPA (POPUP DE BUSCA) */}
-          <div style={{ position: 'relative' }} ref={searchContainerRef}>
+        <div className="toolbar arquivos-toolbar">
+          {/* BUSCA */}
+          <div ref={searchContainerRef} style={{ display: 'contents' }}>
             <button
               type="button"
               onClick={() => {
                 setIsSearchOpen((prev) => !prev);
                 setIsFilterOpen(false);
               }}
-              className="btn-icon"
-              style={{
-                width: 38,
-                height: 38,
-                border: '1px solid var(--border-hairline)',
-                background: isSearchOpen || buscaTexto ? 'var(--dark-coffee-100)' : '#ffffff',
-                color: buscaTexto ? 'var(--primary-accent)' : 'var(--text-body)',
-                position: 'relative',
-              }}
-              title="Pesquisar projetos"
+              className={`btn-icon ${isSearchOpen || buscaTexto ? 'is-active' : ''}`}
+              aria-label="Pesquisar arquivos"
+              aria-expanded={isSearchOpen}
             >
               <MagnifyingGlass size={18} weight={buscaTexto ? 'bold' : 'regular'} />
-              {buscaTexto && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: 'var(--primary-accent)',
-                  }}
-                />
-              )}
+              {buscaTexto && <span className="dot" />}
             </button>
 
-            {/* Popup Flutuante de Busca */}
             {isSearchOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  width: 'min(300px, calc(100vw - 32px))',
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-floating)',
-                  padding: '12px',
-                  zIndex: 'var(--z-popover)',
-                  animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
-              >
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <MagnifyingGlass
-                    size={16}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 10 }}
-                  />
+              <div className="toolbar-popover" style={{ width: 'min(320px, calc(100vw - 2 * var(--gutter)))' }}>
+                <div className="popover-search">
+                  <MagnifyingGlass size={16} className="search-icon" />
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Buscar por título ou arquivo..."
+                    placeholder="Buscar por título ou arquivo"
+                    aria-label="Buscar arquivos"
                     value={buscaTexto}
                     onChange={(e) => setBuscaTexto(e.target.value)}
                     autoFocus
-                    style={{ paddingLeft: 34, paddingRight: buscaTexto ? 30 : 10, fontSize: '0.86rem', paddingBlock: '8px' }}
                   />
                   {buscaTexto && (
-                    <button
-                      type="button"
-                      onClick={() => setBuscaTexto('')}
-                      className="btn-icon"
-                      style={{ position: 'absolute', right: 6, padding: 4 }}
-                      title="Limpar busca"
-                    >
+                    <button type="button" onClick={() => setBuscaTexto('')} className="btn-icon" aria-label="Limpar busca">
                       <X size={14} />
                     </button>
                   )}
@@ -201,324 +152,183 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
             )}
           </div>
 
-          {/* BOTÃO FILTRO (POPUP DE DISCIPLINAS) */}
-          <div style={{ position: 'relative' }} ref={filterContainerRef}>
+          {/* FILTRO POR DISCIPLINA */}
+          <div ref={filterContainerRef} style={{ display: 'contents' }}>
             <button
               type="button"
               onClick={() => {
                 setIsFilterOpen((prev) => !prev);
                 setIsSearchOpen(false);
               }}
-              className="btn-icon"
-              style={{
-                width: 38,
-                height: 38,
-                border: '1px solid var(--border-hairline)',
-                background: isFilterOpen || tipoFiltro !== 'todos' ? 'var(--dark-coffee-100)' : '#ffffff',
-                color: tipoFiltro !== 'todos' ? 'var(--primary-accent)' : 'var(--text-body)',
-                position: 'relative',
-              }}
-              title="Filtrar por disciplina"
+              className={`btn-icon ${isFilterOpen || tipoFiltro !== 'todos' ? 'is-active' : ''}`}
+              aria-label="Filtrar por disciplina"
+              aria-expanded={isFilterOpen}
             >
               <Funnel size={18} weight={tipoFiltro !== 'todos' ? 'fill' : 'regular'} />
-              {tipoFiltro !== 'todos' && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    background: 'var(--primary-accent)',
-                  }}
-                />
-              )}
+              {tipoFiltro !== 'todos' && <span className="dot" />}
             </button>
 
-            {/* Popup Flutuante de Filtro */}
             {isFilterOpen && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  right: 0,
-                  width: 280,
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-floating)',
-                  padding: '12px',
-                  zIndex: 'var(--z-popover)',
-                  animation: 'modalIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 10,
-                    paddingBottom: 6,
-                    borderBottom: '1px solid var(--border-subtle)',
+              <div className="toolbar-popover filter-pop" role="menu">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={tipoFiltro === 'todos'}
+                  className="option"
+                  onClick={() => {
+                    setTipoFiltro('todos');
+                    setIsFilterOpen(false);
                   }}
                 >
-                  <span style={{ fontSize: '0.80rem', fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Filtrar Disciplina
-                  </span>
-                  {tipoFiltro !== 'todos' && (
+                  <span>Todas as disciplinas</span>
+                  <span className="count">{projetos.length}</span>
+                </button>
+                {TIPOS_PROJETO_LISTA.map((t) => {
+                  const count = projetos.filter((p) => p.tipo === t.id).length;
+                  const IconComp = t.Icon;
+                  return (
                     <button
+                      key={t.id}
                       type="button"
-                      onClick={() => setTipoFiltro('todos')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--primary-accent)',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        padding: 0,
+                      role="menuitemradio"
+                      aria-checked={tipoFiltro === t.id}
+                      className="option"
+                      onClick={() => {
+                        setTipoFiltro(t.id);
+                        setIsFilterOpen(false);
                       }}
                     >
-                      Limpar
+                      <IconComp size={18} weight={tipoFiltro === t.id ? 'fill' : 'regular'} color={t.color} />
+                      <span>{t.label}</span>
+                      <span className="count">{count}</span>
                     </button>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 310, overflowY: 'auto' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTipoFiltro('todos');
-                      setIsFilterOpen(false);
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: 'none',
-                      background: tipoFiltro === 'todos' ? 'var(--dark-coffee-50)' : 'transparent',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontWeight: tipoFiltro === 'todos' ? 700 : 500,
-                      color: tipoFiltro === 'todos' ? 'var(--text-main)' : 'var(--text-body)',
-                      fontSize: '0.84rem',
-                    }}
-                  >
-                    <span>Todas as disciplinas</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({projetos.length})</span>
-                  </button>
-
-                  {TIPOS_PROJETO_LISTA.map((t) => {
-                    const count = projetos.filter((p) => p.tipo === t.id).length;
-                    const isSelected = tipoFiltro === t.id;
-                    const IconComp = t.Icon;
-
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          setTipoFiltro(t.id);
-                          setIsFilterOpen(false);
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '8px 10px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: 'none',
-                          background: isSelected ? t.bg : 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontWeight: isSelected ? 700 : 500,
-                          color: isSelected ? t.color : 'var(--text-body)',
-                          fontSize: '0.84rem',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <IconComp size={15} weight={isSelected ? 'fill' : 'regular'} color={t.color} />
-                          <span>{t.label}</span>
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: isSelected ? t.color : 'var(--text-muted)' }}>
-                          ({count})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* AÇÕES DE PROJETO (APENAS CONSTRUTOR) */}
-          {perfilAtivo === 'construtor' && (
-            <>
-              {/* BOTÃO LINK DE ENVIO EXTERNO (SEM LOGIN) */}
-              <button
-                type="button"
-                onClick={() => setIsShareModalOpen(true)}
-                className="btn-secondary"
-                style={{ padding: '9px 13px', fontSize: '0.88rem' }}
-                title="Compartilhar link para terceiros enviarem projetos sem necessidade de login"
-              >
-                <ShareNetwork size={17} weight="bold" />
-                <span>Link de Envio</span>
-              </button>
-
-              {/* BOTÃO ANEXAR PROJETO */}
-              <button
-                type="button"
-                onClick={() => setIsUploadModalOpen(true)}
-                className="btn-primary"
-                style={{ padding: '9px 16px', fontSize: '0.90rem' }}
-              >
-                <Plus size={18} weight="bold" />
-                <span>Anexar Projeto</span>
-              </button>
-            </>
+          {/* AÇÕES SECUNDÁRIAS (construtor): Link de envio */}
+          {ehConstrutor && (
+            <OverflowMenu
+              label="Mais ações de arquivos"
+              items={[
+                {
+                  key: 'link-envio',
+                  label: 'Link de envio para terceiros',
+                  icon: <ShareNetwork size={18} weight="bold" />,
+                  onSelect: () => setIsShareModalOpen(true),
+                },
+              ]}
+            />
           )}
         </div>
+
+        {ehConstrutor && (
+          <button type="button" onClick={() => setIsUploadModalOpen(true)} className="btn-primary arquivos-cta tab-cta">
+            <Plus size={16} weight="bold" />
+            <span>Anexar</span>
+          </button>
+        )}
       </div>
 
-      {/* Faixa Discreta de Filtros Ativos (se houver) */}
+      {/* Filtros ativos */}
       {(buscaTexto || tipoFiltro !== 'todos') && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 16,
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Filtros ativos:</span>
-
+        <div className="arquivos-filters">
           {filtroAtivoConfig && (
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 9px',
-                borderRadius: 'var(--radius-full)',
-                background: filtroAtivoConfig.bg,
-                border: `1px solid ${filtroAtivoConfig.border}`,
-                color: filtroAtivoConfig.color,
-                fontSize: '0.78rem',
-                fontWeight: 600,
-              }}
-            >
-              Disciplina: {filtroAtivoConfig.label}
-              <button
-                type="button"
-                onClick={() => setTipoFiltro('todos')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'inherit' }}
-                title="Remover filtro de disciplina"
-              >
-                <X size={12} weight="bold" />
-              </button>
-            </span>
+            <button type="button" className="chip" onClick={() => setTipoFiltro('todos')} aria-label={`Remover filtro ${filtroAtivoConfig.label}`}>
+              <span>{filtroAtivoConfig.label}</span>
+              <X size={12} weight="bold" />
+            </button>
           )}
-
           {buscaTexto && (
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '3px 9px',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                color: 'var(--text-main)',
-                fontSize: '0.78rem',
-                fontWeight: 600,
+            <button type="button" className="chip" onClick={() => setBuscaTexto('')} aria-label="Limpar busca">
+              <span>"{buscaTexto}"</span>
+              <X size={12} weight="bold" />
+            </button>
+          )}
+          {buscaTexto && tipoFiltro !== 'todos' && (
+            <button
+              type="button"
+              className="clear"
+              onClick={() => {
+                setBuscaTexto('');
+                setTipoFiltro('todos');
               }}
             >
-              Busca: "{buscaTexto}"
-              <button
-                type="button"
-                onClick={() => setBuscaTexto('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'inherit' }}
-                title="Limpar busca"
-              >
-                <X size={12} weight="bold" />
-              </button>
-            </span>
+              Limpar tudo
+            </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setBuscaTexto('');
-              setTipoFiltro('todos');
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              fontSize: '0.76rem',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              padding: '2px 4px',
-            }}
-          >
-            Limpar todos
-          </button>
         </div>
       )}
 
       {/* Lista de Projetos */}
       {projetosFiltrados.length === 0 ? (
-        <div
-          style={{
-            background: '#ffffff',
-            border: '1px dashed var(--border-hairline)',
-            borderRadius: 'var(--radius-md)',
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: '#fee2e2',
-              color: '#b91c1c',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 12px',
+        projetos.length === 0 ? (
+          <EmptyState icon={Files} title={ehConstrutor ? 'Nenhum projeto anexado.' : 'Ainda não há projetos nesta obra.'} />
+        ) : (
+          <EmptyState
+            icon={Files}
+            variant="filtered"
+            title="Nenhum projeto neste filtro."
+            action={{
+              label: 'Limpar filtros',
+              onClick: () => {
+                setBuscaTexto('');
+                setTipoFiltro('todos');
+              },
             }}
-          >
-            <FilePdf size={26} weight="fill" />
-          </div>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 6 }}>
-            {projetos.length === 0
-              ? 'Nenhum projeto em PDF anexado ainda'
-              : 'Nenhum projeto encontrado'}
-          </h3>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 18px', lineHeight: 1.5 }}>
-            {projetos.length === 0
-              ? 'Anexe plantas de elétrica, hidráulica, demolição ou arquitetura para consulta rápida.'
-              : 'Tente alterar o filtro de disciplina ou o termo de busca.'}
-          </p>
-
-          {projetos.length === 0 && perfilAtivo === 'construtor' && (
-            <button
-              type="button"
-              onClick={() => setIsUploadModalOpen(true)}
-              className="btn-primary"
-            >
-              <Plus size={16} weight="bold" />
-              <span>Anexar Primeiro Projeto</span>
-            </button>
-          )}
+          />
+        )
+      ) : isMobile ? (
+        <div>
+          {projetosFiltrados.map((projeto) => {
+            const config = getTipoProjetoConfig(projeto.tipo, projeto.tipoCustomizado);
+            const IconComp = config.Icon;
+            return (
+              <div key={projeto.id} className="projeto-row">
+                <button type="button" className="projeto-row-main" onClick={() => setPreviewProjeto(projeto)}>
+                  <span
+                    className="projeto-row-icon"
+                    style={{ background: config.bg, color: config.color, border: `1px solid ${config.border}` }}
+                  >
+                    <IconComp size={20} weight="fill" />
+                  </span>
+                  <span className="projeto-row-text">
+                    <span className="projeto-row-title">{projeto.titulo}</span>
+                    <span className="projeto-row-sub">{dataLinha(projeto, config)}</span>
+                    {projeto.descricao && <span className="projeto-row-desc">{projeto.descricao}</span>}
+                  </span>
+                </button>
+                <OverflowMenu
+                  label={`Ações de ${projeto.titulo}`}
+                  items={[
+                    {
+                      key: 'ver',
+                      label: 'Visualizar',
+                      icon: <Eye size={18} weight="bold" />,
+                      onSelect: () => setPreviewProjeto(projeto),
+                    },
+                    {
+                      key: 'baixar',
+                      label: 'Baixar',
+                      icon: <DownloadSimple size={18} weight="bold" />,
+                      href: projeto.url,
+                      download: projeto.arquivoNome,
+                    },
+                    {
+                      key: 'excluir',
+                      label: 'Excluir',
+                      icon: <Trash size={18} weight="bold" />,
+                      danger: true,
+                      hidden: !ehConstrutor,
+                      onSelect: () => setDeleteTarget(projeto),
+                    },
+                  ]}
+                />
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -527,11 +337,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
             const IconComp = config.Icon;
 
             return (
-              <div
-                key={projeto.id}
-                className="projeto-card"
-              >
-                {/* Lado Esquerdo: Ícone da Disciplina + Detalhes */}
+              <div key={projeto.id} className="projeto-card">
                 <div className="projeto-card-info">
                   <div
                     style={{
@@ -553,88 +359,34 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                       <span
-                        style={{
-                          fontSize: '0.70rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          padding: '2px 7px',
-                          borderRadius: 4,
-                          background: config.bg,
-                          color: config.color,
-                          border: `1px solid ${config.border}`,
-                        }}
+                        className="badge"
+                        style={{ background: config.bg, color: config.color, borderColor: config.border }}
                       >
                         {config.label}
                       </span>
-
-                      {projeto.versao && (
-                        <span
-                          style={{
-                            fontSize: '0.70rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            background: 'var(--dark-coffee-100)',
-                            color: 'var(--dark-coffee-800)',
-                          }}
-                        >
-                          {projeto.versao}
-                        </span>
-                      )}
+                      {projeto.versao && <span className="badge">{projeto.versao}</span>}
                     </div>
 
-                    <h3
-                      style={{
-                        fontSize: '1rem',
-                        fontWeight: 700,
-                        color: 'var(--text-main)',
-                        marginBottom: 4,
-                        wordBreak: 'break-word',
-                      }}
-                    >
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 4, wordBreak: 'break-word' }}>
                       {projeto.titulo}
                     </h3>
 
                     {projeto.descricao && (
-                      <p
-                        style={{
-                          fontSize: '0.82rem',
-                          color: 'var(--text-body)',
-                          marginBottom: 6,
-                          lineHeight: 1.4,
-                        }}
-                      >
+                      <p style={{ fontSize: '0.86rem', color: 'var(--text-body)', marginBottom: 6, lineHeight: 1.4 }}>
                         {projeto.descricao}
                       </p>
                     )}
 
-                    {/* Metadados Técnicos */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                        fontSize: '0.76rem',
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <FilePdf size={14} color="#b91c1c" weight="fill" />
-                        <strong style={{ color: 'var(--text-main)' }}>{projeto.arquivoNome}</strong>
+                    <div className="projeto-card-meta">
+                      <span className="projeto-card-file">
+                        <FilePdf size={14} color="#b91c1c" weight="fill" style={{ flexShrink: 0 }} />
+                        <strong>{projeto.arquivoNome}</strong>
                       </span>
-
-                      <span>•</span>
                       <span>{formatBytes(projeto.tamanhoBytes)}</span>
-
-                      <span>•</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <CalendarBlank size={12} />
                         <span>{formatarData(projeto.dataUpload)}</span>
                       </span>
-
-                      <span>•</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <User size={12} />
                         <span>Por {projeto.enviadoPorNome}</span>
@@ -643,13 +395,12 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   </div>
                 </div>
 
-                {/* Lado Direito: Ações */}
                 <div className="projeto-card-actions">
                   <button
                     type="button"
                     onClick={() => setPreviewProjeto(projeto)}
                     className="btn-secondary"
-                    style={{ padding: '6px 11px', fontSize: '0.80rem' }}
+                    style={{ padding: '6px 11px', fontSize: '0.84rem' }}
                     title="Visualizar PDF"
                   >
                     <Eye size={14} weight="bold" />
@@ -660,19 +411,20 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                     href={projeto.url}
                     download={projeto.arquivoNome}
                     className="btn-secondary"
-                    style={{ padding: '6px 11px', fontSize: '0.80rem', textDecoration: 'none' }}
+                    style={{ padding: '6px 11px', fontSize: '0.84rem', textDecoration: 'none' }}
                     title="Baixar PDF"
                   >
                     <DownloadSimple size={14} weight="bold" />
                     <span>Baixar</span>
                   </a>
 
-                  {perfilAtivo === 'construtor' && (
+                  {ehConstrutor && (
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(projeto)}
                       className="btn-icon"
                       title="Excluir projeto"
+                      aria-label={`Excluir ${projeto.titulo}`}
                       style={{ color: 'var(--text-muted)' }}
                     >
                       <Trash size={15} />
@@ -728,9 +480,8 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <h3
-                    className="modal-title"
+                    className="modal-title pdf-preview-title"
                     style={{
-                      fontSize: '1.05rem',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -744,7 +495,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="pdf-preview-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
                   type="button"
                   onClick={() => handleOpenPdf(previewProjeto.url)}
@@ -753,7 +504,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   title="Abrir em tela cheia / nova guia"
                 >
                   <ArrowSquareOut size={15} weight="bold" />
-                  <span>Nova Guia</span>
+                  <span className="btn-label">Nova guia</span>
                 </button>
 
                 <a
@@ -763,10 +514,10 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
                   style={{ padding: '6px 12px', fontSize: '0.80rem', textDecoration: 'none' }}
                 >
                   <DownloadSimple size={15} weight="bold" />
-                  <span>Baixar</span>
+                  <span className="btn-label">Baixar</span>
                 </a>
 
-                <button onClick={() => setPreviewProjeto(null)} className="btn-icon" title="Fechar">
+                <button onClick={() => setPreviewProjeto(null)} className="btn-icon" title="Fechar" aria-label="Fechar">
                   <X size={18} weight="bold" />
                 </button>
               </div>
@@ -787,7 +538,7 @@ export const ProjetosTab: React.FC<ProjetosTabProps> = ({
       {deleteTarget && (
         <ModalConfirm
           isOpen={true}
-          title="Excluir Projeto em PDF"
+          title="Excluir arquivo"
           message={`Tem certeza que deseja remover o projeto "${deleteTarget.titulo}" (${deleteTarget.arquivoNome})? Esta ação não pode ser desfeita.`}
           confirmText="Sim, excluir projeto"
           cancelText="Cancelar"

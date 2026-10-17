@@ -18,7 +18,7 @@ import { ModalCreateObra } from './components/ModalCreateObra';
 import { ModalRegistroNota, NovaNotaData } from './components/ModalRegistroNota';
 import { LoginPage, UserRole } from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
-import { CircleNotch } from '@phosphor-icons/react';
+import { WarningCircle } from '@phosphor-icons/react';
 import { ConfigErrorScreen } from './components/ConfigErrorScreen';
 import { ResetPasswordScreen } from './components/ResetPasswordScreen';
 
@@ -36,20 +36,8 @@ const RegistroLocacoesPage = React.lazy(() =>
 );
 
 const TelaCarregando: React.FC<{ texto: string }> = ({ texto }) => (
-  <div
-    role="status"
-    aria-live="polite"
-    style={{
-      padding: '40px 20px',
-      textAlign: 'center',
-      color: 'var(--text-muted)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-    }}
-  >
-    <CircleNotch size={20} weight="bold" className="spin-animate" aria-hidden="true" />
+  <div role="status" aria-live="polite" className="screen-loading">
+    <div className="loading-line" aria-hidden="true" />
     <span>{texto}</span>
   </div>
 );
@@ -430,7 +418,7 @@ const AppShell: React.FC = () => {
   // Se o usuário não estiver autenticado, exibe a tela de login (inclusive para links de upload externo)
   if (!isLogged) {
     return (
-      <div className="login-screen-wrapper">
+      <div className="auth-screen">
         <LoginPage initialRole={Role} />
         <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
       </div>
@@ -500,6 +488,9 @@ const AppShell: React.FC = () => {
             setIsConfigOpen((prev) => !prev);
           }}
           isConfigOpen={isConfigOpen}
+          activeView={
+            isConfigOpen ? 'modelos' : isRegistroNotasPageOpen ? 'notas' : isRegistroLocacoesPageOpen ? 'locacoes' : 'obras'
+          }
           onLogout={handleLogout}
           onOpenCreateObra={() => setIsCreateObraOpen(true)}
           onOpenRegistroNota={() => {
@@ -553,8 +544,9 @@ const AppShell: React.FC = () => {
           ) : carregandoObras ? (
             <TelaCarregando texto="Carregando suas obras..." />
           ) : falhaCarregarObras ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p role="alert" style={{ marginBottom: 16 }}>{erroCarga ?? mensagemParaUsuario(null, 'carregar')}</p>
+            <div className="empty-state" role="alert">
+              <WarningCircle size={32} className="empty-state-icon" aria-hidden="true" />
+              <p className="empty-state-text">{erroCarga ?? mensagemParaUsuario(null, 'carregar')}</p>
               <button
                 type="button"
                 className="btn-primary"
@@ -575,7 +567,8 @@ const AppShell: React.FC = () => {
               onOpenCreateModal={() => setIsCreateObraOpen(true)}
               onDeleteObra={handleDeleteObra}
               perfilAtivo={perfilAtivo}
-              onOpenSettings={Role === 'Construtor' ? () => setIsConfigOpen(true) : undefined}
+              obraNaoEncontrada={!!currentObraId}
+              onDismissAviso={() => navigate({ obraId: null, tab: null }, 'replace')}
             />
           ) : (
             /* Visão Interna: Detalhes da Obra com Abas e Timeline */

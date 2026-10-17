@@ -39,3 +39,14 @@ Itens identificados durante a refatoração "banco como fonte única" que ficara
 - Painel financeiro: o tile "Investimento Atualizado" em coral lembra erro.
 - A fonte tem 40 tamanhos distintos e 547 cores hexadecimais soltas nos TSX; migrar gradualmente para os tokens `--fs-*` e para variáveis de cor. Mais de dois terços dos estilos são inline, o que impede regras `:hover`/`:focus-visible` e mobile em CSS.
 - Verificar com teclado real (o QA usou navegador embutido, onde `:focus-visible` não dispara) e com ponteiro de toque real a ampliação das áreas de 44px.
+
+## Redesenho mobile (pendências)
+
+- A lista de obras (`ObraList`) ainda tem seu próprio menu de linha (sheet no mobile com "Copiar endereço"); unificar com `OverflowMenu` exige um toast de "Endereço copiado".
+- Testar em dispositivos reais: teclado virtual aberto em sheets, iOS Safari (se `overflow: hidden` na raiz basta para travar a rolagem; o plano B `position: fixed` está em `PADROES-MOBILE.md`), áreas de toque de 44px com ponteiro `coarse`, Firefox.
+- `useIsMobile` só escuta `resize`; ferramentas que emulam viewport sem disparar o evento precisam recarregar a página.
+- Home vazia (construtor e cliente) e prévia do relatório foram vistas só no código, não no navegador.
+- Em Arquivos, a variante "filtrado" mostra "Limpar filtros" logo abaixo da faixa de chips que já tem "Limpar tudo" (possível duplicado).
+- CSS morto restante em `index.css` (`.hero-*`, `.wizard-step*`, `.skeleton-shimmer`, `.decisao-card-mobile*`): `designAndResponsive.test.ts` lê o arquivo e depende de poucas classes; limpar junto com esse teste.
+- Calendário dentro do modal de obra no desktop ainda abre para cima cobrindo campos quando não há espaço abaixo.
+- Arrastar para reordenar não existe em Modelos (só o modo Reordenar com setas).

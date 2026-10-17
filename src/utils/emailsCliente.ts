@@ -39,3 +39,34 @@ export function emailsDaObra(obra: { clienteEmail?: string; emailsClientes?: str
     (obra.emailsClientes || []).map((e) => normalizeEmail(e)).filter(Boolean),
   );
 }
+
+export interface ListaAcesso {
+  emailsClientes: string[];
+  clienteEmail: string | undefined;
+}
+
+/** Monta o par persistido: `clienteEmail` e sempre o primeiro da lista (ou vazio quando nao ha ninguem). */
+export function montarListaAcesso(emails: string[]): ListaAcesso {
+  return { emailsClientes: emails, clienteEmail: emails[0] };
+}
+
+export interface ResultadoAdicao extends ListaAcesso {
+  adicionados: string[];
+  jaExistiam: string[];
+  invalidos: string[];
+}
+
+/** Adiciona e-mails digitados/colados a lista de acesso da obra. */
+export function adicionarAoAcesso(obra: { clienteEmail?: string; emailsClientes?: string[] }, texto: string): ResultadoAdicao {
+  const atual = emailsDaObra(obra);
+  const { validos, invalidos } = interpretarEmails(texto);
+  const adicionados = validos.filter((e) => !atual.includes(e));
+  const jaExistiam = validos.filter((e) => atual.includes(e));
+  return { ...montarListaAcesso(mesclarEmails(atual, adicionados)), adicionados, jaExistiam, invalidos };
+}
+
+/** Remove um e-mail da lista de acesso da obra. */
+export function removerDoAcesso(obra: { clienteEmail?: string; emailsClientes?: string[] }, email: string): ListaAcesso {
+  const alvo = normalizeEmail(email);
+  return montarListaAcesso(emailsDaObra(obra).filter((e) => e !== alvo));
+}

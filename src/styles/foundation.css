@@ -1,0 +1,383 @@
+/* ==========================================================================
+   Eixo - Fundação de UI mobile-first (ver docs/design/PADROES-MOBILE.md)
+   Carregado DEPOIS de index.css (main.tsx). Aqui vivem: tokens de espaçamento,
+   .page/.section, .toolbar, .badge, .btn (tamanhos), .list-row, .empty-state,
+   .loading-line, PageHeader, BottomTabBar e o layout de bottom sheet dos modais.
+   Desktop (> 768px) permanece como em index.css, salvo onde indicado.
+   ========================================================================== */
+
+:root {
+  /* Escala de espaçamento: 4, 8, 12, 16, 24, 32, 40, 48 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+
+  --gutter: 24px;
+  --bottom-bar-h: 56px;
+  --scrollbar-size: 6px;
+  --scrollbar-thumb: rgba(110, 81, 43, 0.28);        /* dark-coffee-700 translúcido */
+  --scrollbar-thumb-hover: rgba(110, 81, 43, 0.5);
+  --z-bottom-bar: 45; /* acima do conteúdo/navbar (40), abaixo de popover (60), modal (100) e toast (150) */
+}
+
+@media (max-width: 768px) {
+  :root { --gutter: 16px; }
+}
+@media (max-width: 360px) {
+  :root { --gutter: 12px; }
+}
+
+/* ---------- Página e seções (ritmo: header->toolbar 12, toolbar->conteúdo 16, seção->seção 24) ---------- */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  min-width: 0;
+}
+.page > .page-header { margin-bottom: calc(var(--space-3) - var(--space-5)); }
+.page > .toolbar { margin-top: calc(var(--space-3) - var(--space-5)); margin-bottom: calc(var(--space-4) - var(--space-5)); }
+/* header já puxa 12px para si: a toolbar logo depois não pode puxar de novo (somaria 0) */
+.page > .page-header + .toolbar { margin-top: 0; }
+.section { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.section-title { font-size: var(--fs-base); font-weight: 700; color: var(--text-main); }
+
+@media (max-width: 768px) {
+  .main-content {
+    padding: var(--space-4) var(--gutter) var(--space-6) var(--gutter);
+  }
+  /* Evita rolagem horizontal causada por filhos largos */
+  html, body { overflow-x: clip; }
+}
+
+/* Página que usa a BottomTabBar: o conteúdo nunca fica escondido atrás dela */
+@media (max-width: 768px) {
+  .has-bottom-bar {
+    padding-bottom: calc(var(--bottom-bar-h) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+  }
+}
+
+/* ---------- PageHeader ---------- */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  min-width: 0;
+}
+.page-header-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.page-header-back:hover { color: var(--text-main); }
+.page-header-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.page-header-actions { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; flex-shrink: 0; }
+.page-header-actions .btn-icon { width: 34px; height: 34px; }
+@media (max-width: 768px), (pointer: coarse) { .page-header-actions .btn-icon { width: 44px; height: 44px; } }
+
+/* ---------- Toolbar: uma linha, ícones alinhados à direita ---------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-height: 44px;
+  position: relative;
+}
+.toolbar-lead { margin-right: auto; min-width: 0; }
+.toolbar .btn-icon { position: relative; width: 44px; height: 44px; }
+.toolbar .btn-icon .dot {
+  position: absolute; top: 8px; right: 8px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--coral-glow-600); border: 2px solid #fff; box-sizing: content-box;
+}
+.toolbar-popover {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-popover);
+  min-width: 220px;
+  max-width: calc(100vw - 2 * var(--gutter));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-floating);
+  padding: var(--space-2);
+}
+.toolbar-popover .option {
+  display: flex; align-items: center; width: 100%; min-height: 44px; padding: 0 var(--space-3);
+  border-radius: var(--radius-sm); font-size: var(--fs-base); color: var(--text-body); text-align: left;
+}
+.toolbar-popover .option[aria-checked="true"] { color: var(--coral-glow-600); font-weight: 700; }
+.toolbar-popover .option:hover { background: var(--bg-hover); }
+
+/* ---------- Badges (mesmo tamanho em todas as telas) ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  height: 22px; padding: 0 var(--space-2);
+  font-size: 0.75rem; font-weight: 700; line-height: 1; white-space: nowrap;
+  border-radius: var(--radius-xs); border: 1px solid var(--dark-coffee-200);
+  background: var(--dark-coffee-100); color: var(--dark-coffee-800);
+}
+.badge--neutral { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+.badge--ok      { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.badge--warn    { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+.badge--info    { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+.badge--accent  { background: var(--coral-glow-50); color: var(--coral-glow-700); border-color: var(--coral-glow-200); }
+
+/* ---------- Botões: tamanhos (cor continua vindo de .btn-primary / .btn-secondary) ---------- */
+.btn-primary, .btn-secondary, .btn-outline-teal { min-height: 40px; }
+.btn-quiet {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 44px; padding: 0 var(--space-3);
+  background: transparent; border: none; color: var(--text-muted);
+  font-weight: 600; font-size: var(--fs-base); border-radius: var(--radius-sm);
+}
+.btn-quiet:hover { color: var(--text-main); background: var(--bg-hover); }
+.btn--sm { min-height: 36px !important; padding: 0 var(--space-3) !important; font-size: var(--fs-sm) !important; }
+.btn--block { width: 100%; justify-content: center; }
+@media (max-width: 768px), (pointer: coarse) {
+  .btn-primary, .btn-secondary, .btn-outline-teal, .btn-quiet { min-height: 44px; }
+  .btn--sm { min-height: 44px !important; }
+}
+
+/* ---------- Linha de lista (cardless, hairline) ---------- */
+.list-row {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: 56px; padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-hairline);
+  min-width: 0;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row-main { flex: 1; min-width: 0; }
+.list-row-title { font-size: var(--fs-base); font-weight: 600; color: var(--text-main); }
+.list-row-sub { font-size: var(--fs-sm); color: var(--text-muted); }
+.list-row-end { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+button.list-row, a.list-row { width: 100%; text-align: left; }
+
+/* ---------- Estado vazio (componente EmptyState): bloco centrado, igual em todas as telas ---------- */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--space-2); padding: var(--space-8) var(--space-4) var(--space-6); color: var(--text-muted);
+  width: 100%; min-width: 0;
+}
+.empty-state-icon { color: var(--dark-coffee-400); flex-shrink: 0; margin-bottom: var(--space-1); }
+.empty-state-text { margin: 0; font-size: 0.9375rem; font-weight: 600; line-height: 1.35; color: var(--text-main); max-width: 280px; }
+.empty-state-hint { margin: 0; font-size: var(--fs-sm); line-height: 1.4; color: var(--text-muted); max-width: 280px; }
+.empty-state-action { margin-top: var(--space-3); }
+/* Dentro de uma lista/seção que já tem seu próprio título (vistoria, obra em Notas, modelos) */
+.empty-state--nested { padding-top: var(--space-6); padding-bottom: var(--space-5); }
+
+/* ---------- Carregamento ---------- */
+.loading-line {
+  height: 3px; width: 100%; border-radius: var(--radius-full); overflow: hidden;
+  background: var(--dark-coffee-100); position: relative;
+}
+.loading-line::after {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 35%;
+  background: var(--coral-glow-500); border-radius: inherit;
+  animation: loadingLine 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes loadingLine { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .loading-line::after { animation: none; width: 100%; opacity: 0.4; } }
+
+/* ---------- Texto no mobile ---------- */
+@media (max-width: 768px) {
+  .form-hint { font-size: 0.8125rem; }
+}
+
+/* ==========================================================================
+   Obra: abas
+   Desktop: .tabs-nav (topo) inalterada. Mobile: BottomTabBar fixa, sem rolagem horizontal.
+   ========================================================================== */
+.bottom-tab-bar { display: none; }
+
+@media (max-width: 768px) {
+  .tabs-nav--desktop { display: none !important; }
+
+  .bottom-tab-bar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(max-content, 1fr));
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: var(--z-bottom-bar);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-hairline);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .bottom-tab-bar[data-hidden="true"] { transform: translateY(110%); pointer-events: none; }
+
+  .bottom-tab {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; min-height: var(--bottom-bar-h); padding: 6px 2px 4px;
+    color: var(--text-muted);
+    font-size: 0.6875rem; /* 11px: cabe 'Compartilhar' em 320px */
+    font-weight: 600; letter-spacing: -0.1px; line-height: 1.1;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .bottom-tab::before {
+    content: ''; position: absolute; top: -1px; left: 22%; right: 22%; height: 2px;
+    background: transparent; border-radius: 0 0 2px 2px;
+  }
+  .bottom-tab[aria-current="page"] { color: var(--coral-glow-600); font-weight: 700; }
+  .bottom-tab[aria-current="page"]::before { background: var(--coral-glow-600); }
+  .bottom-tab:focus-visible { outline: 2px solid var(--coral-glow-600); outline-offset: -3px; border-radius: var(--radius-sm); }
+  .bottom-tab-icon { position: relative; display: inline-flex; }
+  .bottom-tab-dot {
+    position: absolute; top: -2px; right: -4px; width: 9px; height: 9px;
+    background: var(--coral-glow-600); border: 2px solid var(--bg-surface); border-radius: 50%; box-sizing: content-box;
+  }
+}
+
+/* ==========================================================================
+   Modais como BOTTOM SHEET no mobile (<= 768px)
+   Cabeçalho fixo (título + fechar 44px), corpo único rolável, rodapé fixo
+   (botão primário em largura total; ação secundária como botão discreto).
+   ========================================================================== */
+@media (max-width: 768px) {
+  .modal-backdrop {
+    padding: 0 !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+  }
+  .modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    /* --vvh = visualViewport (App.tsx): encolhe quando o teclado abre */
+    max-height: calc(var(--vvh, 100dvh) - 16px) !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    border-left: none; border-right: none; border-bottom: none;
+    padding-bottom: 0 !important;
+    animation: sheetUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .modal-header {
+    flex-shrink: 0;
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4) !important;
+    min-height: 56px; gap: var(--space-2);
+    background: #fff;
+  }
+  .modal-title { font-size: var(--fs-md) !important; }
+  .modal-header > .btn-icon:last-child {
+    width: 44px !important; height: 44px !important; min-width: 44px; flex-shrink: 0;
+    border: none !important; background: transparent !important;
+  }
+  .modal-body {
+    padding: var(--space-4) !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    scroll-padding-bottom: var(--space-5);
+  }
+  .modal-footer {
+    flex-shrink: 0;
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: var(--space-1) !important;
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px)) !important;
+    background: #fff !important;
+  }
+  .modal-footer .btn-primary,
+  .modal-footer .btn-danger { width: 100%; justify-content: center; min-height: 48px; }
+  /* Ação secundária (Cancelar/Voltar): botão discreto, sem borda */
+  .modal-footer .btn-secondary {
+    width: 100%; justify-content: center; background: transparent !important;
+    border-color: transparent !important; color: var(--text-muted); box-shadow: none;
+  }
+  .modal-footer > * { margin: 0 !important; }
+  .modal-card, .modal-body, .modal-footer, .modal-header { min-width: 0; }
+  .modal-body img, .modal-body video { max-width: 100%; }
+
+  /* Detalhes da tarefa: folha de altura total */
+  .modal-card--task { height: calc(var(--vvh, 100dvh) - 16px) !important; }
+}
+
+@media (min-width: 769px) {
+  /* ModalTaskDetails: tamanho fixo 640x560 (agents.md seção 6) */
+  .modal-card--task { width: 640px !important; max-width: 94vw !important; height: 560px; max-height: 92vh; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(32px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-card { animation: none !important; }
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 768px) {
+  /* Cabeçalho da obra: título logo abaixo do PageHeader, sem botão em largura total */
+  .obra-header-panel { padding-bottom: var(--space-4); margin-bottom: var(--space-4); }
+  .obra-title-block h1 { font-size: var(--fs-xl); }
+  .obra-header-top { gap: var(--space-3); }
+  .obra-header-top .obra-header-actions button { width: auto; }
+  .progress-strip-wrapper { margin-top: var(--space-3); }
+}
+
+@media (max-width: 768px) {
+  .progress-strip-header > div:first-child { white-space: nowrap; }
+  .btn-primary, .btn-secondary { white-space: nowrap; }
+}
+
+/* ==========================================================================
+   Barra de rolagem única (tokens --scrollbar-*), global e em todo container interno.
+   Chrome/Safari/Edge: ::-webkit-scrollbar. Firefox: scrollbar-width/color (só onde o
+   webkit não existe, porque no Chrome estas propriedades anulariam o ::-webkit-scrollbar).
+   Containers que escondem a barra de propósito (ex.: .login-card-body) têm regra mais específica.
+   ========================================================================== */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+}
+*::-webkit-scrollbar { width: var(--scrollbar-size); height: var(--scrollbar-size); background: transparent; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+}
+*::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:active { background-color: var(--scrollbar-thumb-hover); }
+
+/* Toque: barras overlay do sistema; dentro de sheets, escondidas */
+@media (pointer: coarse) {
+  .modal-card *::-webkit-scrollbar { display: none; }
+  .modal-card * { scrollbar-width: none; }
+}
+
+/* Uma única barra por sheet: só .modal-body rola; o card nunca */
+.modal-card { overflow: hidden; }
+.modal-body { overscroll-behavior: contain; }
+
+/* O último campo do corpo do modal não soma margem extra ao padding do corpo */
+.modal-body .form-group:last-child { margin-bottom: 0; }

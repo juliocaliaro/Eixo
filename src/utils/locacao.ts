@@ -181,3 +181,34 @@ export function atualizarLocacaoNaLista(
 ): RegistroLocacao[] {
   return locacoes.map((l) => (l.id === id ? fn(l) : l));
 }
+
+export interface ParteResumoLocacao {
+  chave: 'vencidos' | 'ativos' | 'devolvidos';
+  texto: string;
+  /** Destaca a parte que pede atenção (vencidos). */
+  alerta?: boolean;
+}
+
+/**
+ * Resumo em texto dos indicadores (substitui os 4 cartões de KPI):
+ * "2 vencidos · 4 ativos · 1 devolvido". Vencidos e devolvidos só aparecem quando > 0;
+ * "ativos" inclui os vencidos (mesma contagem do filtro "Ativos").
+ */
+export function resumoKpisTexto(kpis: LocacaoKpis): ParteResumoLocacao[] {
+  const partes: ParteResumoLocacao[] = [];
+  if (kpis.vencidos > 0) {
+    partes.push({
+      chave: 'vencidos',
+      texto: `${kpis.vencidos} ${kpis.vencidos === 1 ? 'vencido' : 'vencidos'}`,
+      alerta: true,
+    });
+  }
+  partes.push({ chave: 'ativos', texto: `${kpis.ativos} ${kpis.ativos === 1 ? 'ativo' : 'ativos'}` });
+  if (kpis.devolvidos > 0) {
+    partes.push({
+      chave: 'devolvidos',
+      texto: `${kpis.devolvidos} ${kpis.devolvidos === 1 ? 'devolvido' : 'devolvidos'}`,
+    });
+  }
+  return partes;
+}

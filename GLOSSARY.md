@@ -9,6 +9,7 @@ Linguagem do domínio. Use estes termos no código, nos testes e nas conversas.
 - **Evidência**: foto ou anotação de canteiro ligada a uma tarefa.
 - **Construtor**: perfil que gerencia a obra (cria, edita, exclui, registra). Vem de `profiles.role`.
 - **Cliente**: perfil de acompanhamento em leitura; só interage em Decisões. Acessa as obras cujo e-mail está em `emailsClientes`/`clienteEmail`.
+- **Lista de acesso**: e-mails que podem ver uma obra, mantidos na aba Compartilhar (`emailsClientes`; `clienteEmail` é o primeiro da lista). Entrou na lista, tem acesso ao entrar com esse e-mail confirmado.
 - **Decisão**: registro bilateral de alteração técnica, de acabamento ou contratual. O proponente assina ao criar; a contraparte concorda e assina ou recusa. Estados: `pendente`, `aprovada`, `recusada`.
 - **Aditivo**: acréscimo de valor contratual (+R$). **Supressivo**: redução (-R$). Uma decisão tem um ou outro, nunca os dois.
 - **Impacto de prazo**: dias a mais ou a menos (`impactoPrazoDias`), aplicados a `dataPrevista` quando a decisão é registrada e desfeitos se for recusada.

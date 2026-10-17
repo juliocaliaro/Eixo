@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { X, Camera, FloppyDisk, WarningCircle, Trash, Wrench, Clock, BuildingApartment, Storefront, CircleNotch, Hash, FilePdf } from '@phosphor-icons/react';
+import { X, WarningCircle, CircleNotch } from '@phosphor-icons/react';
 import { Obra, TipoPeriodoLocacao } from '../types/obra';
 import { generateUUID } from '../utils/uuid';
 import { useFileIntake } from '../utils/useFileIntake';
 import { storeNormalized, buildStoragePath } from '../utils/fileIntake';
 import { hojeLocal, calcularVencimentoPeriodo } from '../utils/locacao';
+import { formatarDataBR } from '../utils/data';
+import { UploadArquivos } from './UploadArquivos';
+import '../styles/registros-modelos.css';
 
 export interface NovaLocacaoData {
   id?: string;
@@ -128,184 +131,50 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
     }
   };
 
+  const vencimentoPrevisto = periodo ? calcularVencimentoPeriodo(periodo, hojeLocal()) : '';
+
   return (
     <div
       className="modal-backdrop"
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(26, 19, 10, 0.65)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 'var(--z-modal)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-locacao-title"
     >
-      <div
-        className="modal-container"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          maxHeight: '90dvh',
-          backgroundColor: '#ffffff',
-          borderRadius: 'var(--radius-lg, 12px)',
-          boxShadow: 'var(--shadow-xl)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          border: '1px solid var(--border-hairline)',
-        }}
-      >
-        {/* Cabeçalho */}
-        <div
-          style={{
-            padding: '18px 24px',
-            borderBottom: '1px solid var(--border-hairline)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: '8px',
-                background: 'var(--pitch-black-50, #f6f3eb)',
-                color: 'var(--coral-glow-500, #e05a47)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Wrench size={22} weight="bold" />
-            </div>
-            <div>
-              <h2
-                id="modal-locacao-title"
-                style={{
-                  fontSize: '1.15rem',
-                  fontWeight: 700,
-                  color: 'var(--text-main)',
-                  margin: 0,
-                  lineHeight: 1.2,
-                }}
-              >
-                Registro de Locação
-              </h2>
-              <p
-                style={{
-                  fontSize: '0.8rem',
-                  color: 'var(--text-muted)',
-                  margin: '2px 0 0 0',
-                }}
-              >
-                Cadastre equipamentos, máquinas e ferramentas alugadas
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-icon"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="Fechar"
-            title="Fechar (Esc)"
-          >
-            <X size={20} weight="bold" />
+      <div className="modal-card rg-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title" id="modal-locacao-title">
+            Nova locação
+          </h2>
+          <button type="button" onClick={onClose} className="btn-icon" aria-label="Fechar">
+            <X size={20} weight="bold" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Formulário com rolagem interna */}
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            flex: 1,
-            overflowY: 'auto',
-          }}
-        >
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {/* Mensagem de Erro */}
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body rg-sheet-body">
             {erro && (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '6px',
-                  backgroundColor: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  fontSize: '0.86rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
-                <WarningCircle size={18} weight="fill" style={{ flexShrink: 0 }} />
+              <div className="rg-error" role="alert">
+                <WarningCircle size={18} weight="fill" aria-hidden="true" />
                 <span>{erro}</span>
               </div>
             )}
 
-            {/* 1. Obra Vinculada (Obrigatório) */}
-            <div>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  marginBottom: 6,
-                }}
-              >
-                <BuildingApartment size={16} />
-                <span>Obra Vinculada *</span>
+            <div className="rg-field">
+              <label className="form-label" htmlFor="locacao-obra">
+                Obra
               </label>
               <select
+                id="locacao-obra"
                 value={obraId}
                 onChange={(e) => {
                   setObraId(e.target.value);
                   setErro('');
                 }}
-                className="form-select field-focus"
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-hairline)',
-                  fontSize: '0.92rem',
-                  backgroundColor: '#ffffff',
-                  color: 'var(--text-main)',
-                }}
+                className="form-input"
                 required
               >
-                <option value="">Selecione uma obra...</option>
+                <option value="">Selecione a obra</option>
                 {obras.map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.nome} {o.cliente ? `(${o.cliente})` : ''}
@@ -314,57 +183,28 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               </select>
             </div>
 
-            {/* 2. O que foi locado E Quantidade na mesma linha */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  <Wrench size={16} />
-                  <span>O que foi locado? *</span>
+            <div className="rg-field-row rg-field-row--qty">
+              <div className="rg-field">
+                <label className="form-label" htmlFor="locacao-item">
+                  O que foi locado?
                 </label>
                 <input
+                  id="locacao-item"
                   type="text"
                   value={itemLocado}
                   onChange={(e) => {
                     setItemLocado(e.target.value);
                     setErro('');
                   }}
-                  placeholder="Ex: Escora metálica, Andaime, Betoneira..."
+                  placeholder="Ex.: Betoneira"
                   className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                  }}
                   required
                 />
               </div>
 
-              <div style={{ width: 95, flexShrink: 0 }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  <Hash size={16} />
-                  <span>Qtd.</span>
+              <div className="rg-field">
+                <label className="form-label" htmlFor="locacao-quantidade">
+                  Qtd.
                 </label>
                 <input
                   id="locacao-quantidade"
@@ -391,381 +231,61 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                     }
                   }}
                   placeholder="1"
-                  className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                    textAlign: 'center',
-                  }}
-                  title="Quantidade do equipamento locado"
+                  className="form-input rg-input-qty"
                 />
               </div>
             </div>
 
-            {/* 3. Fornecedor / Locadora E Data de Vencimento lado a lado */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 14,
-              }}
-            >
-              {/* Fornecedor / Locadora */}
-              <div>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  <Storefront size={16} />
-                  <span>Fornecedor / Locadora</span>
+            <div className="rg-field-row">
+              <div className="rg-field">
+                <label className="form-label" htmlFor="locacao-fornecedor">
+                  Fornecedor <span className="rg-optional">(opcional)</span>
                 </label>
                 <input
+                  id="locacao-fornecedor"
                   type="text"
                   value={fornecedor}
                   onChange={(e) => setFornecedor(e.target.value)}
-                  placeholder="Ex: LocaMais, Casa do Construtor..."
+                  placeholder="Ex.: LocaMais"
                   className="form-input"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                  }}
                 />
               </div>
 
-              {/* Período da Locação (Diária, Semanal, Quinzenal, Mensal) */}
-              <div>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: 'var(--text-main)',
-                    marginBottom: 6,
-                  }}
-                >
-                  <Clock size={16} />
-                  <span>Período da Locação *</span>
+              <div className="rg-field">
+                <label className="form-label" htmlFor="locacao-periodo">
+                  Período
                 </label>
                 <select
+                  id="locacao-periodo"
                   value={periodo}
                   onChange={(e) => {
                     setPeriodo(e.target.value as TipoPeriodoLocacao);
                     setErro('');
                   }}
-                  className="form-select field-focus"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-hairline)',
-                    fontSize: '0.92rem',
-                    backgroundColor: '#ffffff',
-                    color: 'var(--text-main)',
-                  }}
+                  className="form-input"
                   required
                 >
-                  <option value="">Selecione o período...</option>
+                  <option value="">Selecione o período</option>
                   <option value="diaria">Diária</option>
                   <option value="semanal">Semanal</option>
                   <option value="quinzenal">Quinzenal</option>
                   <option value="mensal">Mensal</option>
                 </select>
+                {vencimentoPrevisto && <span className="form-hint">Vence em {formatarDataBR(vencimentoPrevisto)}</span>}
               </div>
             </div>
 
-            {/* 4. Upload de Foto ou Documento PDF */}
-            <div>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  color: 'var(--text-main)',
-                  marginBottom: 6,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Camera size={16} />
-                  <span>Foto do Equipamento ou Documento PDF</span>
-                </div>
-                {fotos.length > 0 && (
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    {fotos.length} {fotos.length === 1 ? 'arquivo selecionado' : 'arquivos selecionados'}
-                  </span>
-                )}
-              </label>
-
-              {fotos.length === 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                  {/* Opção 1: Fotos ou Galeria (um único input unificado) */}
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      border: '1.5px dashed var(--border-hairline)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '20px 14px',
-                      textAlign: 'center',
-                      background: 'var(--dark-coffee-50, #fcfaf8)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      color: 'var(--text-muted)',
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--primary-accent)';
-                      e.currentTarget.style.background = '#ffffff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                      e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: '#ffffff',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary-accent)',
-                      }}
-                    >
-                      <Camera size={24} weight="bold" />
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
-                        Fotos ou Galeria
-                      </span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Câmera ou imagens do celular
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Opção 2: Anexar Documento PDF */}
-                  <div
-                    onClick={() => pdfInputRef.current?.click()}
-                    style={{
-                      border: '1.5px dashed var(--border-hairline)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '20px 14px',
-                      textAlign: 'center',
-                      background: 'var(--dark-coffee-50, #fcfaf8)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 8,
-                      color: 'var(--text-muted)',
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#dc2626';
-                      e.currentTarget.style.background = '#fff5f5';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                      e.currentTarget.style.background = 'var(--dark-coffee-50, #fcfaf8)';
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: '#ffffff',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#dc2626',
-                      }}
-                    >
-                      <FilePdf size={24} weight="bold" />
-                    </div>
-                    <div>
-                      <span style={{ fontSize: '0.90rem', fontWeight: 700, color: 'var(--text-main)', display: 'block' }}>
-                        Anexar PDF
-                      </span>
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Contrato ou recibo em PDF
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Miniaturas das Fotos e PDFs */}
-              {fotos.length > 0 && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))',
-                    gap: 8,
-                    marginTop: 10,
-                  }}
-                >
-                  {fotos.map((foto, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        position: 'relative',
-                        width: '100%',
-                        aspectRatio: '1',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-hairline)',
-                        backgroundColor: '#f1f1f1',
-                      }}
-                    >
-                      {foto.isPdf ? (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#fff5f5',
-                            border: '1px solid #fed7d7',
-                            padding: 4,
-                            textAlign: 'center',
-                          }}
-                        >
-                          <FilePdf size={28} weight="fill" color="#dc2626" />
-                          <span
-                            style={{
-                              fontSize: '0.62rem',
-                              fontWeight: 700,
-                              color: '#991b1b',
-                              marginTop: 2,
-                              maxWidth: '100%',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              display: 'block',
-                            }}
-                          >
-                            PDF
-                          </span>
-                        </div>
-                      ) : (
-                        <img
-                          src={foto.previewUrl}
-                          alt={`Foto locação ${idx + 1}`}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveFoto(idx);
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                          color: '#ffffff',
-                          border: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                        }}
-                        title="Remover arquivo"
-                      >
-                        <Trash size={12} weight="bold" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {/* Botão Adicionar mais fotos da câmera ou galeria */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      width: '100%',
-                      aspectRatio: '1',
-                      borderRadius: '6px',
-                      border: '1.5px dashed var(--border-hairline)',
-                      background: 'var(--dark-coffee-50)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      color: 'var(--text-muted)',
-                      gap: 3,
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    title="Adicionar mais fotos (câmera ou galeria)"
-                  >
-                    <Camera size={18} weight="bold" />
-                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ Fotos</span>
-                  </button>
-
-                  {/* Botão Adicionar mais documentos PDF */}
-                  <button
-                    type="button"
-                    onClick={() => pdfInputRef.current?.click()}
-                    style={{
-                      width: '100%',
-                      aspectRatio: '1',
-                      borderRadius: '6px',
-                      border: '1.5px dashed var(--border-hairline)',
-                      background: 'var(--dark-coffee-50)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      color: '#dc2626',
-                      gap: 3,
-                      transition: 'border-color 0.15s, background 0.15s',
-                    }}
-                    title="Adicionar arquivo PDF"
-                  >
-                    <FilePdf size={18} weight="bold" />
-                    <span style={{ fontSize: '0.64rem', fontWeight: 600 }}>+ PDF</span>
-                  </button>
-                </div>
-              )}
-
+            <div className="rg-field">
+              <span className="form-label">
+                Foto ou PDF <span className="rg-optional">(opcional)</span>
+              </span>
+              <UploadArquivos
+                arquivos={fotos}
+                onRemove={handleRemoveFoto}
+                onPickFotos={() => fileInputRef.current?.click()}
+                onPickPdf={() => pdfInputRef.current?.click()}
+                altPrefix="Foto da locação"
+              />
               {/* Input unificado para fotos (câmera ou galeria do dispositivo) */}
               <input
                 ref={fileInputRef}
@@ -775,7 +295,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                 onChange={handleFilesChange}
                 style={{ display: 'none' }}
               />
-
               {/* Input exclusivo para seleção de PDFs */}
               <input
                 ref={pdfInputRef}
@@ -788,60 +307,18 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
             </div>
           </div>
 
-          {/* Rodapé com Ações */}
-          <div
-            style={{
-              padding: '16px 24px',
-              borderTop: '1px solid var(--border-hairline)',
-              backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 12,
-            }}
-          >
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-secondary"
-              style={{
-                minHeight: 44,
-                padding: '10px 18px',
-                fontSize: '0.9rem',
-                borderRadius: '6px',
-                fontWeight: 600,
-              }}
-            >
+          <div className="modal-footer">
+            <button type="button" onClick={onClose} className="btn-secondary">
               Cancelar
             </button>
-
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isSaving || isProcessingPhotos}
-              style={{
-                minHeight: 44,
-                padding: '10px 22px',
-                fontSize: '0.9rem',
-                borderRadius: '6px',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: isSaving || isProcessingPhotos ? 0.75 : 1,
-                cursor: isSaving || isProcessingPhotos ? 'not-allowed' : 'pointer',
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={isSaving || isProcessingPhotos}>
               {isSaving || isProcessingPhotos ? (
                 <>
-                  <CircleNotch size={18} className="spin-animate" weight="bold" />
-                  <span>{isProcessingPhotos ? 'Processando fotos...' : 'Enviando fotos e salvando...'}</span>
+                  <CircleNotch size={18} className="spin-animate" weight="bold" aria-hidden="true" />
+                  <span>{isProcessingPhotos ? 'Processando fotos...' : 'Salvando...'}</span>
                 </>
               ) : (
-                <>
-                  <FloppyDisk size={18} weight="bold" />
-                  <span>Salvar Locação</span>
-                </>
+                <span>Salvar locação</span>
               )}
             </button>
           </div>

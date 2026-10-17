@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus,
   MapPin,
@@ -8,21 +9,41 @@ import {
   Trash,
   Copy,
   Check,
-  CircleNotch,
+  DotsThreeVertical,
+  Info,
+  Buildings,
+  X,
 } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
+import { PageHeader } from './PageHeader';
+import { EmptyState } from './EmptyState';
 import { progressoDaObra } from '../utils/obraMetrics';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 interface ObraListProps {
   obras: Obra[];
   onSelectObra: (obraId: string) => void;
   onOpenCreateModal: () => void;
   onDeleteObra: (obraId: string) => void;
-  onLoadDemo?: () => void;
   perfilAtivo?: PerfilUsuario;
-  onOpenSettings?: () => void;
-  isLoading?: boolean;
+  /** A URL apontava para uma obra que não existe ou que a conta não pode ver. */
+  obraNaoEncontrada?: boolean;
+  onDismissAviso?: () => void;
+}
+
+const SEM_ENDERECO = 'Endereço não informado';
+
+const formatarData = (iso?: string) => (iso ? iso.split('-').reverse().join('/') : '');
+
+const enderecoDa = (obra: Obra) => (obra.endereco && obra.endereco !== SEM_ENDERECO ? obra.endereco : '');
+
+interface MenuState {
+  obra: Obra;
+  /** Âncora do botão "..." (só usada no popover do desktop). */
+  top: number;
+  right: number;
 }
 
 export const ObraList: React.FC<ObraListProps> = ({
@@ -30,21 +51,42 @@ export const ObraList: React.FC<ObraListProps> = ({
   onSelectObra,
   onOpenCreateModal,
   onDeleteObra,
-  onLoadDemo,
   perfilAtivo = 'construtor',
-  onOpenSettings,
-  isLoading = false,
+  obraNaoEncontrada = false,
+  onDismissAviso,
 }) => {
+  const isMobile = useIsMobile();
+  const podeEditar = perfilAtivo !== 'cliente';
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
-  const [copiedObraId, setCopiedObraId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
-  const handleCopyEndereco = (e: React.MouseEvent, endereco: string, obraId: string) => {
-    e.preventDefault();
+  const fecharMenu = () => {
+    setMenu(null);
+    setCopiado(false);
+  };
+  useEscapeKey(fecharMenu, !!menu);
+
+  // Desktop: popover fecha ao clicar fora (a sheet do mobile tem backdrop próprio)
+  useEffect(() => {
+    if (!menu || isMobile) return;
+    const onOutside = (e: MouseEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest('.row-menu')) fecharMenu();
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [menu, isMobile]);
+
+  const abrirMenu = (e: React.MouseEvent<HTMLButtonElement>, obra: Obra) => {
     e.stopPropagation();
-    if (!endereco) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({ obra, top: r.bottom + 4, right: Math.max(window.innerWidth - r.right, 8) });
+  };
 
+  const copiarEndereco = (endereco: string) => {
+    if (!endereco) return;
     if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(endereco);
+      void navigator.clipboard.writeText(endereco);
     } else {
       const textarea = document.createElement('textarea');
       textarea.value = endereco;
@@ -58,560 +100,194 @@ export const ObraList: React.FC<ObraListProps> = ({
       } catch {}
       document.body.removeChild(textarea);
     }
-
-    setCopiedObraId(obraId);
-    setTimeout(() => {
-      setCopiedObraId((prev) => (prev === obraId ? null : prev));
-    }, 2000);
+    setCopiado(true);
+    window.setTimeout(fecharMenu, 800);
   };
 
-  // Skeleton Loading State durante consulta / hidratação da API
-  if (isLoading) {
-    return (
-      <div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 24,
-            paddingBottom: 16,
-            borderBottom: '1px solid var(--border-hairline)',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <div
-                className="skeleton-shimmer"
-                style={{ width: 140, height: 26, borderRadius: 4 }}
-              />
-              <div
-                className="navbar-sync-badge"
-                style={{ background: 'var(--dark-coffee-50)' }}
-              >
-                <CircleNotch size={13} className="spin-animate" weight="bold" />
-                <span>Sincronizando com a nuvem...</span>
-              </div>
-            </div>
-            <div
-              className="skeleton-shimmer"
-              style={{ width: 240, height: 14, borderRadius: 4, marginTop: 8 }}
-            />
-          </div>
-        </div>
+  const aviso = obraNaoEncontrada ? (
+    <div className="inline-notice" role="status">
+      <Info size={20} aria-hidden="true" />
+      <p>Não encontramos essa obra. Ela pode ter sido removida ou você não tem acesso.</p>
+      {onDismissAviso && (
+        <button type="button" className="btn-quiet" onClick={onDismissAviso} aria-label="Fechar aviso">
+          <X size={18} weight="bold" />
+        </button>
+      )}
+    </div>
+  ) : null;
 
-        <div className="cardless-list">
-          {[1, 2, 3].map((idx) => (
-            <div
-              key={idx}
-              className="cardless-row"
-              style={{
-                pointerEvents: 'none',
-                opacity: 1 - (idx - 1) * 0.22,
-              }}
-            >
-              <div style={{ flex: 2.5, minWidth: 0, paddingRight: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div
-                    className="skeleton-shimmer"
-                    style={{ width: `${60 - idx * 5}%`, minWidth: 120, height: 20, borderRadius: 4 }}
-                  />
-                  <div
-                    className="skeleton-shimmer"
-                    style={{ width: 64, height: 18, borderRadius: 4 }}
-                  />
-                </div>
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: `${40 - idx * 4}%`, minWidth: 90, height: 14, borderRadius: 4, marginTop: 8 }}
-                />
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: `${55 - idx * 5}%`, minWidth: 110, height: 13, borderRadius: 4, marginTop: 6 }}
-                />
-              </div>
+  const cabecalho = (
+    <PageHeader
+      title="Obras"
+      actions={
+        podeEditar ? (
+          <button type="button" onClick={onOpenCreateModal} className="btn-primary">
+            <Plus size={18} weight="bold" />
+            <span>Nova obra</span>
+          </button>
+        ) : undefined
+      }
+    />
+  );
 
-              <div style={{ width: '130px', flexShrink: 0 }}>
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: 50, height: 12, borderRadius: 3 }}
-                />
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: 90, height: 16, borderRadius: 4, marginTop: 6 }}
-                />
-              </div>
-
-              <div style={{ width: '170px', flexShrink: 0 }}>
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: 80, height: 12, borderRadius: 3, marginBottom: 6 }}
-                />
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: '100%', height: 8, borderRadius: 4 }}
-                />
-              </div>
-
-              <div style={{ width: 40, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-                <div
-                  className="skeleton-shimmer"
-                  style={{ width: 28, height: 28, borderRadius: '50%' }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Empty State com âncora visual fotográfica forte (conforme frontend-skill)
+  // Estado vazio: a ação "Nova obra" já está no cabeçalho, então o estado vazio não repete o botão
   if (obras.length === 0) {
     return (
-      <div>
-        <div className="hero-visual-anchor">
-          <img
-            src="/hero-bg.jpg"
-            alt="Canteiro de obras"
-            className="hero-visual-bg"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-          />
-          <div className="hero-visual-overlay" />
-          <div className="hero-visual-content">
-            <span className="hero-tag">Gestão de Obras & Reformas</span>
-            <h1 className="hero-title">Eixo</h1>
-            <p className="hero-description">
-              Acompanhamento transparente de cronogramas, evidências de canteiro e decisões com assinatura bilateral.
-            </p>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {perfilAtivo !== 'cliente' && (
-                <button
-                  onClick={onOpenCreateModal}
-                  className="btn-primary"
-                  style={{ padding: '12px 22px', fontSize: '0.96rem' }}
-                >
-                  <Plus size={20} weight="bold" />
-                  <span>Cadastrar Primeira Obra</span>
-                </button>
-              )}
-              {onLoadDemo && (
-                <button
-                  onClick={onLoadDemo}
-                  className="btn-secondary"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    color: '#ffffff',
-                    padding: '12px 20px',
-                    fontSize: '0.96rem',
-                  }}
-                >
-                  <span>Explorar Obra Demonstrativa</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Informações utilitárias concisas sobre o fluxo */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: 16,
-            paddingTop: 8,
-          }}
-        >
-          <div style={{ padding: '16px 20px', background: '#ffffff', border: '1px solid var(--border-hairline)', borderRadius: 'var(--radius-md)' }}>
-            <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block', marginBottom: 4 }}>
-              1. Estruturação Rápida
-            </strong>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Selecione pacotes prontos de Construção ou Reforma com etapas técnicas catalogadas.
-            </p>
-          </div>
-          <div style={{ padding: '16px 20px', background: '#ffffff', border: '1px solid var(--border-hairline)', borderRadius: 'var(--radius-md)' }}>
-            <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block', marginBottom: 4 }}>
-              2. Checklist Diário
-            </strong>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Marque o avanço de cada serviço e registre fotos do canteiro para o cliente.
-            </p>
-          </div>
-          <div style={{ padding: '16px 20px', background: '#ffffff', border: '1px solid var(--border-hairline)', borderRadius: 'var(--radius-md)' }}>
-            <strong style={{ fontSize: '0.95rem', color: 'var(--text-main)', display: 'block', marginBottom: 4 }}>
-              3. Medição de Avanço
-            </strong>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Cálculo ponderado transparente do progresso físico total da obra em tempo real.
-            </p>
-          </div>
-        </div>
+      <div className="page obra-list">
+        {cabecalho}
+        {aviso}
+        <EmptyState
+          icon={Buildings}
+          title={podeEditar ? 'Você ainda não tem obras.' : 'Nenhuma obra foi compartilhada com você ainda.'}
+        />
       </div>
     );
   }
 
-  // Lista de Obras: Cardless com Divisores e Escaneabilidade Imediata
-  return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          marginBottom: 20,
-        }}
+  const menuEndereco = menu ? enderecoDa(menu.obra) : '';
+  const itensMenu = menu ? (
+    <>
+      {menuEndereco && (
+        <button type="button" role="menuitem" className="row-menu-item" onClick={() => copiarEndereco(menuEndereco)}>
+          {copiado ? <Check size={20} weight="bold" /> : <Copy size={20} />}
+          <span>{copiado ? 'Endereço copiado' : 'Copiar endereço'}</span>
+        </button>
+      )}
+      {podeEditar && (
+        <button
+          type="button"
+          role="menuitem"
+          className="row-menu-item row-menu-item--danger"
+          onClick={() => {
+            setDeleteObraTarget({ id: menu.obra.id, nome: menu.obra.nome });
+            fecharMenu();
+          }}
+        >
+          <Trash size={20} />
+          <span>Excluir obra</span>
+        </button>
+      )}
+    </>
+  ) : null;
+
+  const temMenu = () => podeEditar;
+
+  const abrirObra = (obra: Obra) => ({
+    role: 'button' as const,
+    tabIndex: 0,
+    'aria-label': `Abrir a obra ${obra.nome}`,
+    onClick: () => onSelectObra(obra.id),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelectObra(obra.id);
+      }
+    },
+  });
+
+  const botaoMais = (obra: Obra) =>
+    temMenu() ? (
+      <button
+        type="button"
+        className="btn-icon obra-more"
+        aria-label={`Mais ações para ${obra.nome}`}
+        aria-haspopup="menu"
+        onClick={(e) => abrirMenu(e, obra)}
+        onKeyDown={(e) => e.stopPropagation()}
       >
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>
-            {perfilAtivo === 'cliente' ? 'Obras em Acompanhamento' : 'Obras em Andamento'}
-          </h1>
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: 2 }}>
-            {obras.length} {obras.length === 1 ? 'projeto ativo' : 'projetos ativos'}
-          </p>
-        </div>
+        <DotsThreeVertical size={20} weight="bold" aria-hidden="true" />
+      </button>
+    ) : null;
 
-        {perfilAtivo !== 'cliente' && (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={onOpenCreateModal} className="btn-primary" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-              <Plus size={18} weight="bold" />
-              <span>Nova Obra</span>
-            </button>
-          </div>
-        )}
-      </div>
+  return (
+    <div className="page obra-list">
+      {cabecalho}
 
-      <div className="cardless-section">
+      {aviso}
+
+      <div className="cardless-section obra-list-rows">
         {obras.map((obra) => {
           const { totalTarefas, concluidas, percentual } = progressoDaObra(obra);
+          const endereco = enderecoDa(obra);
+          const data = formatarData(obra.dataPrevista);
 
           return (
             <React.Fragment key={obra.id}>
-              {/* ========================================================
-                  VERSÃO DESKTOP (Inalterada)
-                  ======================================================== */}
-              <div
-                className="cardless-row obra-card-desktop"
-                role="button"
-                tabIndex={0}
-                aria-label={`Abrir detalhes da obra ${obra.nome}`}
-                onClick={() => onSelectObra(obra.id)}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectObra(obra.id);
-                  }
-                }}
-              >
-                {/* Identificação da Obra */}
-                <div style={{ flex: 2.5, minWidth: 0, paddingRight: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: '1.05rem',
-                        color: 'var(--text-main)',
-                        letterSpacing: '-0.2px',
-                      }}
-                    >
-                      {obra.nome}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        background: 'var(--dark-coffee-100)',
-                        color: 'var(--dark-coffee-800)',
-                      }}
-                    >
-                      {obra.etapas.length} etapas
+              {/* Desktop: colunas na linha */}
+              <div className="cardless-row obra-row obra-row--desktop" {...abrirObra(obra)}>
+                <div className="obra-col-main">
+                  <div className="obra-col-head">
+                    <span className="obra-name">{obra.nome}</span>
+                    <span className="badge badge--neutral obra-etapas-badge">{obra.etapas.length} etapas</span>
+                  </div>
+                  <div className="obra-meta">
+                    <span>
+                      Cliente: <strong>{obra.cliente}</strong>
                     </span>
                   </div>
-                  {/* Linha do Cliente */}
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    <span>Cliente: <strong style={{ color: 'var(--text-body)' }}>{obra.cliente}</strong></span>
-                  </div>
-
-                  {/* Linha do Endereço */}
-                  {obra.endereco && (
-                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 3 }}>
-                      <span>{obra.endereco}</span>
-                    </div>
-                  )}
-
-                  {/* Botão Copiar abaixo do endereço */}
-                  {obra.endereco && (
-                    <div style={{ marginTop: 6 }}>
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        title="Copiar endereço completo"
-                        aria-label="Copiar endereço"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          padding: '3px 9px',
-                          fontSize: '0.74rem',
-                          fontWeight: 600,
-                          borderRadius: 'var(--radius-xs)',
-                          border: '1px solid var(--border-hairline)',
-                          background: copiedObraId === obra.id ? '#dcfce7' : 'var(--dark-coffee-50)',
-                          color: copiedObraId === obra.id ? '#15803d' : 'var(--dark-coffee-800)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {copiedObraId === obra.id ? (
-                          <>
-                            <Check size={13} weight="bold" color="#15803d" />
-                            <span>Copiado!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={13} weight="bold" />
-                            <span>Copiar</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
+                  {endereco && <div className="obra-address">{endereco}</div>}
                 </div>
 
-                {/* Data Prevista */}
-                <div style={{ width: '130px', flexShrink: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  <span style={{ display: 'block', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Previsão
+                <div className="obra-col-date">
+                  Previsão
+                  <strong>{data || 'Não informada'}</strong>
+                </div>
+
+                <div className="obra-col-progress">
+                  <div className="obra-progress">
+                    <div className="progress-strip-track">
+                      <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
+                    </div>
+                    <span className="obra-progress-text">
+                      <strong>{percentual}%</strong>
+                    </span>
+                  </div>
+                  <span className="obra-progress-text">
+                    {concluidas}/{totalTarefas} serviços
                   </span>
-                  <strong style={{ color: 'var(--text-body)' }}>
-                    {obra.dataPrevista ? obra.dataPrevista.split('-').reverse().join('/') : 'Não informada'}
-                  </strong>
                 </div>
 
-                {/* Barra de Progresso Compacta */}
-                <div style={{ width: '170px', flexShrink: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
-                    <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
-                  </div>
-                  <div className="progress-strip-track" style={{ height: 5 }}>
-                    <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    <span>{concluidas}/{totalTarefas} serviços</span>
-                  </div>
-                </div>
-
-                {/* Ações */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                  {perfilAtivo !== 'cliente' && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteObraTarget({ id: obra.id, nome: obra.nome });
-                      }}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="btn-icon"
-                      style={{ color: 'var(--text-muted)' }}
-                      title="Excluir obra"
-                    >
-                      <Trash size={15} />
-                    </button>
-                  )}
-                  <div style={{ color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
-                    <ArrowRight size={18} weight="bold" />
-                  </div>
+                <div className="obra-col-end">
+                  {botaoMais(obra)}
+                  <ArrowRight size={18} weight="bold" aria-hidden="true" />
                 </div>
               </div>
 
-              {/* ========================================================
-                  VERSÃO MOBILE (Exclusiva para <= 768px)
-                  ======================================================== */}
-              <div
-                className="cardless-row obra-card-mobile"
-                role="button"
-                tabIndex={0}
-                aria-label={`Abrir detalhes da obra ${obra.nome}`}
-                onClick={() => onSelectObra(obra.id)}
-                onKeyDown={(e) => {
-                  if (e.target !== e.currentTarget) return;
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectObra(obra.id);
-                  }
-                }}
-              >
-                {/* Cabeçalho da Obra (Título + Tag) e Linhas Reestruturadas */}
-                <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span
-                      style={{
-                        fontWeight: 700,
-                        fontSize: '1.05rem',
-                        color: 'var(--text-main)',
-                        letterSpacing: '-0.2px',
-                      }}
-                    >
-                      {obra.nome}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        background: 'var(--dark-coffee-100)',
-                        color: 'var(--dark-coffee-800)',
-                      }}
-                    >
-                      {obra.etapas.length} etapas
-                    </span>
-                  </div>
-
-                  {/* Linha 1: Cliente e Previsão lado a lado (Row com space-between) */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      marginTop: 8,
-                      fontSize: '0.82rem',
-                      color: 'var(--text-muted)',
-                      width: '100%',
-                    }}
-                  >
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                      <User size={15} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-                      <strong
-                        style={{
-                          color: 'var(--text-body)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {obra.cliente}
-                      </strong>
-                    </div>
-
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <CalendarBlank size={15} color="var(--primary-accent)" weight="bold" />
-                      <strong style={{ color: 'var(--text-body)' }}>
-                        {obra.dataPrevista ? obra.dataPrevista.split('-').reverse().join('/') : 'Não informada'}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {/* Linha 2: Endereço completo com ação de copiar */}
-                  {obra.endereco ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        marginTop: 8,
-                        padding: '6px 10px',
-                        background: 'var(--dark-coffee-50)',
-                        borderRadius: 'var(--radius-xs)',
-                        fontSize: '0.80rem',
-                        color: 'var(--text-muted)',
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                        <MapPin size={15} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-                        <span
-                          style={{
-                            whiteSpace: 'normal',
-                            overflowWrap: 'anywhere',
-                            lineHeight: 1.35,
-                            color: 'var(--text-body)',
-                          }}
-                          title={obra.endereco}
-                        >
-                          {obra.endereco}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyEndereco(e, obra.endereco, obra.id)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        title={copiedObraId === obra.id ? 'Endereço copiado!' : 'Copiar endereço'}
-                        aria-label="Copiar endereço"
-                        style={{
-                          background: copiedObraId === obra.id ? 'var(--dark-coffee-100)' : 'transparent',
-                          border: 'none',
-                          padding: '4px 6px',
-                          cursor: 'pointer',
-                          color: copiedObraId === obra.id ? '#16a34a' : 'var(--text-muted)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          borderRadius: 4,
-                          flexShrink: 0,
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {copiedObraId === obra.id ? (
-                          <>
-                            <Check size={15} weight="bold" color="#16a34a" />
-                            <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>Copiado</span>
-                          </>
-                        ) : (
-                          <Copy size={16} />
-                        )}
-                      </button>
-                    </div>
-                  ) : null}
+              {/* Mobile: linha hairline, sem cartão */}
+              <div className="obra-row obra-row--mobile" {...abrirObra(obra)}>
+                <div className="obra-row-top">
+                  <span className="obra-name">{obra.nome}</span>
+                  {botaoMais(obra)}
                 </div>
 
-                {/* Barra de Progresso Compacta */}
-                <div style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginBottom: 4 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
-                    <strong style={{ color: 'var(--primary-accent)' }}>{percentual}%</strong>
+                <div className="obra-meta">
+                  <span>
+                    <User size={14} weight="bold" aria-hidden="true" />
+                    <strong>{obra.cliente}</strong>
+                  </span>
+                  {data && (
+                    <span>
+                      <CalendarBlank size={14} weight="bold" aria-hidden="true" />
+                      <span>até {data}</span>
+                    </span>
+                  )}
+                </div>
+
+                {endereco && (
+                  <div className="obra-address">
+                    <MapPin size={14} weight="bold" aria-hidden="true" />
+                    <span>{endereco}</span>
                   </div>
-                  <div className="progress-strip-track" style={{ height: 5 }}>
+                )}
+
+                <div className="obra-progress">
+                  <div className="progress-strip-track">
                     <div className="progress-strip-bar" style={{ width: `${percentual}%` }} />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                    <span>{concluidas}/{totalTarefas} serviços</span>
-                  </div>
-                </div>
-
-                {/* Linha inferior com Ações (Lixeira e Seta) */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                  <div>
-                    {perfilAtivo !== 'cliente' && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteObraTarget({ id: obra.id, nome: obra.nome });
-                        }}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="btn-icon"
-                        style={{ color: 'var(--text-muted)' }}
-                        title="Excluir obra"
-                      >
-                        <Trash size={15} />
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
-                    <ArrowRight size={18} weight="bold" />
-                  </div>
+                  <span className="obra-progress-text">
+                    <strong>{percentual}%</strong> · {concluidas}/{totalTarefas} serviços
+                  </span>
                 </div>
               </div>
             </React.Fragment>
@@ -619,10 +295,44 @@ export const ObraList: React.FC<ObraListProps> = ({
         })}
       </div>
 
+      {/* Mais ações: popover no desktop, sheet no mobile */}
+      {menu &&
+        !isMobile &&
+        createPortal(
+          <div className="row-menu" role="menu" style={{ top: menu.top, right: menu.right }}>
+            {itensMenu}
+          </div>,
+          document.body
+        )}
+      {menu &&
+        isMobile &&
+        createPortal(
+          <div className="modal-backdrop" onClick={fecharMenu}>
+            <div
+              className="modal-card row-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label={menu.obra.nome}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2 className="modal-title">{menu.obra.nome}</h2>
+                <button type="button" className="btn-icon" onClick={fecharMenu} aria-label="Fechar">
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+              <div className="modal-body" role="menu">
+                {itensMenu}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {deleteObraTarget && (
         <ModalConfirm
           isOpen={true}
-          title="Excluir Obra"
+          title="Excluir obra"
           message={`Tem certeza que deseja excluir "${deleteObraTarget.nome}"? Todos os dados, etapas e fotos serão removidos.`}
           confirmText="Sim, excluir obra"
           cancelText="Cancelar"

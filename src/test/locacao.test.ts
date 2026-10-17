@@ -146,3 +146,24 @@ describe('transicoes', () => {
     expect(alternarDevolucao(d).status).toBe('ativo');
   });
 });
+
+describe('resumoKpisTexto', () => {
+  it('lista vencidos, ativos e devolvidos com plural correto', async () => {
+    const { resumoKpisTexto } = await import('../utils/locacao');
+    expect(resumoKpisTexto({ total: 7, ativos: 4, vencidos: 2, devolvidos: 3 }).map((p) => p.texto)).toEqual([
+      '2 vencidos',
+      '4 ativos',
+      '3 devolvidos',
+    ]);
+    expect(resumoKpisTexto({ total: 2, ativos: 1, vencidos: 1, devolvidos: 1 }).map((p) => p.texto)).toEqual([
+      '1 vencido',
+      '1 ativo',
+      '1 devolvido',
+    ]);
+  });
+  it('omite vencidos e devolvidos zerados e marca vencidos como alerta', async () => {
+    const { resumoKpisTexto } = await import('../utils/locacao');
+    expect(resumoKpisTexto({ total: 3, ativos: 3, vencidos: 0, devolvidos: 0 })).toEqual([{ chave: 'ativos', texto: '3 ativos' }]);
+    expect(resumoKpisTexto({ total: 1, ativos: 1, vencidos: 1, devolvidos: 0 })[0].alerta).toBe(true);
+  });
+});

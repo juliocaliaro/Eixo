@@ -42,3 +42,26 @@ describe('e-mails do cliente', () => {
     expect(emailsDaObra({ clienteEmail: 'A@a.com', emailsClientes: ['b@b.com', 'a@a.com'] })).toEqual(['a@a.com', 'b@b.com']);
   });
 });
+
+import { adicionarAoAcesso, removerDoAcesso, montarListaAcesso } from '../utils/emailsCliente';
+
+describe('lista de acesso da obra', () => {
+  it('le varios e-mails colados, normaliza, ignora duplicados e aponta invalidos', () => {
+    const r = adicionarAoAcesso({ clienteEmail: 'a@a.com' }, 'B@b.com; a@a.com,\nc@c.com x@y b@b.com');
+    expect(r.adicionados).toEqual(['b@b.com', 'c@c.com']);
+    expect(r.jaExistiam).toEqual(['a@a.com']);
+    expect(r.invalidos).toEqual(['x@y']);
+    expect(r.emailsClientes).toEqual(['a@a.com', 'b@b.com', 'c@c.com']);
+    expect(r.clienteEmail).toBe('a@a.com');
+  });
+  it('une o legado clienteEmail com emailsClientes ao adicionar', () => {
+    const r = adicionarAoAcesso({ clienteEmail: 'a@a.com', emailsClientes: ['b@b.com'] }, 'c@c.com');
+    expect(r.emailsClientes).toEqual(['a@a.com', 'b@b.com', 'c@c.com']);
+  });
+  it('remover mantem clienteEmail coerente com o primeiro da lista', () => {
+    const obra = { clienteEmail: 'a@a.com', emailsClientes: ['b@b.com'] };
+    expect(removerDoAcesso(obra, 'A@a.com')).toEqual({ emailsClientes: ['b@b.com'], clienteEmail: 'b@b.com' });
+    expect(removerDoAcesso({ emailsClientes: ['b@b.com'] }, 'b@b.com')).toEqual({ emailsClientes: [], clienteEmail: undefined });
+    expect(montarListaAcesso([])).toEqual({ emailsClientes: [], clienteEmail: undefined });
+  });
+});

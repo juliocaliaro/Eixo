@@ -9,17 +9,25 @@ export interface OverlayStack {
   /** Entrega Escape ao overlay do topo. Retorna true se alguém tratou. */
   dispatchEscape: () => boolean;
   size: () => number;
+  /** Avisa quando a pilha muda de tamanho. Retorna a função que cancela. */
+  subscribe: (listener: (size: number) => void) => () => void;
 }
 
 export function createOverlayStack(): OverlayStack {
   const entries: Array<{ onEscape: () => void }> = [];
+  const listeners = new Set<(size: number) => void>();
+  const notify = () => listeners.forEach((l) => l(entries.length));
   return {
     push(onEscape) {
       const entry = { onEscape };
       entries.push(entry);
+      notify();
       return () => {
         const i = entries.indexOf(entry);
-        if (i >= 0) entries.splice(i, 1);
+        if (i >= 0) {
+          entries.splice(i, 1);
+          notify();
+        }
       };
     },
     dispatchEscape() {
@@ -29,6 +37,12 @@ export function createOverlayStack(): OverlayStack {
       return true;
     },
     size: () => entries.length,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 

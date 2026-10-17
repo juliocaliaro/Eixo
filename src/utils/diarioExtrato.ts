@@ -65,6 +65,8 @@ export interface FiltroDiario {
 export interface GrupoDiario {
   diaKey: string;
   headerTexto: string;
+  /** Rótulo curto para o mobile: "Hoje", "Ontem", "15 de outubro, quinta-feira" (com o ano quando não é o atual). */
+  headerCurto: string;
   entries: DiarioEntry[];
   /** Soma do saldo líquido (aditivo - supressivo) das decisões aprovadas do dia. */
   saldoDia: number;
@@ -110,6 +112,20 @@ export function rotuloDia(dataKey: string, now: Date): string {
 
   const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
   return `${dataFormatada} (${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)})`;
+}
+
+/** Rótulo curto de um dia (mobile): sem repetir a data longa em "Hoje"/"Ontem". */
+export function rotuloDiaCurto(dataKey: string, now: Date): string {
+  if (dataKey === DATA_DESCONHECIDA_KEY) return 'Data não registrada';
+  const [ano, mes, dia] = dataKey.split('-').map(Number);
+  if (!ano || !mes || !dia) return dataKey;
+  if (dataKey === dataKeyLocal(now)) return 'Hoje';
+  if (dataKey === dataKeyDeslocada(now, -1)) return 'Ontem';
+  const dataObj = new Date(ano, mes - 1, dia);
+  const base = dataObj.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+  const diaSemana = dataObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const sufixoAno = ano === now.getFullYear() ? '' : ` de ${ano}`;
+  return `${base}${sufixoAno}, ${diaSemana}`;
 }
 
 /** Consolida todos os lançamentos da obra (sem ordenar). */
@@ -320,7 +336,7 @@ export function agruparPorDia(entries: DiarioEntry[], now: Date): GrupoDiario[] 
         (acc, item) => (item.tipo === 'decisao_aprovada' && item.impacto ? acc + item.impacto.saldo : acc),
         0
       );
-      return { diaKey, headerTexto: rotuloDia(diaKey, now), entries: doDia, saldoDia };
+      return { diaKey, headerTexto: rotuloDia(diaKey, now), headerCurto: rotuloDiaCurto(diaKey, now), entries: doDia, saldoDia };
     });
 }
 

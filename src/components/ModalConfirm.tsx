@@ -40,7 +40,7 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
         role="dialog"
         aria-modal="true"
       >
-        <div style={{ padding: '24px 24px 16px 24px' }}>
+        <div className="modal-body" style={{ padding: '24px 24px 16px 24px', flex: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div
               style={{
@@ -68,16 +68,7 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '14px 24px',
-            borderTop: '1px solid var(--border-subtle)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 10,
-            background: 'var(--dark-coffee-50)',
-          }}
-        >
+        <div className="modal-footer" style={{ padding: '14px 24px' }}>
           {cancelText && (
             <button type="button" onClick={onCancel} className="btn-secondary">
               {cancelText}

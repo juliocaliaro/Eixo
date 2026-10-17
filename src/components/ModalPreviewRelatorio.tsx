@@ -19,6 +19,7 @@ import { getTarefaStatus, isTarefaConcluida, STATUS_CRONOGRAMA_CONFIG } from '..
 import { progressoDaObra, progressoDeEtapa, totaisFinanceiros, impactoDaDecisao } from '../utils/obraMetrics';
 import { formatarMoeda as formatarMoedaBR } from '../utils/moeda';
 import { formatarDataBR, formatarDataHoraBR } from '../utils/data';
+import '../styles/registros-modelos.css';
 
 interface ModalPreviewRelatorioProps {
   isOpen: boolean;
@@ -157,41 +158,39 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
   return (
     <div className="relatorio-modal-overlay">
-      {/* Barra de Ações Superior (Oculta na Impressão) */}
+      {/* Barra de Ações Superior (Oculta na Impressão): voltar + título + uma ação (imprimir) */}
       <div className="relatorio-top-bar no-print">
         <div className="relatorio-top-bar-inner">
-          <button type="button" onClick={onClose} className="btn-secondary" style={{ padding: '7px 14px', fontSize: '0.84rem' }}>
-            <ArrowLeft size={16} weight="bold" />
-            <span>Voltar à Obra</span>
+          <button type="button" onClick={onClose} className="btn-secondary relatorio-bar-back">
+            <ArrowLeft size={16} weight="bold" aria-hidden="true" />
+            <span>Voltar à obra</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Visualização para impressão A4 / PDF
-            </span>
+          <span className="relatorio-bar-title">
+            {temAtividadesNaoConcluidas ? 'Relatório parcial' : 'Relatório final'} · {obra.nome}
+          </span>
+
+          <div className="relatorio-bar-actions">
+            <span className="relatorio-bar-hint">Visualização para impressão A4 / PDF</span>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="btn-primary"
-              style={{
-                padding: '8px 18px',
-                fontSize: '0.86rem',
-                boxShadow: '0 2px 8px rgba(242, 66, 13, 0.25)',
-              }}
+              className="btn-primary relatorio-bar-print"
+              aria-label="Imprimir ou salvar como PDF"
             >
-              <Printer size={17} weight="bold" />
+              <Printer size={18} weight="bold" aria-hidden="true" />
               <span>Imprimir / Salvar como PDF</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="btn-icon"
+              className="btn-icon relatorio-bar-close"
               title="Fechar"
-              style={{ width: 34, height: 34, marginLeft: 6 }}
+              aria-label="Fechar"
             >
-              <X size={18} weight="bold" />
+              <X size={18} weight="bold" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -241,7 +240,7 @@ export const ModalPreviewRelatorio: React.FC<ModalPreviewRelatorioProps> = ({
 
             <div className="relatorio-title-banner">
               <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#1a130a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                {!temAtividadesNaoConcluidas ? 'Relatório Final de Conclusão da Obra' : 'Relatório Final de Obra'}
+                {!temAtividadesNaoConcluidas ? 'Relatório Final de Conclusão da Obra' : 'Relatório Parcial de Evolução da Obra'}
               </h1>
               <div style={{ fontSize: '0.85rem', color: '#6e512b', marginTop: 4 }}>
                 {!temAtividadesNaoConcluidas

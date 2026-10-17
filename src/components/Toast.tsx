@@ -84,19 +84,16 @@ export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
         }
 
         return (
-          <div key={toast.id} className={`toast-item ${toast.tipo}`}>
+          <div key={toast.id} className={`toast-item ${toast.tipo}`} role={toast.tipo === 'error' ? 'alert' : 'status'}>
             <IconComponent size={24} weight="fill" color={iconColor} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{toast.titulo}</div>
-              {toast.descricao && (
-                <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 3 }}>
-                  {toast.descricao}
-                </div>
-              )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="toast-title">{toast.titulo}</div>
+              {toast.descricao && <div className="toast-desc">{toast.descricao}</div>}
             </div>
             <button
+              type="button"
+              className="toast-close"
               onClick={() => onDismiss(toast.id)}
-              style={{ color: '#94a3b8', padding: 4, display: 'flex', alignItems: 'center' }}
               title="Fechar"
               aria-label="Fechar notificação"
             >

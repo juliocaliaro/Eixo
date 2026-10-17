@@ -61,6 +61,11 @@ export function progressoDaObra(obra?: Pick<Obra, 'etapas'> | null): ProgressoOb
   return progressoDeEtapa({ tarefas: (obra?.etapas || []).flatMap((e) => e.tarefas || []) });
 }
 
+/** Rótulo do relatório da obra: parcial enquanto < 100%, final quando tudo está concluído. */
+export function rotuloRelatorio(obra?: Pick<Obra, 'etapas'> | null): 'Relatório parcial' | 'Relatório final' {
+  return progressoDaObra(obra).concluida ? 'Relatório final' : 'Relatório parcial';
+}
+
 // ---------------------------------------------------------------------------
 // Impacto financeiro das decisões
 // ---------------------------------------------------------------------------

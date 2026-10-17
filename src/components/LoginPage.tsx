@@ -1,24 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import {
-  EnvelopeSimple,
-  Lock,
-  Eye,
-  EyeSlash,
-  HardHat,
-  User,
-  Buildings,
-  ArrowRight,
-  WarningCircle,
-  CheckCircle,
-  X,
-  SignIn,
-  UserPlus,
-  ShieldCheck,
-  CircleNotch,
-  Check,
-  Circle,
-} from '@phosphor-icons/react';
+import React, { useState } from 'react';
+import { HardHat, User, WarningCircle, CheckCircle, X, CircleNotch } from '@phosphor-icons/react';
 import { authApi } from '../services/api';
+import { avaliarSenha } from '../utils/senha';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useKeyboardOpen } from '../hooks/useKeyboardOpen';
+import { PasswordField, PasswordHelp } from './AuthFields';
 
 export type UserRole = 'Construtor' | 'Cliente';
 
@@ -28,26 +14,26 @@ interface LoginPageProps {
 }
 
 // A sessao e hidratada pelo App via onAuthStateChange (Supabase); esta tela apenas autentica.
+// O papel (construtor/cliente) vem do perfil gravado no servidor: so o cadastro pergunta "Sou...".
 export const LoginPage: React.FC<LoginPageProps> = ({
   initialRole = 'Construtor',
   initialMode = 'login',
 }) => {
   const [modo, setModo] = useState<'login' | 'cadastro'>(initialMode);
   const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
+  const tecladoAberto = useKeyboardOpen();
 
   // Campos de Login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   // Campos de Cadastro
   const [nomeCadastro, setNomeCadastro] = useState('');
   const [emailCadastro, setEmailCadastro] = useState('');
   const [empresaCadastro, setEmpresaCadastro] = useState('');
   const [passwordCadastro, setPasswordCadastro] = useState('');
+  const [senhaFocada, setSenhaFocada] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPasswordCadastro, setShowPasswordCadastro] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
 
   // Estado de Mensagens de Erro e Carregamento
@@ -55,46 +41,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [aviso, setAviso] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Validação em Tempo Real dos Requisitos da Senha
-  const hasMinLength = passwordCadastro.length >= 8;
-  const hasUpperCase = /[A-Z]/.test(passwordCadastro);
-  const hasLowerCase = /[a-z]/.test(passwordCadastro);
-  const hasNumber = /[0-9]/.test(passwordCadastro);
-  const hasSymbol = /[^A-Za-z0-9]/.test(passwordCadastro);
-  const isSenhaValida = hasMinLength && hasUpperCase && hasLowerCase && hasNumber && hasSymbol;
-
-  // Modal de Recuperação de Senha
+  // Recuperação de senha (sheet)
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
 
-  // Escuta tecla Escape para fechar modal de esqueceu senha
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isForgotModalOpen) {
-        setIsForgotModalOpen(false);
-      }
-    };
-    if (isForgotModalOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isForgotModalOpen]);
+  const fecharForgot = () => {
+    setIsForgotModalOpen(false);
+    setForgotSuccess(false);
+    setForgotError('');
+  };
+  useEscapeKey(fecharForgot, isForgotModalOpen);
 
-  // Limpa erros ao alternar abas
+  // Limpa mensagens ao alternar abas
   const handleAlternarModo = (novoModo: 'login' | 'cadastro') => {
     setModo(novoModo);
     setErro('');
+    setAviso('');
   };
 
   // Submissão do Formulário de Login
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
+    setAviso('');
 
     if (!email.trim()) {
       setErro('Por favor, informe seu e-mail cadastrado.');
@@ -122,9 +94,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const res = await authApi.signIn(email.trim(), password);
       if (res.error) {
         // Se as credenciais estiverem incorretas no Supabase
-        setErro(res.error.includes('Invalid login credentials') 
-          ? 'E-mail ou senha incorretos. Caso seja sua primeira vez, clique na aba "Criar Conta".' 
-          : res.error);
+        setErro(
+          res.error.includes('Invalid login credentials')
+            ? 'E-mail ou senha incorretos. Se ainda não tem conta, toque em "Criar conta".'
+            : res.error
+        );
         setIsLoading(false);
         return;
       }
@@ -162,17 +136,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    if (passwordCadastro.length < 8) {
-      setErro('A senha deve conter no mínimo 8 caracteres.');
-      return;
-    }
-
-    const hasUpperCase = /[A-Z]/.test(passwordCadastro);
-    const hasLowerCase = /[a-z]/.test(passwordCadastro);
-    const hasNumber = /[0-9]/.test(passwordCadastro);
-    const hasSymbol = /[^A-Za-z0-9]/.test(passwordCadastro);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSymbol) {
+    if (!avaliarSenha(passwordCadastro).valida) {
       setErro('A senha deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e símbolos.');
       return;
     }
@@ -198,9 +162,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       });
 
       if (res.error) {
-        setErro(res.error.includes('already registered')
-          ? 'Este e-mail já está cadastrado. Alterne para a aba "Entrar" para acessar.'
-          : res.error);
+        setErro(
+          res.error.includes('already registered')
+            ? 'Este e-mail já está cadastrado. Toque em "Entrar" para acessar.'
+            : res.error
+        );
         setIsLoading(false);
         return;
       }
@@ -240,751 +206,311 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
+  const mensagens = (
+    <>
+      {erro && (
+        <div className="auth-alert" role="alert">
+          <WarningCircle size={16} weight="fill" />
+          <span>{erro}</span>
+        </div>
+      )}
+      {aviso && (
+        <div className="auth-alert auth-alert--ok" role="status">
+          <CheckCircle size={16} weight="fill" />
+          <span>{aviso}</span>
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <div className="login-page-container">
-      <div className="login-card">
-        {/* Cabeçalho da Marca */}
-        <div className="login-card-header">
-          <img
-            src="/eixo-icon.jpg"
-            alt="Eixo"
-            className="login-logo"
-          />
-          <h1 className="login-title">
-            Eixo
-          </h1>
-          <p className="login-subtitle">
-            Acompanhamento e Gestão de Obras
-          </p>
-        </div>
-
-        {/* Abas Superiores: Entrar vs Criar Conta */}
-        <div className="login-tabs">
-          <button
-            type="button"
-            onClick={() => handleAlternarModo('login')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '9px 12px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '0.86rem',
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              background: modo === 'login' ? '#ffffff' : 'transparent',
-              color: modo === 'login' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-              boxShadow: modo === 'login' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <SignIn size={16} weight={modo === 'login' ? 'bold' : 'regular'} />
-            <span>Entrar</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleAlternarModo('cadastro')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '9px 12px',
-              borderRadius: 'var(--radius-xs)',
-              fontSize: '0.86rem',
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              background: modo === 'cadastro' ? '#ffffff' : 'transparent',
-              color: modo === 'cadastro' ? 'var(--dark-coffee-900)' : 'var(--text-muted)',
-              boxShadow: modo === 'cadastro' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <UserPlus size={16} weight={modo === 'cadastro' ? 'bold' : 'regular'} />
-            <span>Criar Conta</span>
-          </button>
-        </div>
-
-        {/* Corpo do Formulário */}
-        <div className="login-card-body">
-          {/* Mensagem de Erro Inline */}
-          {erro && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 12px',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: 'var(--radius-sm)',
-                color: '#b91c1c',
-                fontSize: '0.82rem',
-                marginBottom: 16,
-              }}
-            >
-              <WarningCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
-              <span>{erro}</span>
-            </div>
-          )}
-
-          {aviso && (
-            <div
-              role="status"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 12px',
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-                borderRadius: 'var(--radius-sm)',
-                color: '#15803d',
-                fontSize: '0.82rem',
-                marginBottom: 16,
-              }}
-            >
-              <CheckCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
-              <span>{aviso}</span>
-            </div>
-          )}
-
-          {/* Seletor de Perfil / Role de Acesso */}
-          <div className="login-role-section">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <label
-                style={{
-                  fontSize: '0.76rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  margin: 0,
-                }}
-              >
-                {modo === 'login' ? 'Perfil de Acesso' : 'Tipo de Conta'}
-              </label>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                {selectedRole === 'Construtor' ? 'Engenharia / Gestão' : 'Proprietário / Obra'}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 6,
-                background: 'var(--dark-coffee-50)',
-                padding: 4,
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-hairline)',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setSelectedRole('Construtor')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-xs)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: selectedRole === 'Construtor' ? 'var(--dark-coffee-900)' : 'transparent',
-                  color: selectedRole === 'Construtor' ? '#ffffff' : 'var(--text-body)',
-                  transition: 'all 0.15s ease',
-                  boxShadow: selectedRole === 'Construtor' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-                }}
-              >
-                <HardHat size={15} weight={selectedRole === 'Construtor' ? 'fill' : 'bold'} />
-                <span>Construtor</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole('Cliente')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-xs)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: selectedRole === 'Cliente' ? 'var(--dark-coffee-900)' : 'transparent',
-                  color: selectedRole === 'Cliente' ? '#ffffff' : 'var(--text-body)',
-                  transition: 'all 0.15s ease',
-                  boxShadow: selectedRole === 'Cliente' ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-                }}
-              >
-                <User size={15} weight={selectedRole === 'Cliente' ? 'fill' : 'bold'} />
-                <span>Cliente</span>
-              </button>
-            </div>
+    <div className="auth-screen">
+      <div className="auth-page">
+        <div className={`auth-card${tecladoAberto ? ' is-kb' : ''}`} data-modo={modo}>
+          {/* Marca */}
+          <div className="auth-head">
+            <img src="/eixo-icon.jpg" alt="" className="auth-logo" />
+            <h1 className="auth-title">Eixo</h1>
+            <p className="auth-sub">Acompanhamento e gestão de obras</p>
           </div>
 
-          {/* ========================================================================= */}
-          {/* MODO 1: ENTRAR (LOGIN)                                                    */}
-          {/* ========================================================================= */}
-          {modo === 'login' ? (
-            <form onSubmit={handleLoginSubmit} className="login-form">
-              {/* Campo E-mail */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4 }}>
-                  E-mail
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <EnvelopeSimple
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder="exemplo@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    style={{ paddingLeft: 38, width: '100%' }}
-                  />
-                </div>
-              </div>
+          {/* Entrar vs Criar conta */}
+          <div className="auth-tabs" role="tablist" aria-label="Acesso">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={modo === 'login'}
+              className="auth-tab"
+              onClick={() => handleAlternarModo('login')}
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={modo === 'cadastro'}
+              className="auth-tab"
+              onClick={() => handleAlternarModo('cadastro')}
+            >
+              Criar conta
+            </button>
+          </div>
 
-              {/* Campo Senha com Toggle de Visibilidade */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4, display: 'block' }}>
-                  Senha
-                </label>
-
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="form-input"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                    style={{ paddingLeft: 38, paddingRight: 40, width: '100%' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title={showPassword ? 'Ocultar senha' : 'Ver senha'}
-                  >
-                    {showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-
-                {/* Esqueceu a senha abaixo do campo de preencher senha */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsForgotModalOpen(true)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: '0.78rem',
-                      color: 'var(--primary-accent)',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Esqueceu a senha?
-                  </button>
-                </div>
-              </div>
-
-              {/* Botão Submit (Entrar) */}
-              <button
-                type="submit"
-                className="btn-primary login-submit-btn"
-                disabled={isLoading}
-                style={{ opacity: isLoading ? 0.7 : 1 }}
-              >
-                {isLoading ? (
-                  <>
-                    <CircleNotch size={16} className="spin-animate" weight="bold" />
-                    <span>Autenticando...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Entrar como {selectedRole}</span>
-                    <ArrowRight size={16} weight="bold" />
-                  </>
-                )}
-              </button>
-
-            </form>
-          ) : (
-            /* ========================================================================= */
-            /* MODO 2: CRIAR CONTA (CADASTRO)                                            */
-            /* ========================================================================= */
-            <form onSubmit={handleCadastroSubmit} className="login-form">
-              {/* Campo Nome Completo */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4 }}>
-                  Nome Completo
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <User
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder={selectedRole === 'Construtor' ? 'Ex: Eng. Roberto Albuquerque' : 'Ex: Carolina Mendes'}
-                    value={nomeCadastro}
-                    onChange={(e) => setNomeCadastro(e.target.value)}
-                    autoComplete="name"
-                    style={{ paddingLeft: 38, width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              {/* Campo E-mail */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4 }}>
-                  E-mail Profissional / Pessoal
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <EnvelopeSimple
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder="seu@email.com"
-                    value={emailCadastro}
-                    onChange={(e) => setEmailCadastro(e.target.value)}
-                    autoComplete="email"
-                    style={{ paddingLeft: 38, width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              {/* Campo Empresa / Construtora (Apenas para Construtor) */}
-              {selectedRole === 'Construtor' && (
-                <div className="form-group" style={{ margin: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <label className="form-label" style={{ margin: 0 }}>
-                      Empresa ou Construtora
+          <div className="auth-body">
+            {modo === 'login' ? (
+              <form onSubmit={handleLoginSubmit} className="auth-form" noValidate>
+                <div className="auth-fields">
+                  <div className="auth-field">
+                    <label className="form-label" htmlFor="login-email">
+                      E-mail
                     </label>
-                    <span style={{ fontSize: '0.70rem', color: 'var(--text-muted)' }}>Opcional</span>
-                  </div>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <Buildings
-                      size={18}
-                      color="var(--text-muted)"
-                      style={{ position: 'absolute', left: 12 }}
-                    />
                     <input
+                      id="login-email"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      className="form-input"
+                      placeholder="exemplo@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <PasswordField
+                    id="login-senha"
+                    label="Senha"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="current-password"
+                  />
+
+                  <button type="button" className="auth-link" onClick={() => setIsForgotModalOpen(true)}>
+                    Esqueci minha senha
+                  </button>
+                </div>
+
+                <div className="auth-actions">
+                  {mensagens}
+                  <button type="submit" className="btn-primary btn--block auth-submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <CircleNotch size={18} className="spin-animate" weight="bold" />
+                        <span>Entrando...</span>
+                      </>
+                    ) : (
+                      <span>Entrar</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCadastroSubmit} className="auth-form" noValidate>
+                <div className="auth-fields">
+                  <div className="auth-field">
+                    <span className="form-label" id="cadastro-tipo-label">
+                      Eu sou
+                    </span>
+                    <div className="auth-seg" role="radiogroup" aria-labelledby="cadastro-tipo-label">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selectedRole === 'Construtor'}
+                        onClick={() => setSelectedRole('Construtor')}
+                      >
+                        <HardHat size={18} weight={selectedRole === 'Construtor' ? 'fill' : 'bold'} />
+                        <span>Construtor</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={selectedRole === 'Cliente'}
+                        onClick={() => setSelectedRole('Cliente')}
+                      >
+                        <User size={18} weight={selectedRole === 'Cliente' ? 'fill' : 'bold'} />
+                        <span>Cliente</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="auth-field">
+                    <label className="form-label" htmlFor="cadastro-nome">
+                      Nome completo
+                    </label>
+                    <input
+                      id="cadastro-nome"
                       type="text"
                       className="form-input"
-                      placeholder="Ex: Albuquerque Engenharia & Reformas"
-                      value={empresaCadastro}
-                      onChange={(e) => setEmpresaCadastro(e.target.value)}
-                      autoComplete="organization"
-                      style={{ paddingLeft: 38, width: '100%' }}
+                      value={nomeCadastro}
+                      onChange={(e) => setNomeCadastro(e.target.value)}
+                      autoComplete="name"
                     />
                   </div>
-                </div>
-              )}
 
-              {/* Campo Senha */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4 }}>
-                  Criar Senha
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type={showPasswordCadastro ? 'text' : 'password'}
-                    className="form-input"
-                    placeholder="••••••••"
-                    value={passwordCadastro}
-                    onChange={(e) => setPasswordCadastro(e.target.value)}
-                    autoComplete="new-password"
-                    style={{ paddingLeft: 38, paddingRight: 40, width: '100%' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordCadastro((prev) => !prev)}
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title={showPasswordCadastro ? 'Ocultar senha' : 'Ver senha'}
-                  >
-                    {showPasswordCadastro ? <EyeSlash size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-
-                {/* Checklist Interativo de Requisitos de Senha com Feedback em Tempo Real */}
-                <div
-                  style={{
-                    marginTop: 8,
-                    padding: '10px 12px',
-                    background: 'var(--dark-coffee-50, #fcfaf8)',
-                    border: '1px solid var(--border-hairline)',
-                    borderRadius: 'var(--radius-sm, 6px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                      Requisitos da Senha:
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.70rem',
-                        fontWeight: 700,
-                        color: isSenhaValida ? '#15803d' : 'var(--text-muted)',
-                      }}
-                    >
-                      {isSenhaValida ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <Check size={13} weight="bold" />
-                          <span>Senha Forte</span>
-                        </span>
-                      ) : 'Pendente'}
-                    </span>
+                  <div className="auth-field">
+                    <label className="form-label" htmlFor="cadastro-email">
+                      E-mail
+                    </label>
+                    <input
+                      id="cadastro-email"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      className="form-input"
+                      placeholder="seu@email.com"
+                      value={emailCadastro}
+                      onChange={(e) => setEmailCadastro(e.target.value)}
+                      autoComplete="email"
+                    />
                   </div>
-                  {[
-                    { label: 'Mínimo de 8 caracteres', ok: hasMinLength },
-                    { label: 'Pelo menos uma letra maiúscula (A-Z)', ok: hasUpperCase },
-                    { label: 'Pelo menos uma letra minúscula (a-z)', ok: hasLowerCase },
-                    { label: 'Pelo menos um número (0-9)', ok: hasNumber },
-                    { label: 'Pelo menos um caractere especial (!@#$%^&*)', ok: hasSymbol },
-                  ].map((req, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 7,
-                        fontSize: '0.76rem',
-                        color: req.ok ? '#15803d' : (passwordCadastro ? '#991b1b' : 'var(--text-muted)'),
-                        fontWeight: req.ok ? 600 : 400,
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {req.ok ? (
-                        <div
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: '50%',
-                            background: '#dcfce7',
-                            color: '#15803d',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Check size={10} weight="bold" />
-                        </div>
-                      ) : (
-                        <Circle
-                          size={12}
-                          weight="regular"
-                          style={{
-                            color: passwordCadastro ? '#f87171' : 'var(--text-muted)',
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
-                      <span>{req.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-              {/* Campo Confirmar Senha */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ marginBottom: 4 }}>
-                  Confirmar Senha
-                </label>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <Lock
-                    size={18}
-                    color="var(--text-muted)"
-                    style={{ position: 'absolute', left: 12 }}
-                  />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className="form-input"
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  {selectedRole === 'Construtor' && (
+                    <div className="auth-field">
+                      <div className="auth-field-head">
+                        <label className="form-label" htmlFor="cadastro-empresa">
+                          Empresa ou construtora
+                        </label>
+                        <span className="auth-optional">Opcional</span>
+                      </div>
+                      <input
+                        id="cadastro-empresa"
+                        type="text"
+                        className="form-input"
+                        value={empresaCadastro}
+                        onChange={(e) => setEmpresaCadastro(e.target.value)}
+                        autoComplete="organization"
+                      />
+                    </div>
+                  )}
+
+                  <PasswordField
+                    id="cadastro-senha"
+                    label="Criar senha"
+                    value={passwordCadastro}
+                    onChange={setPasswordCadastro}
                     autoComplete="new-password"
-                    style={{ paddingLeft: 38, paddingRight: 40, width: '100%' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      padding: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    title={showConfirmPassword ? 'Ocultar senha' : 'Ver senha'}
+                    onFocus={() => setSenhaFocada(true)}
+                    onBlur={() => setSenhaFocada(false)}
                   >
-                    {showConfirmPassword ? <EyeSlash size={18} /> : <Eye size={18} />}
+                    {(senhaFocada || passwordCadastro) && <PasswordHelp senha={passwordCadastro} />}
+                  </PasswordField>
+
+                  <PasswordField
+                    id="cadastro-confirmar"
+                    label="Confirmar senha"
+                    value={confirmPassword}
+                    onChange={setConfirmPassword}
+                    autoComplete="new-password"
+                  />
+
+                  <label className="auth-check">
+                    <input
+                      type="checkbox"
+                      checked={aceitouTermos}
+                      onChange={(e) => setAceitouTermos(e.target.checked)}
+                    />
+                    <span>Li e aceito os Termos de Uso e a Política de Privacidade.</span>
+                  </label>
+                </div>
+
+                <div className="auth-actions">
+                  {mensagens}
+                  <button type="submit" className="btn-primary btn--block auth-submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <CircleNotch size={18} className="spin-animate" weight="bold" />
+                        <span>Criando conta...</span>
+                      </>
+                    ) : (
+                      <span>Criar conta</span>
+                    )}
                   </button>
                 </div>
-              </div>
-
-              {/* Aceite de Termos */}
-              <div style={{ marginTop: 2 }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 8,
-                    cursor: 'pointer',
-                    fontSize: '0.78rem',
-                    color: 'var(--text-muted)',
-                    lineHeight: 1.35,
-                    userSelect: 'none',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={aceitouTermos}
-                    onChange={(e) => setAceitouTermos(e.target.checked)}
-                    style={{
-                      accentColor: 'var(--primary-accent)',
-                      cursor: 'pointer',
-                      marginTop: 2,
-                      width: 14,
-                      height: 14,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span>
-                    Concordo com os <strong>Termos de Uso</strong> e <strong>Política de Privacidade</strong> do Eixo.
-                  </span>
-                </label>
-              </div>
-
-              {/* Botão Submit (Criar Conta) - desabilitado com estilo visual até todos os requisitos serem atendidos */}
-              <button
-                type="submit"
-                className="btn-primary login-submit-btn"
-                disabled={isLoading || !isSenhaValida}
-                style={{
-                  opacity: (!isSenhaValida && !isLoading) ? 0.45 : (isLoading ? 0.7 : 1),
-                  cursor: (!isSenhaValida || isLoading) ? 'not-allowed' : 'pointer',
-                  filter: (!isSenhaValida && !isLoading) ? 'grayscale(0.6)' : 'none',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}
-                title={!isSenhaValida ? 'Preencha todos os requisitos da senha para prosseguir' : undefined}
-              >
-                {isLoading ? (
-                  <>
-                    <CircleNotch size={16} className="spin-animate" weight="bold" />
-                    <span>Criando conta no servidor...</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={16} weight="bold" />
-                    <span>Criar Conta e Acessar</span>
-                  </>
-                )}
-              </button>
-
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: '8px 12px',
-                  background: 'var(--dark-coffee-50)',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  fontSize: '0.74rem',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <ShieldCheck size={18} color="var(--primary-accent)" style={{ flexShrink: 0 }} />
-                <span>Seus dados de acesso e projetos de canteiro ficam criptografados com segurança.</span>
-              </div>
-            </form>
-          )}
+              </form>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Modal de Recuperação de Senha (Forgot Password) */}
+      {/* Recuperação de senha: sheet no mobile */}
       {isForgotModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsForgotModalOpen(false)}>
+        <div className="modal-backdrop" onClick={fecharForgot}>
           <div
-            className="modal-card"
-            style={{ maxWidth: 390 }}
+            className="modal-card auth-sheet"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
+            aria-modal="true"
+            aria-labelledby="forgot-title"
           >
-            <div className="modal-header" style={{ padding: '16px 20px' }}>
-              <h2 className="modal-title" style={{ fontSize: '1.10rem' }}>
-                Recuperar Senha
+            <div className="modal-header">
+              <h2 className="modal-title" id="forgot-title">
+                Recuperar senha
               </h2>
-              <button onClick={() => setIsForgotModalOpen(false)} className="btn-icon">
-                <X size={18} />
+              <button type="button" onClick={fecharForgot} className="btn-icon" aria-label="Fechar">
+                <X size={18} weight="bold" />
               </button>
             </div>
 
             <form onSubmit={handleForgotSubmit}>
-              <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {forgotError && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '10px 12px',
-                      background: '#fef2f2',
-                      border: '1px solid #fecaca',
-                      borderRadius: 'var(--radius-sm)',
-                      color: '#b91c1c',
-                      fontSize: '0.82rem',
-                    }}
-                  >
-                    <WarningCircle size={16} weight="fill" style={{ flexShrink: 0 }} />
-                    <span>{forgotError}</span>
-                  </div>
-                )}
-
+              <div className="modal-body">
                 {forgotSuccess ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '12px',
-                      background: '#dcfce7',
-                      color: '#15803d',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.84rem',
-                    }}
-                  >
-                    <CheckCircle size={20} weight="fill" />
-                    <span>Instruções enviadas para <strong>{forgotEmail}</strong> com sucesso! Verifique sua caixa de entrada (inclusive a pasta de Spam/Lixo Eletrônico).</span>
+                  <div className="auth-alert auth-alert--ok" role="status">
+                    <CheckCircle size={18} weight="fill" />
+                    <span>
+                      Enviamos o link para <strong>{forgotEmail}</strong>. Olhe também a caixa de spam.
+                    </span>
                   </div>
                 ) : (
-                  <>
-                    <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: 0 }}>
-                      Digite o seu e-mail cadastrado para enviarmos um link seguro de redefinição de senha.
-                    </p>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">E-mail Cadastrado</label>
-                      <input
-                        type="email"
-                        className="form-input"
-                        placeholder="seu@email.com"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        autoFocus
-                        required
-                        disabled={isForgotLoading}
-                      />
-                    </div>
-                  </>
+                  <div className="auth-field">
+                    {forgotError && (
+                      <div className="auth-alert" role="alert">
+                        <WarningCircle size={16} weight="fill" />
+                        <span>{forgotError}</span>
+                      </div>
+                    )}
+                    <label className="form-label" htmlFor="forgot-email">
+                      E-mail da sua conta
+                    </label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      className="form-input"
+                      placeholder="seu@email.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      autoFocus
+                      required
+                      disabled={isForgotLoading}
+                    />
+                  </div>
                 )}
               </div>
 
-              {!forgotSuccess ? (
-                <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button type="button" onClick={() => setIsForgotModalOpen(false)} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={isForgotLoading}
-                    style={{ padding: '8px 16px', fontSize: '0.82rem', opacity: isForgotLoading ? 0.7 : 1 }}
-                  >
-                    {isForgotLoading ? (
-                      <>
-                        <CircleNotch size={14} className="spin-animate" weight="bold" />
-                        <span>Enviando...</span>
-                      </>
-                    ) : (
-                      <span>Enviar Link</span>
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="modal-footer" style={{ padding: '12px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsForgotModalOpen(false);
-                      setForgotSuccess(false);
-                      setForgotEmail('');
-                    }}
-                    className="btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '0.82rem' }}
-                  >
+              <div className="modal-footer">
+                {forgotSuccess ? (
+                  <button type="button" onClick={fecharForgot} className="btn-primary">
                     Concluir
                   </button>
-                </div>
-              )}
+                ) : (
+                  <>
+                    <button type="button" onClick={fecharForgot} className="btn-secondary sheet-cancel">
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn-primary" disabled={isForgotLoading}>
+                      {isForgotLoading ? (
+                        <>
+                          <CircleNotch size={16} className="spin-animate" weight="bold" />
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <span>Enviar link</span>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
             </form>
           </div>
         </div>

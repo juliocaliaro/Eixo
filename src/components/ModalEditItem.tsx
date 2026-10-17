@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { X, FloppyDisk, PencilSimple } from '@phosphor-icons/react';
+import { X, FloppyDisk } from '@phosphor-icons/react';
 
 interface ModalEditItemProps {
   isOpen: boolean;
@@ -38,15 +38,10 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'var(--dark-coffee-100)', color: 'var(--dark-coffee-800)', padding: 8, borderRadius: 10 }}>
-              <PencilSimple size={22} weight="bold" />
-            </div>
-            <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>{title}</h2>
-          </div>
-          <button onClick={onClose} className="btn-icon" title="Fechar">
+          <h2 className="modal-title">{title}</h2>
+          <button onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar" type="button">
             <X size={18} weight="bold" />
           </button>
         </div>
@@ -54,8 +49,9 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Nome / Descrição:</label>
+              <label className="form-label" htmlFor="editar-item-nome">Nome</label>
               <input
+                id="editar-item-nome"
                 type="text"
                 className="form-input"
                 placeholder={placeholder}
@@ -67,9 +63,6 @@ export const ModalEditItem: React.FC<ModalEditItemProps> = ({
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancelar
-            </button>
             <button type="submit" className="btn-primary">
               <FloppyDisk size={18} weight="bold" />
               <span>Salvar</span>

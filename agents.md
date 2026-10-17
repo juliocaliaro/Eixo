@@ -60,7 +60,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 ### 3.3 Compartilhamento e Sincronização
 - Parâmetros de URL sincronizados automaticamente em tempo real (`?obra=ID_DA_OBRA&tab=ABA_ATIVA&perfil=PERFIL`), garantindo que ao atualizar a página (F5) o usuário nunca perca o contexto da obra aberta.
 - Suporte à navegação nativa do navegador (botões Voltar/Avançar via evento `popstate`).
-- Aba dedicada no corpo da obra (**Compartilhar**) com botão de cópia rápida e resumo claro de permissões.
+- Aba dedicada no corpo da obra (**Compartilhar**): contém a lista de e-mails com acesso à obra (adicionar/remover salva na hora; quem está na lista acessa ao cadastrar-se/entrar com o e-mail), mais o botão de cópia do link. Os e-mails podem ser informados já na criação da obra (opcional); depois, só nesta aba (a edição da obra não tem o campo).
 
 ---
 
@@ -582,3 +582,37 @@ Documentação completa em `docs/ARQUITETURA.md` (mapa do código, fluxo de dado
 - **Overlays**: Escape via `useEscapeKey` (só o do topo fecha), breakpoint via `useIsMobile`, lightbox via `Lightbox`/`GalleryLightbox`, tokens `--z-*` e `--fs-*` em vez de números soltos. `initModalBackdropGuard()` é chamada em `main.tsx`.
 - **Migrations**: `supabase/migrations/` na ordem dos timestamps; `schema.sql` só para instalação nova.
 - **Testes**: `npm run build` e `npm test` devem passar; `noLocalStorage.test.ts` falha se `localStorage` voltar.
+
+
+---
+
+## 26. Redesenho mobile-first (clareza e usabilidade) — prevalece sobre as seções anteriores
+
+Referência técnica: `docs/design/PADROES-MOBILE.md` (tokens, componentes, checklist de migração) e `docs/adr/0007-redesenho-mobile-first.md`. Onde uma seção anterior diz o contrário do que está abaixo, vale esta seção. O desktop (> 768px) continua como antes, salvo onde indicado.
+
+### 26.1 Padrões globais
+- **Uma ação principal por tela, nunca repetida.** Ações secundárias viram ícone de 44px ou menu `⋯` (`OverflowMenu`). Estados vazios não repetem o botão do cabeçalho.
+- **Estrutura de página**: `PageHeader` (voltar + título + no máximo uma ação) → uma faixa de toolbar (busca/filtro em ícones) → conteúdo. Gutter de 16px (12px até 360px), espaçamentos só pelos tokens `--space-*`.
+- **Navegação da obra no mobile**: barra de abas fixa no rodapé com as 5 abas (construtor: Etapas, Arquivos, Decisões, Diário, Compartilhar; cliente: Diário primeiro). Não existe mais faixa de abas com rolagem horizontal. No desktop as abas continuam no topo. O nome de cada aba tem **uma palavra** (Decisões, não "Decisões e Aprovações").
+- **Modais no mobile são bottom sheets**: cabeçalho fixo, um único corpo com rolagem, rodapé fixo com o botão principal em largura total, campos de 44–48px, sem subtítulos que repetem o título. Em desktop continuam centralizados.
+- **Rolagem**: scrollbar fina e discreta em todo o app (tokens `--scrollbar-*`); com modal, sheet, lightbox ou gaveta aberto a rolagem da página é travada (`bodyScrollLock`, ligada à pilha de overlays).
+- **Estados vazios** usam sempre `EmptyState` (ícone + uma frase + no máximo uma ação; variante "filtrado" com "Limpar filtros"). O cliente vê só a frase.
+- **Tamanhos**: corpo 14px, meta 13px, piso 12px; alvos de toque ≥ 44px; badges e botões pelas classes da fundação.
+- **Toasts** no mobile ficam embaixo, acima da barra de abas, e continuam suprimidos durante o preenchimento de formulários (seção 1).
+
+### 26.2 O que mudou em cada tela (substitui as seções indicadas)
+- **Login (§19, §22.14)**: a aba "Entrar" não tem seletor de perfil (o papel vem do perfil no servidor), nem link de rodapé duplicado; só "Criar conta" pergunta "Eu sou". Requisitos de senha em uma linha que aparece ao focar. Recuperação de senha em sheet.
+- **Navbar, menu e conta (§20, §21)**: sino de notificações abre como bottom sheet no mobile; menu lateral com identidade do usuário e item ativo; "Configurações do Cliente" virou "Minha conta" (nome, empresa só para construtor, e-mail só leitura).
+- **Calendário (§22.1, §22.8)**: no mobile é uma segunda sheet com dias de 44px e atalhos; no desktop é popover (abre para baixo quando cabe).
+- **Lista de obras (§22.4)**: linhas com divisor fino (sem cartões), endereço completo, progresso, e um único `⋯` (Copiar endereço, Excluir) só para o construtor; título "Obras" para os dois perfis; home vazia sem hero nem cartões de passos.
+- **Cabeçalho da obra (§3.2, §5.2, §22.2, §22.3)**: no mobile: voltar, título, uma linha de metadados e barra de progresso; menu `⋮` com "Editar obra" (construtor) e o relatório. Sem a pílula "Acompanhamento do Cliente". O rótulo do relatório é "Relatório parcial" abaixo de 100% e "Relatório final" a 100% (`rotuloRelatorio`).
+- **Etapas (§2.2, §6, §15)**: linhas com divisor fino, título de etapa com até 2 linhas, ações no menu `⋯`; "Inserir etapa aqui" só no desktop (no mobile é item de menu); sem "Adicionar próxima etapa". Vistoria sem texto de ajuda nem cartões aninhados.
+- **Arquivos (§9)**: um projeto = uma linha tocável com `⋯` (Visualizar, Baixar, Excluir); "Link de envio" fica no menu; sem estouro horizontal.
+- **Decisões (§4, §12, §22.9, §22.13)**: "Nova proposta" no cabeçalho; resumo financeiro como acordeão fechado no mobile (lista de números, sem caixas); cada decisão é uma linha (recolhida: título, status e valor); WhatsApp vira ícone no mobile; modal com seletores "Sem valor | Aditivo | Supressivo" e "Sem alteração | Mais dias | Menos dias" mais "Nova data prevista"; termo de assinatura sem UUID.
+- **Diário (§16)**: "Novo registro" no cabeçalho; busca e filtro como popovers dentro da tela; cabeçalho do dia em texto simples (pílula de saldo some no mobile); H2 "Diário".
+- **Detalhe da tarefa (§6)**: abas "Fotos" e "Anotações" (sem "Visão Geral" e sem rodapé "Fechar"); tamanho fixo 640x560 no desktop, sheet no mobile.
+- **Compartilhar (§3.3)**: a aba é a lista de e-mails com acesso à obra (adicionar/colar vários, remover com confirmação, salvamento imediato). O e-mail do cliente também pode ser informado ao criar a obra; depois, só se gerencia aqui. O cliente não vê a lista.
+- **Registro de Notas (§22.11, §22.12)**: um "Registrar nota" no cabeçalho (sem "Anexar nota" por obra), obras em linhas/acordeão, filtro em ícone. **Cliente apenas visualiza**: não cria, edita nem exclui (resolve a contradição entre §19 e §22.6).
+- **Registro de Locação (§24)**: um "Nova locação" no cabeçalho; os 4 indicadores viram uma linha de texto ("2 vencidos · 4 ativos · 1 devolvido"); linhas com `⋯` (Devolver, Prolongar, Desfazer, Excluir); "Prolongar" abre sheet com +7/+15/+30/+60 e o seletor de data do app. Cliente apenas visualiza.
+- **Modelos de obra (§8)**: um "Novo modelo"; modo "Reordenar" com setas de 44px; seletor de modelo no mobile; etapas e serviços em linhas.
+- **Relatório (§11, §22.2)**: emissão em sheet ("Gerar relatório"); título do parcial "Relatório Parcial de Evolução da Obra"; prévia sem rolagem horizontal no mobile (impressão inalterada).

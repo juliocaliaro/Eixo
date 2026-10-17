@@ -6,6 +6,7 @@ import {
   montarExtrato,
   extrairDataKey,
   DATA_DESCONHECIDA_KEY,
+  rotuloDiaCurto,
 } from '../utils/diarioExtrato';
 import { Obra, Decisao } from '../types/obra';
 
@@ -183,6 +184,14 @@ describe('diarioExtrato - agrupamento por dia e saldo', () => {
     expect(grupos[0].headerTexto.startsWith('Hoje • ')).toBe(true);
     expect(grupos[1].headerTexto.startsWith('Ontem • ')).toBe(true);
     expect(grupos[2].headerTexto).toMatch(/12 de outubro de 2026 \(Segunda-feira\)/);
+  });
+
+  it('rótulo curto (mobile): Hoje, Ontem, dia por extenso sem repetir a data longa', () => {
+    expect(rotuloDiaCurto('2026-10-17', NOW)).toBe('Hoje');
+    expect(rotuloDiaCurto('2026-10-16', NOW)).toBe('Ontem');
+    expect(rotuloDiaCurto('2026-10-12', NOW)).toBe('12 de outubro, segunda-feira');
+    expect(rotuloDiaCurto('2025-12-31', NOW)).toBe('31 de dezembro de 2025, quarta-feira');
+    expect(rotuloDiaCurto(DATA_DESCONHECIDA_KEY, NOW)).toBe('Data não registrada');
   });
 
   it('entradas de mesmo horário preservam a ordem de montagem (estável)', () => {

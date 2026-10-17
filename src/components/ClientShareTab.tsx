@@ -1,259 +1,173 @@
-import React, { useState } from 'react';
-import { Copy, Check, ShieldCheck, Eye, PenNib, ArrowSquareOut, EnvelopeSimple, PencilSimple } from '@phosphor-icons/react';
-import { Obra, } from '../types/obra';
-import { emailsDaObra } from '../utils/emailsCliente';
+import React, { useEffect, useRef, useState } from 'react';
+import { Copy, Check, ArrowSquareOut, EnvelopeSimple, Trash, ShareNetwork } from '@phosphor-icons/react';
+import { Obra, PerfilUsuario } from '../types/obra';
+import { adicionarAoAcesso, emailsDaObra, removerDoAcesso, ListaAcesso } from '../utils/emailsCliente';
+import { ModalConfirm } from './ModalConfirm';
+import { EmptyState } from './EmptyState';
 
 interface ClientShareTabProps {
   obra: Obra;
+  perfilAtivo: PerfilUsuario;
+  onUpdateObra: (obra: Obra) => void;
   onSwitchToClient?: () => void;
-  /** Abre a edicao da obra (onde os e-mails do cliente sao cadastrados). */
-  onEditObra?: () => void;
-  showToast?: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
-export const ClientShareTab: React.FC<ClientShareTabProps> = ({
-  obra,
-  onSwitchToClient,
-  onEditObra,
-  showToast,
-}) => {
-  const emailsCliente = emailsDaObra(obra);
+/**
+ * Compartilhar = lista de acesso da obra. Quem esta na lista ve a obra ao entrar com esse e-mail.
+ * Cada alteracao e salva na hora (obra.emailsClientes + obra.clienteEmail pelo fluxo normal do ObraStore).
+ */
+export const ClientShareTab: React.FC<ClientShareTabProps> = ({ obra, perfilAtivo, onUpdateObra, onSwitchToClient }) => {
+  const ehConstrutor = perfilAtivo === 'construtor';
+  const emails = emailsDaObra(obra);
+  const [texto, setTexto] = useState('');
+  const [erro, setErro] = useState('');
+  const [aviso, setAviso] = useState('');
+  const [paraRemover, setParaRemover] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+  const depois = (fn: () => void, ms: number) => {
+    timers.current.push(window.setTimeout(fn, ms));
+  };
+
+  const salvar = (lista: ListaAcesso, mensagem: string) => {
+    onUpdateObra({ ...obra, ...lista });
+    setAviso(mensagem);
+    depois(() => setAviso(''), 2600);
+  };
+
+  const adicionar = () => {
+    if (!texto.trim()) return;
+    const r = adicionarAoAcesso(obra, texto);
+    if (r.invalidos.length) {
+      setErro(`E-mail inválido: ${r.invalidos.join(', ')}`);
+      setTexto(r.invalidos.join(' '));
+    } else {
+      setErro('');
+      setTexto('');
+    }
+    if (r.adicionados.length) {
+      salvar(r, r.adicionados.length === 1 ? 'E-mail adicionado.' : `${r.adicionados.length} e-mails adicionados.`);
+    } else if (!r.invalidos.length && r.jaExistiam.length) {
+      setErro(r.jaExistiam.length === 1 ? 'Este e-mail já está na lista.' : 'Esses e-mails já estão na lista.');
+    }
+  };
+
+  const confirmarRemocao = () => {
+    if (!paraRemover) return;
+    salvar(removerDoAcesso(obra, paraRemover), 'Acesso removido.');
+    setParaRemover(null);
+  };
 
   const clientUrl = `${window.location.origin}${window.location.pathname}?perfil=cliente&obra=${obra.id}`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(clientUrl);
+  const copiar = () => {
+    navigator.clipboard?.writeText(clientUrl);
     setCopied(true);
-    if (showToast) {
-      showToast('Link copiado!', 'O link da obra foi copiado para a área de transferência.');
-    }
-    setTimeout(() => setCopied(false), 2600);
+    depois(() => setCopied(false), 2600);
   };
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24, padding: '8px 0' }}>
-      {/* Cabeçalho */}
+    <div className="share-tab">
       <div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.3px', margin: 0 }}>
-          Acesso do Cliente
-        </h2>
-        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: 4 }}>
-          <strong>{obra.cliente}</strong> acompanha o cronograma, as fotos e assina decisões entrando no Eixo com o e-mail cadastrado nesta obra. Se ainda não tiver conta, basta criar uma com esse mesmo e-mail.
+        <div className="tab-head" style={{ marginBottom: 0 }}>
+          <h2 className="tab-title">Compartilhar</h2>
+        </div>
+        <p className="share-help" style={{ marginTop: 0 }}>
+          {ehConstrutor
+            ? 'Quem estiver na lista vê a obra ao entrar no Eixo com o mesmo e-mail. Clientes só acompanham a obra e respondem às decisões.'
+            : 'Você acompanha a obra e responde às decisões. Quem edita a obra é o construtor.'}
         </p>
       </div>
 
-      {/* E-mails com acesso */}
-      <div style={{ borderTop: '1px solid var(--border-hairline)', borderBottom: '1px solid var(--border-hairline)', padding: '14px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <EnvelopeSimple size={18} weight="bold" color="var(--primary-accent)" />
-            E-mails com acesso
+      {ehConstrutor && (
+        <>
+          <div>
+            <form
+              className="share-add"
+              onSubmit={(e) => {
+                e.preventDefault();
+                adicionar();
+              }}
+            >
+              <input
+                type="text"
+                inputMode="email"
+                autoCapitalize="none"
+                autoComplete="off"
+                className="form-input"
+                aria-label="E-mail para dar acesso"
+                aria-invalid={!!erro}
+                placeholder="cliente@email.com"
+                value={texto}
+                onChange={(e) => {
+                  setTexto(e.target.value);
+                  if (erro) setErro('');
+                }}
+              />
+              <button type="submit" className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
+                Adicionar
+              </button>
+            </form>
+            <div className="share-feedback" aria-live="polite">
+              {erro ? (
+                <span style={{ color: 'var(--danger, #b91c1c)' }}>{erro}</span>
+              ) : aviso ? (
+                <span style={{ color: 'var(--text-muted)' }}>{aviso}</span>
+              ) : null}
+            </div>
           </div>
-          {onEditObra && emailsCliente.length > 0 && (
-            <button type="button" className="btn-secondary" onClick={onEditObra} style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <PencilSimple size={14} weight="bold" />
-              <span>Editar</span>
-            </button>
+
+          {emails.length > 0 ? (
+            <ul className="share-list">
+              {emails.map((email) => (
+                <li key={email}>
+                  <EnvelopeSimple size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                  <span>{email}</span>
+                  <button
+                    type="button"
+                    className="btn-icon touch-target-44"
+                    aria-label={`Remover acesso de ${email}`}
+                    onClick={() => setParaRemover(email)}
+                    style={{ width: 44, height: 44, flexShrink: 0, border: 'none', background: 'transparent' }}
+                  >
+                    <Trash size={18} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={ShareNetwork} className="empty-state--nested" title="Nenhum e-mail com acesso ainda." hint="Adicione o e-mail do cliente para ele acompanhar a obra." />
           )}
-        </div>
-        {emailsCliente.length > 0 ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {emailsCliente.map((email) => (
-              <span key={email} style={{ padding: '4px 12px', borderRadius: 999, background: 'var(--dark-coffee-50)', border: '1px solid var(--border-hairline)', fontSize: '0.8rem', color: 'var(--text-main)', wordBreak: 'break-all' }}>
-                {email}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              Nenhum cliente vinculado. Cadastre o e-mail do cliente para que ele consiga ver esta obra.
-            </span>
-            {onEditObra && (
-              <button type="button" className="btn-primary" onClick={onEditObra} style={{ padding: '8px 14px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <PencilSimple size={16} weight="bold" />
-                <span>Adicionar e-mail do cliente</span>
+
+          <div className="share-actions">
+            <button type="button" className="btn-primary" onClick={copiar}>
+              {copied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
+              <span>{copied ? 'Link copiado' : 'Copiar link da obra'}</span>
+            </button>
+            {onSwitchToClient && (
+              <button
+                type="button"
+                className="btn-secondary share-testar-cliente-btn"
+                onClick={onSwitchToClient}
+                title="Alternar para a visualização que o cliente vê"
+              >
+                <ArrowSquareOut size={16} weight="bold" />
+                <span>Testar visão do cliente</span>
               </button>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
-      {/* Caixa do Link */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          background: '#ffffff',
-          border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '8px 8px 8px 16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}
-      >
-        <input
-          className="field-bare"
-          type="text"
-          readOnly
-          value={clientUrl}
-          style={{
-            border: 'none',
-            background: 'transparent',
-            fontSize: '0.88rem',
-            color: 'var(--text-main)',
-            flex: 1,
-            fontFamily: 'monospace',
-            textOverflow: 'ellipsis',
-          }}
-          onClick={(e) => (e.target as HTMLInputElement).select()}
-        />
-
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="btn-primary"
-          style={{
-            padding: '9px 18px',
-            fontSize: '0.84rem',
-            whiteSpace: 'nowrap',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          {copied ? (
-            <>
-              <Check size={16} weight="bold" />
-              <span>Link Copiado</span>
-            </>
-          ) : (
-            <>
-              <Copy size={16} weight="bold" />
-              <span>Copiar Link</span>
-            </>
-          )}
-        </button>
-
-        {onSwitchToClient && (
-          <button
-            type="button"
-            onClick={onSwitchToClient}
-            className="btn-secondary share-testar-cliente-btn"
-            style={{
-              padding: '9px 14px',
-              fontSize: '0.84rem',
-              whiteSpace: 'nowrap',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-            title="Alternar para a visualização que o cliente vê"
-          >
-            <ArrowSquareOut size={16} weight="bold" />
-            <span>Testar Visão do Cliente</span>
-          </button>
-        )}
-
-      </div>
-
-      {/* Como funciona o acesso */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-md)',
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-main)' }}>
-          Permissões do Cliente
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--dark-coffee-50)',
-                color: 'var(--primary-accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Eye size={18} weight="bold" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                Acompanhamento Físico
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Vê o avanço, as datas, as fotos e os arquivos da obra, somente para consulta.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--dark-coffee-50)',
-                color: 'var(--primary-accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <PenNib size={18} weight="bold" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                Assinatura Digital
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Na aba Decisões, propõe, aprova ou recusa, com registro de data e hora.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--dark-coffee-50)',
-                color: 'var(--primary-accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <ShieldCheck size={18} weight="bold" />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                Acesso Individual
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.4 }}>
-                Só vê as obras ligadas ao seu e-mail e não altera etapas, serviços nem arquivos.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <ModalConfirm
+        isOpen={!!paraRemover}
+        title="Remover acesso?"
+        message={`${paraRemover ?? ''} deixa de ver esta obra. Você pode adicionar o e-mail de novo quando quiser.`}
+        confirmText="Remover"
+        onConfirm={confirmarRemocao}
+        onCancel={() => setParaRemover(null)}
+      />
     </div>
   );
 };

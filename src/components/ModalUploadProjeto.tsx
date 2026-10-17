@@ -1,13 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import {
-  X,
-  FilePdf,
-  UploadSimple,
-  WarningCircle,
-  Plus,
-  CircleNotch,
-} from '@phosphor-icons/react';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { X, FilePdf, UploadSimple, WarningCircle, Plus, CircleNotch } from '@phosphor-icons/react';
 import { TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
 import { storeFile } from '../utils/fileIntake';
@@ -29,15 +23,11 @@ interface ModalUploadProjetoProps {
   }) => void;
 }
 
-export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
-  isOpen,
-  onClose,
-  obraId,
-  onUpload,
-}) => {
+export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({ isOpen, onClose, obraId, onUpload }) => {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [titulo, setTitulo] = useState('');
-  const [tipo, setTipo] = useState<TipoProjeto>('eletrico');
+  // Sem disciplina pré-selecionada: a classificação é obrigatória e precisa ser uma escolha consciente.
+  const [tipo, setTipo] = useState<TipoProjeto | ''>('');
   const [tipoCustomizado, setTipoCustomizado] = useState('');
   const [versao, setVersao] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -46,6 +36,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
   const [isUploading, setIsUploading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useIsMobile();
 
   useEscapeKey(onClose, isOpen);
 
@@ -93,6 +84,11 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
       return;
     }
 
+    if (!tipo) {
+      setErro('Escolha a disciplina do projeto.');
+      return;
+    }
+
     if (tipo === 'outro' && !tipoCustomizado.trim()) {
       setErro('Informe o nome da disciplina.');
       return;
@@ -128,7 +124,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
   const handleClose = () => {
     setArquivo(null);
     setTitulo('');
-    setTipo('eletrico');
+    setTipo('');
     setTipoCustomizado('');
     setVersao('');
     setDescricao('');
@@ -138,53 +134,34 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={handleClose}>
-      <div
-        className="modal-card"
-        style={{ maxWidth: '480px' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-      >
-        {/* Header Minimalista */}
-        <div className="modal-header" style={{ padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <FilePdf size={20} weight="fill" color="#b91c1c" />
-            <h2 className="modal-title" style={{ fontSize: '1.1rem' }}>
-              Anexar Projeto (PDF)
-            </h2>
-          </div>
-          <button onClick={handleClose} className="btn-icon" title="Fechar">
+      <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Anexar arquivo">
+        <div className="modal-header">
+          <h2 className="modal-title">Anexar arquivo (PDF)</h2>
+          <button type="button" onClick={handleClose} className="btn-icon" title="Fechar" aria-label="Fechar">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body" style={{ padding: '18px 20px' }}>
-            {erro && (
-              <div
-                style={{
-                  background: 'var(--coral-glow-50)',
-                  border: '1px solid var(--coral-glow-300)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '8px 12px',
-                  color: 'var(--coral-glow-700)',
-                  fontSize: '0.84rem',
-                  fontWeight: 600,
-                  marginBottom: 14,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <WarningCircle size={16} weight="bold" />
-                <span>{erro}</span>
-              </div>
-            )}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div className="modal-body">
+            <div className="modal-stack">
+              {erro && (
+                <div className="modal-error" role="alert" style={{ marginBottom: 0 }}>
+                  <WarningCircle size={16} weight="bold" style={{ flexShrink: 0 }} />
+                  <span>{erro}</span>
+                </div>
+              )}
 
-            {/* SELETOR DE ARQUIVO MINIMALISTA */}
-            <div style={{ marginBottom: 16 }}>
+              {/* Arquivo */}
               {!arquivo ? (
                 <div
-                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  className={`upload-drop ${isDragging ? 'is-dragging' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
                   onDragLeave={() => setIsDragging(false)}
                   onDrop={(e) => {
                     e.preventDefault();
@@ -193,17 +170,11 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
                     if (file) handleFileProcess(file);
                   }}
                   onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    border: `1.5px dashed ${isDragging ? 'var(--primary-accent)' : 'var(--border-hairline)'}`,
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '16px',
-                    textAlign: 'center',
-                    background: isDragging ? 'var(--coral-glow-50)' : 'var(--dark-coffee-50)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
                   }}
                 >
                   <input
@@ -213,162 +184,137 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
                     style={{ display: 'none' }}
                     onChange={handleFileChange}
                   />
-                  <UploadSimple size={18} color="var(--primary-accent)" weight="bold" />
-                  <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)' }}>
-                    Selecionar arquivo PDF
-                  </span>
+                  <UploadSimple size={20} color="var(--primary-accent)" weight="bold" />
+                  <span>Selecionar PDF</span>
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    background: 'var(--dark-coffee-50)',
-                    border: '1px solid var(--border-hairline)',
-                    borderRadius: 'var(--radius-sm)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <FilePdf size={20} weight="fill" color="#b91c1c" style={{ flexShrink: 0 }} />
-                    <span
-                      style={{
-                        fontSize: '0.86rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '300px',
-                      }}
-                    >
-                      {arquivo.name}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      ({formatBytes(arquivo.size)})
-                    </span>
-                  </div>
-
+                <div className="upload-file">
+                  <FilePdf size={22} weight="fill" color="#b91c1c" style={{ flexShrink: 0 }} />
+                  <span className="upload-file-name">{arquivo.name}</span>
+                  <span className="upload-file-size">{formatBytes(arquivo.size)}</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setArquivo(null);
-                    }}
-                    className="btn-icon"
-                    title="Remover"
-                    style={{ padding: 4 }}
+                    onClick={() => setArquivo(null)}
+                    className="btn-icon touch-target-44"
+                    aria-label="Remover arquivo"
+                    style={{ border: 'none', background: 'transparent' }}
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 </div>
               )}
-            </div>
 
-            {/* CLASSIFICAÇÃO / DISCIPLINA (PILLS COMPACTOS) */}
-            <div style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ marginBottom: 6, fontSize: '0.80rem' }}>
-                Classificação *
-              </label>
+              {/* Disciplina (obrigatória, sem valor pré-selecionado) */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="upload-disciplina">
+                  Disciplina
+                </label>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {TIPOS_PROJETO_LISTA.map((t) => {
-                  const isSelected = tipo === t.id;
-                  const IconComp = t.Icon;
+                {isMobile ? (
+                  <select
+                    id="upload-disciplina"
+                    className="form-input"
+                    value={tipo}
+                    onChange={(e) => {
+                      setTipo(e.target.value as TipoProjeto | '');
+                      if (erro) setErro('');
+                    }}
+                  >
+                    <option value="">Escolha a disciplina</option>
+                    {TIPOS_PROJETO_LISTA.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.label.split('&')[0].trim()}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="disc-chips" role="radiogroup" aria-label="Disciplina">
+                    {TIPOS_PROJETO_LISTA.map((t) => {
+                      const isSelected = tipo === t.id;
+                      const IconComp = t.Icon;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          className={`disc-chip ${isSelected ? 'is-selected' : ''}`}
+                          onClick={() => {
+                            setTipo(t.id);
+                            if (erro) setErro('');
+                          }}
+                          style={
+                            isSelected
+                              ? { border: `1.5px solid ${t.color}`, background: t.bg, color: t.color }
+                              : undefined
+                          }
+                        >
+                          <IconComp size={14} weight={isSelected ? 'fill' : 'bold'} />
+                          <span>{t.label.split('&')[0].trim()}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setTipo(t.id);
-                        if (erro) setErro('');
-                      }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '6px 10px',
-                        borderRadius: 'var(--radius-full)',
-                        border: isSelected ? `1.5px solid ${t.color}` : '1px solid var(--border-hairline)',
-                        background: isSelected ? t.bg : '#ffffff',
-                        color: isSelected ? t.color : 'var(--text-body)',
-                        fontSize: '0.80rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        cursor: 'pointer',
-                        transition: 'all 0.12s ease',
-                      }}
-                    >
-                      <IconComp size={14} weight={isSelected ? 'fill' : 'bold'} />
-                      <span>{t.label.split('&')[0].trim()}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {tipo === 'outro' && (
-                <div style={{ marginTop: 8 }}>
+                {tipo === 'outro' && (
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Nome da disciplina (ex: Paisagismo, Gás...)"
+                    aria-label="Nome da disciplina"
+                    placeholder="Nome da disciplina (ex: Paisagismo)"
                     value={tipoCustomizado}
                     onChange={(e) => setTipoCustomizado(e.target.value)}
                     autoFocus
-                    style={{ fontSize: '0.85rem', padding: '7px 10px' }}
+                    style={{ marginTop: 'var(--space-2)' }}
+                  />
+                )}
+              </div>
+
+              <div className="upload-grid">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="upload-titulo">Título</label>
+                  <input
+                    id="upload-titulo"
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Planta de iluminação"
+                    value={titulo}
+                    onChange={(e) => {
+                      setTitulo(e.target.value);
+                      if (erro) setErro('');
+                    }}
                   />
                 </div>
-              )}
-            </div>
 
-            {/* TÍTULO E VERSÃO */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 14 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.80rem' }}>Título *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ex: Planta de Iluminação"
-                  value={titulo}
-                  onChange={(e) => {
-                    setTitulo(e.target.value);
-                    if (erro) setErro('');
-                  }}
-                  style={{ fontSize: '0.88rem' }}
-                />
+                <div className="form-group">
+                  <label className="form-label" htmlFor="upload-versao">Versão (opcional)</label>
+                  <input
+                    id="upload-versao"
+                    type="text"
+                    className="form-input"
+                    placeholder="Ex: Rev. 02"
+                    value={versao}
+                    onChange={(e) => setVersao(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.80rem' }}>Versão</label>
+              <div className="form-group">
+                <label className="form-label" htmlFor="upload-notas">Notas (opcional)</label>
                 <input
+                  id="upload-notas"
                   type="text"
                   className="form-input"
-                  placeholder="Ex: Rev. 02"
-                  value={versao}
-                  onChange={(e) => setVersao(e.target.value)}
-                  style={{ fontSize: '0.88rem' }}
+                  placeholder="Ex: Aprovado pelo cliente"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
                 />
               </div>
-            </div>
-
-            {/* OBSERVAÇÕES COMPACTAS */}
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.80rem' }}>Notas (opcional)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Ex: Aprovado pelo cliente."
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                style={{ fontSize: '0.85rem' }}
-              />
             </div>
           </div>
 
-          <div className="modal-footer" style={{ padding: '12px 20px' }}>
-            <button type="button" onClick={handleClose} className="btn-secondary">
-              Cancelar
-            </button>
+          <div className="modal-footer">
             <button
               type="submit"
               className="btn-primary"
@@ -381,7 +327,7 @@ export const ModalUploadProjeto: React.FC<ModalUploadProjetoProps> = ({
               {isUploading ? (
                 <>
                   <CircleNotch size={16} className="spin-animate" weight="bold" />
-                  <span>Anexando PDF...</span>
+                  <span>Anexando...</span>
                 </>
               ) : (
                 <>

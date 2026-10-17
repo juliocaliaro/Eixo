@@ -1,5 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Lightbox } from './Lightbox';
+import { EmptyState } from './EmptyState';
+// Ordem do CSS: index e foundation antes deste arquivo (App importa os componentes antes de main.tsx importar os CSS globais)
+import '../index.css';
+import '../styles/foundation.css';
+import '../styles/decisoes-diario.css';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
@@ -10,7 +15,7 @@ import {
   CheckCircle,
   Clock,
   ArrowsOut,
-  FolderOpen,
+  Images,
   CircleNotch,
 } from '@phosphor-icons/react';
 import { evidenciasApi } from '../services/api';
@@ -41,7 +46,7 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
 }) => {
   const [isUploadingFoto, setIsUploadingFoto] = useState(false);
   const [uploadErro, setUploadErro] = useState('');
-  const [activeTab, setActiveTab] = useState<'tudo' | 'fotos' | 'notas'>('tudo');
+  const [activeTab, setActiveTab] = useState<'fotos' | 'notas'>('fotos');
   const [novaNota, setNovaNota] = useState('');
   const [isAddingNota, setIsAddingNota] = useState(false);
   const [lightboxFoto, setLightboxFoto] = useState<string | null>(null);
@@ -129,504 +134,214 @@ export const ModalTaskDetails: React.FC<ModalTaskDetailsProps> = ({
     onUpdateTaskMedia(etapaId, tarefa.id, fotos, novasNotas);
   };
 
+  const statusT = getTarefaStatus(tarefa);
+  const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
+
   return (
     <>
       <div className="modal-backdrop" onClick={onClose}>
         <div
-          className="modal-card"
-          style={{
-            width: '640px',
-            maxWidth: '94vw',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
+          className="modal-card modal-card--task task-modal"
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-labelledby="task-modal-title"
         >
-          {/* Cabeçalho do Modal */}
-          <div className="modal-header" style={{ padding: '18px 24px', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span className="timeline-badge" style={{ fontSize: '0.72rem' }}>
-                  {etapaNome}
+          <div className="modal-header">
+            <div className="task-head">
+              <div className="task-head-meta">
+                <span className="timeline-badge">{etapaNome}</span>
+                <span
+                  className="task-status"
+                  style={{ color: configT.corTexto, background: configT.corFundo, borderColor: configT.corBorda }}
+                >
+                  {statusT === 'concluido' ? (
+                    <>
+                      <CheckCircle size={12} weight="bold" />
+                      <span>Concluída{tarefa.concluidaEm ? ` em ${formatarDataHora(tarefa.concluidaEm)}` : ''}</span>
+                    </>
+                  ) : statusT === 'em_andamento' ? (
+                    <>
+                      <Clock size={12} weight="bold" />
+                      <span>Em andamento</span>
+                    </>
+                  ) : (
+                    <span>Pendente</span>
+                  )}
                 </span>
-
-                {(() => {
-                  const statusT = getTarefaStatus(tarefa);
-                  const configT = STATUS_CRONOGRAMA_CONFIG[statusT];
-                  return (
-                    <span
-                      style={{
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: configT.corTexto,
-                        background: configT.corFundo,
-                        border: `1px solid ${configT.corBorda}`,
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      {statusT === 'concluido' ? (
-                        <>
-                          <CheckCircle size={12} weight="bold" />
-                          <span>Concluída {tarefa.concluidaEm ? `em ${formatarDataHora(tarefa.concluidaEm)}` : ''}</span>
-                        </>
-                      ) : statusT === 'em_andamento' ? (
-                        <>
-                          <Clock size={12} weight="bold" />
-                          <span>Em andamento</span>
-                        </>
-                      ) : (
-                        <span>Pendente</span>
-                      )}
-                    </span>
-                  );
-                })()}
               </div>
-
-              <h2
-                style={{
-                  fontSize: '1.25rem',
-                  fontWeight: 700,
-                  color: 'var(--text-main)',
-                  margin: 0,
-                  lineHeight: 1.3,
-                }}
-              >
-                {tarefa.nome}
-              </h2>
+              <h2 id="task-modal-title" className="modal-title task-title">{tarefa.nome}</h2>
             </div>
 
-            <button
-              onClick={onClose}
-              className="btn-icon"
-              style={{ width: 32, height: 32 }}
-              title="Fechar"
-            >
+            <button type="button" onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar">
               <X size={18} weight="bold" />
             </button>
           </div>
 
-          {/* Sub-nav de Filtro Rápido */}
-          <div
-            style={{
-              padding: '0 24px',
-              borderBottom: '1px solid var(--border-hairline)',
-              display: 'flex',
-              gap: 16,
-              background: 'var(--dark-coffee-50)',
-            }}
-          >
+          <div className="task-tabs" role="tablist" aria-label="Registros do serviço">
             <button
               type="button"
-              onClick={() => setActiveTab('tudo')}
-              style={{
-                padding: '10px 4px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: activeTab === 'tudo' ? 'var(--primary-accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'tudo' ? '2px solid var(--primary-accent)' : '2px solid transparent',
-                background: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Visão Geral ({fotos.length + anotacoes.length})
-            </button>
-
-            <button
-              type="button"
+              role="tab"
+              id="task-tab-fotos"
+              aria-selected={activeTab === 'fotos'}
+              aria-controls="task-panel"
+              className="task-tab"
               onClick={() => setActiveTab('fotos')}
-              style={{
-                padding: '10px 4px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: activeTab === 'fotos' ? 'var(--primary-accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'fotos' ? '2px solid var(--primary-accent)' : '2px solid transparent',
-                background: 'none',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
             >
-              <Camera size={14} weight="bold" />
-              Fotos ({fotos.length})
+              <Camera size={16} weight="bold" />
+              <span>Fotos ({fotos.length})</span>
             </button>
-
             <button
               type="button"
+              role="tab"
+              id="task-tab-notas"
+              aria-selected={activeTab === 'notas'}
+              aria-controls="task-panel"
+              className="task-tab"
               onClick={() => setActiveTab('notas')}
-              style={{
-                padding: '10px 4px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: activeTab === 'notas' ? 'var(--primary-accent)' : 'var(--text-muted)',
-                borderBottom: activeTab === 'notas' ? '2px solid var(--primary-accent)' : '2px solid transparent',
-                background: 'none',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
             >
-              <NotePencil size={14} weight="bold" />
-              Anotações ({anotacoes.length})
+              <NotePencil size={16} weight="bold" />
+              <span>Anotações ({anotacoes.length})</span>
             </button>
           </div>
 
-          {/* Corpo do Modal */}
-          <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Seção 1: Fotos do Serviço */}
-            {(activeTab === 'tudo' || activeTab === 'fotos') && (
-              <section>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Camera size={16} weight="bold" color="var(--primary-accent)" />
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
-                      Registro Fotográfico ({fotos.length})
-                    </h3>
-                  </div>
+          <div className="modal-body task-body" role="tabpanel" id="task-panel" aria-labelledby={`task-tab-${activeTab}`}>
+            {activeTab === 'fotos' && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
 
-                  {/* Input Oculto de Arquivo */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                  />
-
-                  {canEdit && (
+                {canEdit && (
+                  <div className="task-actions">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploadingFoto}
-                      className="btn-secondary"
-                      style={{
-                        padding: '5px 10px',
-                        fontSize: '0.78rem',
-                        opacity: isUploadingFoto ? 0.7 : 1,
-                        cursor: isUploadingFoto ? 'not-allowed' : 'pointer',
-                      }}
-                      title="Tirar foto ou anexar imagens"
+                      className="btn-secondary btn--sm"
                     >
                       {isUploadingFoto ? (
                         <>
-                          <CircleNotch size={12} className="spin-animate" weight="bold" />
+                          <CircleNotch size={14} className="spin-animate" weight="bold" />
                           <span>Enviando...</span>
                         </>
                       ) : (
                         <>
-                          <Plus size={12} weight="bold" />
-                          <span>Adicionar Fotos</span>
+                          <Plus size={14} weight="bold" />
+                          <span>Adicionar fotos</span>
                         </>
                       )}
                     </button>
-                  )}
-                </div>
-
-                {uploadErro && (
-                  <div style={{ fontSize: '0.8rem', color: '#b91c1c', marginBottom: 10 }}>{uploadErro}</div>
+                  </div>
                 )}
 
+                {uploadErro && <div className="task-error" role="alert">{uploadErro}</div>}
+
                 {temFotos ? (
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                      gap: 10,
-                    }}
-                  >
+                  <div className="task-grid">
                     {fotos.map((foto, idx) => (
-                      <div
-                        key={idx}
-                        className="task-photo-thumb-container"
-                        style={{
-                          position: 'relative',
-                          aspectRatio: '1',
-                          borderRadius: 'var(--radius-sm)',
-                          overflow: 'hidden',
-                          border: '1px solid var(--border-hairline)',
-                          background: 'var(--pitch-black-950)',
-                          cursor: 'pointer',
-                        }}
-                        onClick={() => setLightboxFoto(foto)}
-                      >
-                        <img
-                          src={foto}
-                          alt={`Registro ${idx + 1}`}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            transition: 'transform 0.2s ease',
-                          }}
-                          className="hover-zoom-img"
-                        />
-
-                        {/* Botão de Ampliar / Overlay */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'rgba(30, 24, 6, 0.4)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: 0,
-                            transition: 'opacity 0.15s ease',
-                            color: '#ffffff',
-                          }}
-                          className="thumb-hover-overlay"
+                      <div key={idx} className="task-photo-thumb-container task-photo">
+                        <button
+                          type="button"
+                          className="task-photo-open"
+                          onClick={() => setLightboxFoto(foto)}
+                          aria-label={`Ampliar foto ${idx + 1}`}
                         >
-                          <ArrowsOut size={20} weight="bold" />
-                        </div>
-
-                        {/* Botão Excluir Foto */}
+                          <img src={foto} alt={`Registro ${idx + 1}`} className="hover-zoom-img" />
+                          <span className="thumb-hover-overlay" aria-hidden="true">
+                            <ArrowsOut size={20} weight="bold" />
+                          </span>
+                        </button>
                         {canEdit && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteFoto(idx);
-                            }}
+                            className="task-photo-remove"
+                            onClick={() => handleDeleteFoto(idx)}
                             title="Remover foto"
-                            style={{
-                              position: 'absolute',
-                              top: 6,
-                              right: 6,
-                              width: 24,
-                              height: 24,
-                              borderRadius: '50%',
-                              background: 'rgba(30, 24, 6, 0.75)',
-                              color: '#ffffff',
-                              border: 'none',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                            }}
+                            aria-label={`Remover foto ${idx + 1}`}
                           >
-                            <Trash size={12} />
+                            <span><Trash size={14} /></span>
                           </button>
                         )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      padding: '24px 16px',
-                      border: '1px dashed var(--border-hairline)',
-                      borderRadius: 'var(--radius-sm)',
-                      textAlign: 'center',
-                      background: 'var(--bg-surface)',
-                    }}
-                  >
-                    <FolderOpen size={24} color="var(--mauve-bark-400)" style={{ margin: '0 auto 6px auto' }} />
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
-                      Nenhuma foto registrada para este serviço.
-                    </p>
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.8rem', margin: '0 auto' }}
-                      >
-                        <Camera size={13} weight="bold" />
-                        <span>Anexar fotos</span>
-                      </button>
-                    )}
-                  </div>
+                  <EmptyState icon={Images} className="empty-state--nested" title="Nenhuma foto neste serviço." />
                 )}
-              </section>
+              </>
             )}
 
-            {/* Seção 2: Anotações & Observações */}
-            {(activeTab === 'tudo' || activeTab === 'notas') && (
-              <section>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <NotePencil size={16} weight="bold" color="var(--cinnamon-wood-600)" />
-                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
-                      Anotações de Campo ({anotacoes.length})
-                    </h3>
-                  </div>
-
-                  {canEdit && !isAddingNota && (
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNota(true)}
-                      className="btn-secondary"
-                      style={{ padding: '5px 10px', fontSize: '0.78rem' }}
-                    >
-                      <Plus size={12} weight="bold" />
-                      <span>Nova Anotação</span>
+            {activeTab === 'notas' && (
+              <>
+                {canEdit && !isAddingNota && (
+                  <div className="task-actions">
+                    <button type="button" onClick={() => setIsAddingNota(true)} className="btn-secondary btn--sm">
+                      <Plus size={14} weight="bold" />
+                      <span>Nova anotação</span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Formulário para Nova Anotação */}
                 {canEdit && isAddingNota && (
-                  <form
-                    onSubmit={handleAddNota}
-                    style={{
-                      marginBottom: 14,
-                      background: 'var(--dark-coffee-50)',
-                      padding: 12,
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-hairline)',
-                    }}
-                  >
+                  <form onSubmit={handleAddNota} className="task-note-form">
                     <textarea
                       autoFocus
                       rows={3}
                       className="form-textarea"
-                      placeholder="Descreva a observação, medição ou ocorrência..."
+                      placeholder="Descreva a observação, medição ou ocorrência"
+                      aria-label="Nova anotação"
                       value={novaNota}
                       onChange={(e) => setNovaNota(e.target.value)}
-                      style={{ fontSize: '0.88rem', marginBottom: 8 }}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <div className="task-note-form-actions">
                       <button
                         type="button"
                         onClick={() => {
                           setIsAddingNota(false);
                           setNovaNota('');
                         }}
-                        className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                        className="btn-quiet"
                       >
                         Cancelar
                       </button>
-                      <button
-                        type="submit"
-                        disabled={!novaNota.trim()}
-                        className="btn-primary"
-                        style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-                      >
-                        Salvar Nota
+                      <button type="submit" disabled={!novaNota.trim()} className="btn-primary">
+                        Salvar anotação
                       </button>
                     </div>
                   </form>
                 )}
 
-                {/* Lista de Anotações */}
                 {temNotas ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <ul className="task-notes">
                     {anotacoes.map((nota, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          padding: '12px 14px',
-                          background: 'var(--bg-surface)',
-                          border: '1px solid var(--border-hairline)',
-                          borderRadius: 'var(--radius-sm)',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              fontWeight: 700,
-                              color: 'var(--mauve-bark-600)',
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.5,
-                              display: 'block',
-                              marginBottom: 4,
-                            }}
-                          >
-                            Nota #{idx + 1}
-                          </span>
-                          <p
-                            style={{
-                              fontSize: '0.88rem',
-                              color: 'var(--text-main)',
-                              margin: 0,
-                              lineHeight: 1.45,
-                              whiteSpace: 'pre-wrap',
-                            }}
-                          >
-                            {nota}
-                          </p>
-                        </div>
-
+                      <li key={idx} className="task-note">
+                        <p>{nota}</p>
                         {canEdit && (
                           <button
                             type="button"
                             onClick={() => handleDeleteNota(idx)}
-                            className="btn-icon"
-                            style={{ width: 26, height: 26, color: 'var(--coral-glow-600)', flexShrink: 0 }}
+                            className="btn-icon task-note-remove"
                             title="Excluir anotação"
+                            aria-label={`Excluir anotação ${idx + 1}`}
                           >
-                            <Trash size={13} />
+                            <Trash size={16} />
                           </button>
                         )}
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 ) : (
                   !isAddingNota && (
-                    <div
-                      style={{
-                        padding: '24px 16px',
-                        border: '1px dashed var(--border-hairline)',
-                        borderRadius: 'var(--radius-sm)',
-                        textAlign: 'center',
-                        background: 'var(--bg-surface)',
-                      }}
-                    >
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
-                        Nenhuma observação escrita para este serviço.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingNota(true)}
-                        className="btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: '0.8rem', margin: '0 auto' }}
-                      >
-                        <NotePencil size={13} weight="bold" />
-                        <span>Escrever primeira nota</span>
-                      </button>
-                    </div>
+                    <EmptyState icon={NotePencil} className="empty-state--nested" title="Nenhuma anotação neste serviço." />
                   )
                 )}
-              </section>
+              </>
             )}
-          </div>
-
-          {/* Rodapé com Fechar */}
-          <div className="modal-footer" style={{ padding: '12px 24px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-primary"
-              style={{ minWidth: 100, fontSize: '0.88rem' }}
-            >
-              Fechar
-            </button>
           </div>
         </div>
       </div>

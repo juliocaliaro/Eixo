@@ -1,15 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import {
-  X,
-  BuildingApartment,
-  User,
-  MapPin,
-  WarningCircle,
-  Plus,
-  CurrencyDollar,
-  CircleNotch,
-} from '@phosphor-icons/react';
+import { X, WarningCircle, CircleNotch } from '@phosphor-icons/react';
 import { DatePickerInput } from './DatePickerInput';
 import { useSessionUser } from '../hooks/useSession';
 import { EmailChipsInput } from './EmailChipsInput';
@@ -120,74 +111,40 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
   return (
     <div className="modal-backdrop" onClick={handleClose}>
       <div
-        className="modal-card"
-        style={{ maxWidth: '520px' }}
+        className="modal-card obra-sheet"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="nova-obra-title"
       >
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                padding: 8,
-                borderRadius: 10,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <BuildingApartment size={22} weight="fill" />
-            </div>
-            <div>
-              <h2 className="modal-title">Nova Obra</h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Cadastre as informações principais para iniciar o acompanhamento
-              </p>
-            </div>
-          </div>
-          <button onClick={handleClose} className="btn-icon" title="Fechar (Esc)">
+          <h2 className="modal-title" id="nova-obra-title">
+            Nova obra
+          </h2>
+          <button type="button" onClick={handleClose} className="btn-icon" aria-label="Fechar" title="Fechar (Esc)">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ padding: '24px' }}>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="modal-body">
             {erro && (
-              <div
-                style={{
-                  background: 'var(--coral-glow-50)',
-                  border: '1px solid var(--coral-glow-300)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '10px 14px',
-                  color: 'var(--coral-glow-700)',
-                  fontSize: '0.88rem',
-                  fontWeight: 600,
-                  marginBottom: 18,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-              >
+              <div className="form-error" role="alert">
                 <WarningCircle size={18} weight="bold" />
                 <span>{erro}</span>
               </div>
             )}
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" />
-                  Nome da Obra *
-                </span>
+              <label className="form-label" htmlFor="nova-obra-nome">
+                Nome da obra
               </label>
               <input
+                id="nova-obra-nome"
                 type="text"
                 autoFocus
                 className="form-input"
-                placeholder="Ex: Reforma Apto 402, Residência Alphaville..."
+                placeholder="Ex: Reforma Apto 402"
                 value={nome}
                 onChange={(e) => {
                   setNome(e.target.value);
@@ -197,16 +154,14 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <User size={18} color="var(--primary-accent)" weight="bold" />
-                  Nome do Cliente *
-                </span>
+              <label className="form-label" htmlFor="nova-obra-cliente">
+                Cliente
               </label>
               <input
+                id="nova-obra-cliente"
                 type="text"
                 className="form-input"
-                placeholder="Ex: Dra. Carolina Mendes, Carlos Eduardo..."
+                placeholder="Nome do cliente"
                 value={cliente}
                 onChange={(e) => {
                   setCliente(e.target.value);
@@ -218,40 +173,39 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
             <EmailChipsInput value={emailsClientes} onChange={setEmailsClientes} />
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <MapPin size={18} color="var(--primary-accent)" weight="bold" />
+              <div className="field-head">
+                <label className="form-label" htmlFor="nova-obra-endereco">
                   Endereço
-                </span>
-              </label>
+                </label>
+                <span className="field-optional">Opcional</span>
+              </div>
               <input
+                id="nova-obra-endereco"
                 type="text"
                 className="form-input"
-                placeholder="Ex: Alameda Santos, 1820 - Apto 402"
+                placeholder="Rua, número e complemento"
                 value={endereco}
                 onChange={(e) => setEndereco(e.target.value)}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <CurrencyDollar size={18} color="var(--primary-accent)" weight="bold" />
-                  Valor Contratado Inicial (R$ - Opcional)
-                </span>
-              </label>
+              <div className="field-head">
+                <label className="form-label" htmlFor="nova-obra-valor">
+                  Valor contratado
+                </label>
+                <span className="field-optional">Opcional</span>
+              </div>
               <input
+                id="nova-obra-valor"
                 type="text"
                 inputMode="numeric"
                 className="form-input"
-                placeholder="0,00"
+                placeholder="R$ 0,00"
                 value={orcamentoInicial}
                 onChange={(e) => setOrcamentoInicial(mascararMoedaInput(e.target.value))}
                 onKeyDown={proibirNaoNumericosMoeda}
               />
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                Base financeira para cálculo automático dos aditivos e supressivos aprovados.
-              </span>
             </div>
 
             <DatePickerInput
@@ -261,36 +215,23 @@ export const ModalCreateObra: React.FC<ModalCreateObraProps> = ({
                 if (erro) setErro('');
               }}
               minDate={minDate}
-              label="Data Prevista de Conclusão"
-              helperText="Informe a previsão de conclusão estimada da obra."
-              autoScrollOnMobile
+              label="Previsão de término"
+              helperText=""
             />
-
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={handleClose} className="btn-secondary">
+            <button type="button" onClick={handleClose} className="btn-secondary sheet-cancel">
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isSubmitting}
-              style={{
-                opacity: isSubmitting ? 0.75 : 1,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <CircleNotch size={16} className="spin-animate" weight="bold" />
-                  <span>Criando Obra...</span>
+                  <span>Criando...</span>
                 </>
               ) : (
-                <>
-                  <Plus size={16} weight="bold" />
-                  <span>Criar Obra</span>
-                </>
+                <span>Criar obra</span>
               )}
             </button>
           </div>

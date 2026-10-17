@@ -7,6 +7,7 @@ import {
   montarUrlDecisao,
   linkWhatsApp,
   percentualConcluido,
+  rotuloRelatorio,
 } from '../utils/obraMetrics';
 import { Decisao, Obra } from '../types/obra';
 
@@ -152,5 +153,14 @@ describe('obraMetrics - WhatsApp', () => {
     expect(montarUrlDecisao('https://a/b', 'o1', 'construtor')).toBe('https://a/b?obra=o1&perfil=cliente&tab=decisoes');
     expect(montarUrlDecisao('https://a/b', 'o1', 'cliente')).toContain('perfil=construtor');
     expect(linkWhatsApp('a b')).toBe('https://wa.me/?text=a%20b');
+  });
+});
+
+describe('obraMetrics - rotuloRelatorio', () => {
+  it('parcial abaixo de 100% (ou sem tarefas) e final somente com tudo concluído', () => {
+    expect(rotuloRelatorio({ etapas: [] })).toBe('Relatório parcial');
+    const t = (c: boolean) => ({ id: String(c), nome: 'x', concluida: c });
+    expect(rotuloRelatorio({ etapas: [{ id: 'e', nome: 'E', tarefas: [t(true), t(false)] }] })).toBe('Relatório parcial');
+    expect(rotuloRelatorio({ etapas: [{ id: 'e', nome: 'E', tarefas: [t(true)] }] })).toBe('Relatório final');
   });
 });

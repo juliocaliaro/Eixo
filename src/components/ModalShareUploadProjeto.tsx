@@ -1,15 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import {
-  X,
-  LinkSimple,
-  Check,
-  WhatsappLogo,
-  ArrowSquareOut,
-  Files,
-  ShieldCheck,
-  ShareNetwork
-} from '@phosphor-icons/react';
+import { X, LinkSimple, Check, WhatsappLogo, ArrowSquareOut } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 
 interface ModalShareUploadProjetoProps {
@@ -19,19 +10,18 @@ interface ModalShareUploadProjetoProps {
   showToast?: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
-export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = ({
-  isOpen,
-  onClose,
-  obra,
-  showToast,
-}) => {
+export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = ({ isOpen, onClose, obra, showToast }) => {
   const [copiado, setCopiado] = useState(false);
+  const timer = useRef<number | null>(null);
 
   useEscapeKey(onClose, isOpen);
+  useEffect(() => () => {
+    if (timer.current) window.clearTimeout(timer.current);
+  }, []);
 
   if (!isOpen) return null;
 
-  // Montar link direto de upload para a obra
+  // Link direto de upload para a obra
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const uploadUrl = `${origin}${pathname}?upload=projeto&obra=${obra.id}`;
@@ -49,13 +39,10 @@ export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = (
         document.body.removeChild(input);
       }
       setCopiado(true);
-      if (showToast) {
-        showToast('Link de upload copiado!', 'Envie para projetistas ou parceiros anexarem pranchas sem cadastro.');
-      }
-      setTimeout(() => setCopiado(false), 3000);
+      timer.current = window.setTimeout(() => setCopiado(false), 3000);
     } catch {
       if (showToast) {
-        showToast('Erro ao copiar', 'Copie o link manualmente pelo campo de texto.', 'error');
+        showToast('Não foi possível copiar', 'Copie o link manualmente pelo campo de texto.', 'error');
       }
     }
   };
@@ -69,195 +56,54 @@ export const ModalShareUploadProjeto: React.FC<ModalShareUploadProjetoProps> = (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal-card"
-        style={{ maxWidth: '540px' }}
+        style={{ maxWidth: '480px' }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="modal-share-upload-title"
       >
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                background: 'var(--coral-glow-50)',
-                color: 'var(--primary-accent)',
-                padding: 8,
-                borderRadius: 'var(--radius-sm)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ShareNetwork size={22} weight="bold" />
-            </div>
-            <div>
-              <h2
-                id="modal-share-upload-title"
-                style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}
-              >
-                Link de Upload Externo
-              </h2>
-              <span style={{ fontSize: '0.80rem', color: 'var(--text-muted)' }}>
-                Obra: <strong>{obra.nome}</strong>
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-icon"
-            style={{ color: 'var(--text-muted)' }}
-            title="Fechar"
-            aria-label="Fechar modal"
-          >
+          <h2 id="modal-share-upload-title" className="modal-title">
+            Link de envio
+          </h2>
+          <button type="button" onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        <div className="modal-body" style={{ padding: '22px 24px' }}>
-          <p style={{ fontSize: '0.88rem', color: 'var(--dark-coffee-800)', lineHeight: 1.5, margin: '0 0 16px 0' }}>
-            Encaminhe este link direto para arquitetos, engenheiros, fornecedores ou clientes.
-            Eles poderão enviar arquivos e pranchas sem precisar criar conta ou fazer login.
-          </p>
+        <div className="modal-body">
+          <div className="modal-stack">
+            <p style={{ margin: 0, fontSize: 'var(--fs-base)', color: 'var(--text-body)', lineHeight: 1.5 }}>
+              Quem receber este link envia PDFs para a obra sem criar conta nem fazer login.
+            </p>
 
-          {/* Destaque com o Link Gerado */}
-          <div
-            style={{
-              background: 'var(--dark-coffee-50)',
-              border: '1px solid var(--border-hairline)',
-              borderRadius: 'var(--radius-md)',
-              padding: '12px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              marginBottom: 16,
-            }}
-          >
-            <LinkSimple size={18} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-            <input
-              className="field-bare"
-              type="text"
-              readOnly
-              value={uploadUrl}
-              onFocus={(e) => e.target.select()}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                width: '100%',
-                fontSize: '0.84rem',
-                color: 'var(--pitch-black-950)',
-                fontFamily: 'monospace',
-                letterSpacing: '-0.2px',
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleCopiarLink}
-              className={copiado ? 'btn-primary' : 'btn-secondary'}
-              style={{
-                padding: '7px 14px',
-                fontSize: '0.82rem',
-                flexShrink: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {copiado ? (
-                <>
-                  <Check size={16} weight="bold" />
-                  <span>Copiado!</span>
-                </>
-              ) : (
-                <>
-                  <LinkSimple size={16} weight="bold" />
-                  <span>Copiar</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Vantagens / Informações Práticas */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              padding: '14px 16px',
-              background: '#ffffff',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 18,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <ShieldCheck size={18} color="#16a34a" weight="fill" style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-body)' }}>
-                <strong>Acesso Direto Sem Login:</strong> Quem recebe abre direto a tela de upload e anexa o arquivo.
-              </span>
+            <div className="link-field">
+              <LinkSimple size={18} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
+              <input
+                type="text"
+                readOnly
+                aria-label="Link de envio"
+                value={uploadUrl}
+                onFocus={(e) => e.target.select()}
+              />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Files size={18} color="var(--primary-accent)" weight="fill" style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-body)' }}>
-                <strong>Classificação Obrigatória:</strong> O remetente informa a disciplina (elétrica, hidráulica, etc.) e versão.
-              </span>
+
+            <div className="link-actions">
+              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-whatsapp">
+                <WhatsappLogo size={18} weight="fill" />
+                <span>Enviar pelo WhatsApp</span>
+              </a>
+              <a href={uploadUrl} target="_blank" rel="noopener noreferrer" className="link-test">
+                <ArrowSquareOut size={16} weight="bold" />
+                <span>Testar a página de envio</span>
+              </a>
             </div>
-          </div>
-
-          {/* Ações Rápidas de Compartilhamento */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary"
-              style={{
-                flex: 1,
-                minWidth: '180px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                color: '#15803d',
-                borderColor: '#bbf7d0',
-                background: '#f0fdf4',
-                padding: '10px 14px',
-                fontSize: '0.88rem',
-                textDecoration: 'none',
-                fontWeight: 600,
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <WhatsappLogo size={18} weight="fill" />
-              <span>Enviar no WhatsApp</span>
-            </a>
-
-            <a
-              href={uploadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary"
-              style={{
-                flex: 1,
-                minWidth: '160px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                padding: '10px 14px',
-                fontSize: '0.88rem',
-                textDecoration: 'none',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <ArrowSquareOut size={17} weight="bold" />
-              <span>Testar Página de Upload</span>
-            </a>
           </div>
         </div>
 
-        <div className="modal-footer" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} className="btn-secondary">
-            Fechar
+        <div className="modal-footer">
+          <button type="button" onClick={handleCopiarLink} className="btn-primary">
+            {copiado ? <Check size={16} weight="bold" /> : <LinkSimple size={16} weight="bold" />}
+            <span>{copiado ? 'Link copiado' : 'Copiar link'}</span>
           </button>
         </div>
       </div>

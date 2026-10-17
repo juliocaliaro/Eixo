@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { EnvelopeSimple, X } from '@phosphor-icons/react';
+import { X } from '@phosphor-icons/react';
 import { interpretarEmails, mesclarEmails } from '../utils/emailsCliente';
 
 interface EmailChipsInputProps {
@@ -8,7 +8,7 @@ interface EmailChipsInputProps {
   label?: string;
 }
 
-export const EmailChipsInput: React.FC<EmailChipsInputProps> = ({ value, onChange, label = 'E-mail do cliente (opcional)' }) => {
+export const EmailChipsInput: React.FC<EmailChipsInputProps> = ({ value, onChange, label = 'E-mail do cliente' }) => {
   const [texto, setTexto] = useState('');
   const [erro, setErro] = useState('');
 
@@ -28,13 +28,14 @@ export const EmailChipsInput: React.FC<EmailChipsInputProps> = ({ value, onChang
 
   return (
     <div className="form-group">
-      <label className="form-label">
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <EnvelopeSimple size={18} color="var(--primary-accent)" weight="bold" />
+      <div className="field-head">
+        <label className="form-label" htmlFor="email-cliente-input">
           {label}
-        </span>
-      </label>
+        </label>
+        <span className="field-optional">Opcional</span>
+      </div>
       <input
+        id="email-cliente-input"
         type="text"
         inputMode="email"
         autoCapitalize="none"
@@ -57,29 +58,15 @@ export const EmailChipsInput: React.FC<EmailChipsInputProps> = ({ value, onChang
         onBlur={confirmar}
       />
       {value.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
           {value.map((email) => (
-            <span
-              key={email}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '3px 4px 3px 10px',
-                borderRadius: 999,
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                fontSize: '0.78rem',
-                color: 'var(--text-main)',
-              }}
-            >
+            <span key={email} className="email-chip">
               {email}
               <button
                 type="button"
                 className="btn-icon"
                 aria-label={`Remover ${email}`}
                 onClick={() => onChange(value.filter((e) => e !== email))}
-                style={{ width: 20, height: 20, minWidth: 20, padding: 0 }}
               >
                 <X size={12} weight="bold" />
               </button>
@@ -88,10 +75,10 @@ export const EmailChipsInput: React.FC<EmailChipsInputProps> = ({ value, onChang
         </div>
       )}
       {erro ? (
-        <span style={{ fontSize: '0.74rem', color: 'var(--coral-glow-700)', marginTop: 4, display: 'block', fontWeight: 600 }}>{erro}</span>
+        <span className="field-hint" style={{ color: 'var(--coral-glow-700)', fontWeight: 600 }}>{erro}</span>
       ) : (
-        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-          O cliente acessa a obra entrando com este e-mail.
+        <span className="field-hint">
+          O cliente entra no Eixo com este e-mail.
         </span>
       )}
     </div>

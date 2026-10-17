@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import {
-  X,
-  User,
-  FloppyDisk,
-  CheckCircle,
-} from '@phosphor-icons/react';
+import { X, Check } from '@phosphor-icons/react';
 import { PerfilUsuario } from '../types/obra';
 
 interface ModalConfiguracoesClienteProps {
@@ -20,193 +16,133 @@ interface ModalConfiguracoesClienteProps {
   onSaveProfile: (dados: { nome: string; email: string; empresa?: string }) => void;
 }
 
+/** "Minha conta": nome e empresa. O e-mail é o do acesso (Supabase Auth) e só aparece para leitura. */
 export const ModalConfiguracoesCliente: React.FC<ModalConfiguracoesClienteProps> = ({
   isOpen,
   onClose,
+  perfilAtivo,
   userName,
   userEmail,
   userEmpresa = '',
   onSaveProfile,
 }) => {
   const [nome, setNome] = useState(userName);
-  const [email, setEmail] = useState(userEmail);
   const [empresa, setEmpresa] = useState(userEmpresa);
-  const [feedback, setFeedback] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const fecharTimer = useRef<number | null>(null);
 
   useEffect(() => {
     setNome(userName);
-    setEmail(userEmail);
     setEmpresa(userEmpresa);
-  }, [userName, userEmail, userEmpresa, isOpen]);
+    setSalvo(false);
+  }, [userName, userEmpresa, isOpen]);
+
+  useEffect(
+    () => () => {
+      if (fecharTimer.current) window.clearTimeout(fecharTimer.current);
+    },
+    []
+  );
 
   useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
+  const mostraEmpresa = perfilAtivo === 'construtor';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (salvo) return;
     onSaveProfile({
       nome: nome.trim(),
-      email: email.trim(),
-      empresa: empresa.trim(),
+      email: userEmail,
+      // O cliente não vê o campo: preserva o valor gravado em vez de apagá-lo.
+      empresa: mostraEmpresa ? empresa.trim() : userEmpresa,
     });
-    setFeedback(true);
-    setTimeout(() => {
-      setFeedback(false);
-      onClose();
-    }, 1200);
+    setSalvo(true);
+    fecharTimer.current = window.setTimeout(onClose, 900);
   };
 
-  return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Configurações da conta">
+  return createPortal(
+    <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal-card"
-        style={{ maxWidth: 460, width: '100%' }}
+        className="modal-card obra-sheet"
+        style={{ maxWidth: 460 }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="conta-title"
       >
-        {/* Header */}
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--primary-accent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <User size={20} weight="bold" />
-            </div>
-            <div>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                Configurações da conta
-              </h2>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Seus dados de identificação
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn-icon"
-            style={{ width: 36, height: 36 }}
-            title="Fechar (Esc)"
-          >
+          <h2 className="modal-title" id="conta-title">
+            Minha conta
+          </h2>
+          <button type="button" onClick={onClose} className="btn-icon" aria-label="Fechar">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Nome */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
-              Nome Completo
-            </label>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Digite seu nome"
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '9px 12px',
-                fontSize: '0.90rem',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-main)',
-                background: '#ffffff',
-              }}
-            />
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            <div className="form-group">
+              <label className="form-label" htmlFor="conta-nome">
+                Nome
+              </label>
+              <input
+                id="conta-nome"
+                type="text"
+                className="form-input"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                autoComplete="name"
+              />
+            </div>
+
+            {mostraEmpresa && (
+              <div className="form-group">
+                <div className="field-head">
+                  <label className="form-label" htmlFor="conta-empresa">
+                    Empresa
+                  </label>
+                  <span className="field-optional">Opcional</span>
+                </div>
+                <input
+                  id="conta-empresa"
+                  type="text"
+                  className="form-input"
+                  value={empresa}
+                  onChange={(e) => setEmpresa(e.target.value)}
+                  autoComplete="organization"
+                />
+              </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="conta-email">
+                E-mail de acesso
+              </label>
+              <input id="conta-email" type="email" className="form-input" value={userEmail} readOnly disabled />
+            </div>
           </div>
 
-          {/* E-mail */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
-              E-mail de Contato
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seuemail@exemplo.com"
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '9px 12px',
-                fontSize: '0.90rem',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-main)',
-                background: '#ffffff',
-              }}
-            />
-          </div>
-
-          {/* Empresa / Construtora */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
-              Empresa / Construtora
-            </label>
-            <input
-              type="text"
-              value={empresa}
-              onChange={(e) => setEmpresa(e.target.value)}
-              placeholder="Nome da empresa ou escritório"
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '9px 12px',
-                fontSize: '0.90rem',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-sm)',
-                color: 'var(--text-main)',
-                background: '#ffffff',
-              }}
-            />
-          </div>
-
-          {/* Footer Actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-secondary"
-              style={{ padding: '9px 16px', fontSize: '0.86rem' }}
-            >
+          <div className="modal-footer">
+            <button type="button" onClick={onClose} className="btn-secondary sheet-cancel">
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              style={{
-                padding: '9px 18px',
-                fontSize: '0.86rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <FloppyDisk size={17} weight="bold" />
-              <span>Salvar Configurações</span>
+            <button type="submit" className="btn-primary" disabled={salvo}>
+              {salvo ? (
+                <>
+                  <Check size={16} weight="bold" />
+                  <span>Salvo</span>
+                </>
+              ) : (
+                <span>Salvar</span>
+              )}
             </button>
           </div>
-
-          {feedback && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-success, #2e7d32)', fontSize: '0.80rem', justifyContent: 'center' }}>
-              <CheckCircle size={16} weight="fill" />
-              <span>Configurações salvas com sucesso!</span>
-            </div>
-          )}
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

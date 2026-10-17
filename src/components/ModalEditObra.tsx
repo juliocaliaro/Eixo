@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useEscapeKey } from '../hooks/useEscapeKey';
-import { X, FloppyDisk, BuildingApartment, User, MapPin, WarningCircle, CurrencyDollar, CircleNotch } from '@phosphor-icons/react';
+import { X, WarningCircle, CircleNotch } from '@phosphor-icons/react';
 import { Obra } from '../types/obra';
 import { DatePickerInput } from './DatePickerInput';
-import { EmailChipsInput } from './EmailChipsInput';
-import { emailsDaObra } from '../utils/emailsCliente';
 import { parseMoedaBR, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 
 interface ModalEditObraProps {
@@ -18,8 +16,6 @@ interface ModalEditObraProps {
     dataPrevista: string;
     empresaResponsavel?: string;
     orcamentoInicial?: number;
-    emailsClientes?: string[];
-    clienteEmail?: string;
   }) => void;
 }
 
@@ -34,7 +30,6 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
   const [endereco, setEndereco] = useState('');
   const [orcamentoInicial, setOrcamentoInicial] = useState<string>('');
   const [dataPrevista, setDataPrevista] = useState('');
-  const [emailsClientes, setEmailsClientes] = useState<string[]>([]);
   const [erro, setErro] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,7 +40,6 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
       setEndereco(obra.endereco);
       setDataPrevista(obra.dataPrevista || '');
       setOrcamentoInicial(obra.orcamentoInicial !== undefined ? mascararMoedaInput(obra.orcamentoInicial) : '');
-      setEmailsClientes(emailsDaObra(obra));
       setErro('');
     }
   }, [obra, isOpen]);
@@ -84,8 +78,6 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
         endereco: endereco.trim() || 'Endereço não informado',
         dataPrevista: dataPrevista || obra.dataPrevista,
         orcamentoInicial: valorNumerico,
-        emailsClientes: emailsClientes.length ? emailsClientes : undefined,
-        clienteEmail: emailsClientes[0],
       });
     } finally {
       setIsSubmitting(false);
@@ -94,54 +86,37 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-card obra-sheet"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="editar-obra-title"
+      >
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'var(--dark-coffee-100)', color: 'var(--dark-coffee-800)', padding: 8, borderRadius: 10 }}>
-              <BuildingApartment size={24} weight="fill" />
-            </div>
-            <div>
-              <h2 className="modal-title">Editar Dados da Obra</h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Atualize as informações principais da obra
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="btn-icon" title="Fechar">
-            <X size={20} weight="bold" />
+          <h2 className="modal-title" id="editar-obra-title">
+            Editar obra
+          </h2>
+          <button type="button" onClick={onClose} className="btn-icon" aria-label="Fechar" title="Fechar (Esc)">
+            <X size={18} weight="bold" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="modal-body">
             {erro && (
-              <div
-                style={{
-                  background: 'var(--coral-glow-50)',
-                  border: '1.5px solid var(--coral-glow-400)',
-                  borderRadius: 10,
-                  padding: '10px 14px',
-                  color: 'var(--coral-glow-700)',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  marginBottom: 16,
-                }}
-              >
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <WarningCircle size={17} weight="bold" />
-                  <span>{erro}</span>
-                </div>
+              <div className="form-error" role="alert">
+                <WarningCircle size={18} weight="bold" />
+                <span>{erro}</span>
               </div>
             )}
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" />
-                  Nome da Obra *
-                </span>
+              <label className="form-label" htmlFor="editar-obra-nome">
+                Nome da obra
               </label>
               <input
+                id="editar-obra-nome"
                 type="text"
                 className="form-input"
                 value={nome}
@@ -150,13 +125,11 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <User size={18} color="var(--primary-accent)" weight="bold" />
-                  Cliente *
-                </span>
+              <label className="form-label" htmlFor="editar-obra-cliente">
+                Cliente
               </label>
               <input
+                id="editar-obra-cliente"
                 type="text"
                 className="form-input"
                 value={cliente}
@@ -164,16 +137,15 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
               />
             </div>
 
-            <EmailChipsInput value={emailsClientes} onChange={setEmailsClientes} />
-
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <MapPin size={18} color="var(--primary-accent)" weight="bold" />
+              <div className="field-head">
+                <label className="form-label" htmlFor="editar-obra-endereco">
                   Endereço
-                </span>
-              </label>
+                </label>
+                <span className="field-optional">Opcional</span>
+              </div>
               <input
+                id="editar-obra-endereco"
                 type="text"
                 className="form-input"
                 value={endereco}
@@ -182,58 +154,44 @@ export const ModalEditObra: React.FC<ModalEditObraProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <CurrencyDollar size={18} color="var(--primary-accent)" weight="bold" />
-                  Valor Contratado Inicial (R$)
-                </span>
-              </label>
+              <div className="field-head">
+                <label className="form-label" htmlFor="editar-obra-valor">
+                  Valor contratado
+                </label>
+                <span className="field-optional">Opcional</span>
+              </div>
               <input
+                id="editar-obra-valor"
                 type="text"
                 inputMode="numeric"
                 className="form-input"
-                placeholder="0,00"
+                placeholder="R$ 0,00"
                 value={orcamentoInicial}
                 onChange={(e) => setOrcamentoInicial(mascararMoedaInput(e.target.value))}
                 onKeyDown={proibirNaoNumericosMoeda}
               />
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                Base financeira para cálculo automático dos aditivos contratuais aprovados.
-              </span>
             </div>
 
             <DatePickerInput
               value={dataPrevista}
               onChange={(val) => setDataPrevista(val)}
-              label="Data Prevista de Término"
-              helperText="Você pode digitar a data (DD/MM/AAAA) ou escolher pelo calendário."
-              autoScrollOnMobile
+              label="Previsão de término"
+              helperText=""
             />
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary">
+            <button type="button" onClick={onClose} className="btn-secondary sheet-cancel">
               Cancelar
             </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isSubmitting}
-              style={{
-                opacity: isSubmitting ? 0.75 : 1,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <CircleNotch size={18} className="spin-animate" weight="bold" />
-                  <span>Salvando Alterações...</span>
+                  <CircleNotch size={16} className="spin-animate" weight="bold" />
+                  <span>Salvando...</span>
                 </>
               ) : (
-                <>
-                  <FloppyDisk size={18} weight="bold" />
-                  <span>Salvar Alterações</span>
-                </>
+                <span>Salvar</span>
               )}
             </button>
           </div>
