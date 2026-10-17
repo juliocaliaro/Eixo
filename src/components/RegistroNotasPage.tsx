@@ -1,30 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
-  ArrowLeft,
   Receipt,
   Plus,
   Trash,
-  BuildingApartment,
-  User,
-  MapPin,
-  X,
-  ArrowsOut,
-  CalendarBlank,
-  NotePencil,
-  FileText,
   CaretDown,
-  CaretLeft,
-  CaretRight,
+  FileText,
   FilePdf,
-  ArrowSquareOut,
-  DownloadSimple,
+  Funnel,
+  MagnifyingGlassPlus,
 } from '@phosphor-icons/react';
 import { Obra, RegistroNota, PerfilUsuario } from '../types/obra';
 import { ModalRegistroNota, NovaNotaData } from './ModalRegistroNota';
 import { ModalConfirm } from './ModalConfirm';
+import { PageHeader } from './PageHeader';
+import { OverflowMenu } from './OverflowMenu';
+import { EmptyState } from './EmptyState';
 import { generateUUID } from '../utils/uuid';
 import { notasApi } from '../services/api';
 import { isPdfUrl } from '../utils/fileUtils';
+import { GalleryLightbox } from './Lightbox';
+import { formatarDataIsoBR } from '../utils/data';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import '../styles/registros-modelos.css';
 
 interface RegistroNotasPageProps {
   obras: Obra[];
@@ -41,10 +39,18 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
   showToast,
   perfilAtivo = 'construtor',
 }) => {
+  // Cliente acompanha (ver e ampliar); só o construtor cria e exclui notas.
+  const podeEditar = perfilAtivo === 'construtor';
+  const isMobile = useIsMobile();
+
   const [filtroObraId, setFiltroObraId] = useState<string>('todas');
+  const [isFiltroOpen, setIsFiltroOpen] = useState(false);
   const [isModalNotaOpen, setIsModalNotaOpen] = useState(false);
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
-  const [expandedObrasMobile, setExpandedObrasMobile] = useState<Record<string, boolean>>({});
+  const [expandedObras, setExpandedObras] = useState<Record<string, boolean>>({});
+
+  const filtroRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(filtroRef, isFiltroOpen, () => setIsFiltroOpen(false), ['mousedown', 'touchstart']);
 
   // Lightbox de foto com navegação entre imagens
   const [lightboxState, setLightboxState] = useState<{
@@ -52,7 +58,6 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     index: number;
     titulo?: string;
   } | null>(null);
-  const touchLightboxX = React.useRef<number | null>(null);
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -61,48 +66,15 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
     titulo: string;
   } | null>(null);
 
-  // Teclado para navegar entre fotos e fechar lightbox
-  useEffect(() => {
-    if (!lightboxState) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxState(null);
-      if (e.key === 'ArrowLeft') {
-        setLightboxState((prev) =>
-          prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-        );
-      }
-      if (e.key === 'ArrowRight') {
-        setLightboxState((prev) =>
-          prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-        );
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxState]);
-
-  const formatarData = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
-
-  // Filtragem de obras por seleção direta
   const obrasFiltradas = useMemo(() => {
     if (filtroObraId === 'todas') return obras;
     return obras.filter((o) => o.id === filtroObraId);
   }, [obras, filtroObraId]);
 
-  const handleOpenAddNota = (obraId?: string) => {
-    setSelectedObraIdForModal(obraId);
+  const obraFiltroNome = filtroObraId === 'todas' ? 'Todas as obras' : obras.find((o) => o.id === filtroObraId)?.nome ?? 'Todas as obras';
+
+  const handleOpenAddNota = () => {
+    setSelectedObraIdForModal(filtroObraId !== 'todas' ? filtroObraId : undefined);
     setIsModalNotaOpen(true);
   };
 
@@ -119,19 +91,13 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
       criadoEm: new Date().toISOString(),
     };
 
-    const updatedObra: Obra = {
+    onUpdateObra({
       ...obraAlvo,
       notas: [novaNota, ...(obraAlvo.notas || [])],
-    };
-
-    onUpdateObra(updatedObra);
+    });
     setIsModalNotaOpen(false);
 
-    showToast(
-      'Nota Registrada!',
-      `A nota foi anexada com sucesso à obra "${obraAlvo.nome}".`,
-      'success'
-    );
+    showToast('Nota registrada', `A nota foi anexada à obra "${obraAlvo.nome}".`, 'success');
   };
 
   const handleConfirmDelete = () => {
@@ -142,1476 +108,283 @@ export const RegistroNotasPage: React.FC<RegistroNotasPageProps> = ({
 
     const notaAlvo = (obraAlvo.notas || []).find((n) => n.id === notaId);
 
-    const updatedObra: Obra = {
+    onUpdateObra({
       ...obraAlvo,
       notas: (obraAlvo.notas || []).filter((n) => n.id !== notaId),
-    };
-
-    onUpdateObra(updatedObra);
+    });
     setDeleteTarget(null);
 
     // Remove do Supabase no servidor e do Storage
     notasApi.delete(notaId, notaAlvo?.fotos);
 
-    showToast('Nota Removida', 'A nota e seus arquivos foram excluídos com sucesso.', 'info');
+    showToast('Nota removida', 'A nota e seus arquivos foram excluídos.', 'info');
   };
 
-  const toggleMobileObra = (obraId: string) => {
-    setExpandedObrasMobile((prev) => {
-      const currentVal = prev[obraId] !== undefined ? prev[obraId] : (filtroObraId === obraId);
-      return {
-        ...prev,
-        [obraId]: !currentVal,
-      };
-    });
+  const isExpanded = (obraId: string) =>
+    expandedObras[obraId] !== undefined ? expandedObras[obraId] : filtroObraId === obraId;
+
+  const toggleObra = (obraId: string) =>
+    setExpandedObras((prev) => ({ ...prev, [obraId]: !isExpanded(obraId) }));
+
+  const abrirLightbox = (nota: RegistroNota, obra: Obra) => {
+    if (!nota.fotos || nota.fotos.length === 0) return;
+    setLightboxState({ fotos: nota.fotos, index: 0, titulo: `${nota.titulo || 'Nota'} · ${obra.nome}` });
+  };
+
+  const tituloDaNota = (nota: RegistroNota, idx: number) => nota.titulo || `Nota ${idx + 1}`;
+
+  const menuDaNota = (nota: RegistroNota, obra: Obra, idx: number) =>
+    podeEditar ? (
+      <OverflowMenu
+        label={`Ações da nota ${tituloDaNota(nota, idx)}`}
+        items={[
+          {
+            key: 'excluir',
+            label: 'Excluir nota',
+            icon: <Trash size={18} aria-hidden="true" />,
+            danger: true,
+            onSelect: () => setDeleteTarget({ obraId: obra.id, notaId: nota.id, titulo: tituloDaNota(nota, idx) }),
+          },
+        ]}
+      />
+    ) : null;
+
+  const miniatura = (nota: RegistroNota, obra: Obra, idx: number, className: string) => {
+    const primeira = nota.fotos && nota.fotos.length > 0 ? nota.fotos[0] : null;
+    const conteudo = primeira ? (
+      isPdfUrl(primeira) ? (
+        <>
+          <FilePdf size={28} weight="fill" aria-hidden="true" />
+          <span className="rg-pdf-label">PDF</span>
+        </>
+      ) : (
+        <img src={primeira} alt="" loading="lazy" />
+      )
+    ) : (
+      <FileText size={28} aria-hidden="true" />
+    );
+    const extra = nota.fotos && nota.fotos.length > 1 ? <span className="rg-thumb-count">+{nota.fotos.length - 1}</span> : null;
+    if (!primeira) {
+      return (
+        <div className={className} aria-hidden="true">
+          {conteudo}
+        </div>
+      );
+    }
+    return (
+      <button
+        type="button"
+        className={className}
+        onClick={() => abrirLightbox(nota, obra)}
+        aria-label={`Ampliar ${tituloDaNota(nota, idx)}`}
+      >
+        {conteudo}
+        {extra}
+      </button>
+    );
   };
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* ========================================================
-          CABEÇALHO DESKTOP (Inalterado, preservado 100%)
-          ======================================================== */}
-      <div
-        className="registro-notas-header-desktop"
-        style={{
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-          flexWrap: 'wrap',
-          gap: 16,
-        }}
-      >
-        {/* Esquerda: Botão Voltar e Título */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            onClick={onBack}
-            className="btn-secondary"
-            style={{ padding: '8px 14px', fontSize: '0.88rem' }}
-            title="Voltar para a lista de obras"
-          >
-            <ArrowLeft size={16} weight="bold" />
-            <span>Voltar</span>
-          </button>
+    <div className="page rg-page">
+      <PageHeader
+        backLabel="Voltar"
+        onBack={onBack}
+        title={<><span className="rg-title-long">Registro de notas</span><span className="rg-title-short">Notas</span></>}
+        actions={
+          podeEditar ? (
+            <button type="button" className="btn-primary rg-cta" onClick={handleOpenAddNota} aria-label="Registrar nota">
+              <Plus size={18} weight="bold" aria-hidden="true" />
+              <span>
+                Registrar<span className="rg-hide-xs"> nota</span>
+              </span>
+            </button>
+          ) : null
+        }
+      />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 'var(--radius-xs)',
-                background: 'var(--dark-coffee-100)',
-                color: 'var(--dark-coffee-800)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+      {obras.length > 1 && (
+        <div className="toolbar rg-toolbar">
+          <p className="toolbar-lead rg-summary">{obraFiltroNome}</p>
+          <div ref={filtroRef}>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Filtrar por obra"
+              aria-expanded={isFiltroOpen}
+              onClick={() => setIsFiltroOpen((v) => !v)}
             >
-              <Receipt size={20} weight="fill" />
-            </div>
-            <h1
-              style={{
-                fontSize: '1.35rem',
-                fontWeight: 800,
-                color: 'var(--text-main)',
-                margin: 0,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Registro de Notas
-            </h1>
+              <Funnel size={18} aria-hidden="true" />
+              {filtroObraId !== 'todas' && <span className="dot" />}
+            </button>
+            {isFiltroOpen && (
+              <div className="toolbar-popover rg-popover" role="menu">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  className="option"
+                  aria-checked={filtroObraId === 'todas'}
+                  onClick={() => {
+                    setFiltroObraId('todas');
+                    setIsFiltroOpen(false);
+                  }}
+                >
+                  Todas as obras
+                </button>
+                {obras.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="menuitemradio"
+                    className="option"
+                    aria-checked={filtroObraId === o.id}
+                    onClick={() => {
+                      setFiltroObraId(o.id);
+                      setIsFiltroOpen(false);
+                    }}
+                  >
+                    <span className="rg-option-text">{o.nome}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Direita: Campo onde escolhe qual obra quer ver ou acessar + Botão Registrar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BuildingApartment size={18} color="var(--text-muted)" />
-            <select
-              value={filtroObraId}
-              onChange={(e) => setFiltroObraId(e.target.value)}
-              className="form-input"
-              style={{
-                minWidth: '220px',
-                maxWidth: '340px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                padding: '8px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-hairline)',
-                background: '#ffffff',
-                color: 'var(--text-main)',
-                appearance: 'auto',
-              }}
-              title="Selecione a obra que deseja visualizar"
-            >
-              <option value="todas">Todas as Obras ({obras.length})</option>
-              {obras.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nome} {o.cliente ? `• ${o.cliente}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleOpenAddNota(filtroObraId !== 'todas' ? filtroObraId : undefined)}
-            className="btn-primary"
-            style={{ padding: '8px 18px', fontSize: '0.88rem' }}
-          >
-            <Plus size={16} weight="bold" />
-            <span>Registrar Nota</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================
-          CABEÇALHO MOBILE (Exclusivo para <= 768px, Organizado e Intuitivo)
-          ======================================================== */}
-      <div className="registro-notas-header-mobile">
-        {/* Linha 1: Voltar à esquerda e Registrar Nota à direita */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%' }}>
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-secondary"
-            style={{ padding: '7px 12px', fontSize: '0.82rem', gap: 6 }}
-            title="Voltar para a lista de obras"
-          >
-            <ArrowLeft size={15} weight="bold" />
-            <span>Voltar</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleOpenAddNota(filtroObraId !== 'todas' ? filtroObraId : undefined)}
-            className="btn-primary"
-            style={{ padding: '7px 14px', fontSize: '0.82rem', gap: 6 }}
-          >
-            <Plus size={15} weight="bold" />
-            <span>Registrar Nota</span>
-          </button>
-        </div>
-
-        {/* Linha 2: Título com Ícone */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-xs)',
-              background: 'var(--dark-coffee-100)',
-              color: 'var(--dark-coffee-800)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Receipt size={18} weight="fill" />
-          </div>
-          <h1
-            style={{
-              fontSize: '1.20rem',
-              fontWeight: 800,
-              color: 'var(--text-main)',
-              margin: 0,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Registro de Notas
-          </h1>
-        </div>
-
-        {/* Linha 3: Seletor de Obras em Destaque 100% Full-Width */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: '#ffffff',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '8px 12px',
-            boxShadow: 'var(--shadow-subtle)',
-            width: '100%',
-          }}
-        >
-          <BuildingApartment size={18} color="var(--primary-accent)" weight="bold" style={{ flexShrink: 0 }} />
-          <select
-            value={filtroObraId}
-            onChange={(e) => setFiltroObraId(e.target.value)}
-            className="form-input"
-            style={{
-              width: '100%',
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              fontWeight: 600,
-              fontSize: '0.88rem',
-              color: 'var(--text-main)',
-              cursor: 'pointer',
-              padding: 0,
-              appearance: 'auto',
-            }}
-            title="Selecione a obra que deseja visualizar"
-          >
-            <option value="todas">Todas as Obras ({obras.length})</option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.nome} {o.cliente ? `• ${o.cliente}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Lista de Cards por Obra */}
       {obrasFiltradas.length === 0 ? (
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: 'var(--radius-md)',
-            border: '1px dashed var(--border-hairline)',
-            padding: '48px 24px',
-            textAlign: 'center',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <BuildingApartment size={36} weight="light" style={{ margin: '0 auto 12px auto', display: 'block' }} />
-          <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)' }}>
-            Nenhuma obra encontrada.
-          </p>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem' }}>
-            Cadastre uma obra para anexar notas fiscais.
-          </p>
-        </div>
+        <EmptyState icon={Receipt} title="Nenhuma nota registrada." />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="rg-obras">
           {obrasFiltradas.map((obra) => {
             const notasDaObra = obra.notas || [];
             const temNotas = notasDaObra.length > 0;
-            const isExpandedMobile = expandedObrasMobile[obra.id] !== undefined
-              ? expandedObrasMobile[obra.id]
-              : (filtroObraId === obra.id);
+            // Mobile: obra é acordeão (fechada por padrão). Desktop: sempre aberta.
+            const aberta = !isMobile || isExpanded(obra.id);
+            const contagem = temNotas ? `${notasDaObra.length} ${notasDaObra.length === 1 ? 'nota' : 'notas'}` : 'Sem notas';
+            const enderecoValido = obra.endereco && obra.endereco !== 'Endereço não informado';
 
             return (
-              <React.Fragment key={obra.id}>
-                {/* ========================================================
-                    VERSÃO DESKTOP (Inalterada, 100% como está)
-                    ======================================================== */}
-                <div
-                  className="registro-notas-card-desktop"
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-hairline)',
-                    boxShadow: 'var(--shadow-sm)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* Cabeçalho do Card da Obra */}
-                  <div
-                  style={{
-                    padding: '16px 22px',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    background: 'var(--dark-coffee-50)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 'var(--radius-xs)',
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary-accent)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <BuildingApartment size={20} weight="bold" />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <h2
-                        style={{
-                          fontSize: '1.05rem',
-                          fontWeight: 700,
-                          color: 'var(--text-main)',
-                          margin: 0,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {obra.nome}
-                      </h2>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          marginTop: 3,
-                          fontSize: '0.78rem',
-                          color: 'var(--text-muted)',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <User size={13} />
-                          <span>{obra.cliente}</span>
-                        </span>
-                        {obra.endereco && obra.endereco !== 'Endereço não informado' && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <MapPin size={13} />
-                            <span>{obra.endereco}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ações do Card */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenAddNota(obra.id)}
-                      className="btn-secondary"
-                      style={{ padding: '6px 14px', fontSize: '0.82rem', gap: 6 }}
-                    >
-                      <Plus size={14} weight="bold" />
-                      <span>Anexar Nota</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Corpo do Card da Obra: Galeria de Fotos e Imagens */}
-                <div style={{ padding: '20px 22px' }}>
-                  {!temNotas ? (
-                    <div
-                      onClick={() => handleOpenAddNota(obra.id)}
-                      style={{
-                        border: '1.5px dashed var(--border-hairline)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '28px 16px',
-                        textAlign: 'center',
-                        background: '#ffffff',
-                        cursor: 'pointer',
-                        color: 'var(--text-muted)',
-                        transition: 'all 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--primary-accent)';
-                        e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                        e.currentTarget.style.background = '#ffffff';
-                      }}
-                    >
-                      <Receipt size={28} weight="light" style={{ margin: '0 auto 8px auto', display: 'block', color: 'var(--text-muted)' }} />
-                      <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)', display: 'block' }}>
-                        Nenhuma nota fiscal ou comprovante anexado
-                      </span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                        Clique aqui para anexar fotos de notas fiscais ou recibos desta obra
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                      {notasDaObra.map((nota, idx) => (
-                        <div
-                          key={nota.id || idx}
-                          style={{
-                            border: '1px solid var(--border-hairline)',
-                            borderRadius: 'var(--radius-sm)',
-                            background: '#ffffff',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                            transition: 'border-color 0.15s, box-shadow 0.15s',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--dark-coffee-300)';
-                            e.currentTarget.style.boxShadow = '0 3px 8px rgba(0,0,0,0.06)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
-                          }}
-                        >
-                          {/* Imagem de Capa da Nota (sem passar para o lado fora do card) */}
-                          <div
-                            style={{
-                              position: 'relative',
-                              width: '100%',
-                              height: 180,
-                              background: '#f8f5f0',
-                              overflow: 'hidden',
-                              cursor: nota.fotos && nota.fotos.length > 0 ? 'pointer' : 'default',
-                            }}
-                            onClick={() => {
-                              if (nota.fotos && nota.fotos.length > 0) {
-                                setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
-                              }
-                            }}
-                          >
-                            {nota.fotos && nota.fotos.length > 0 ? (
-                              isPdfUrl(nota.fotos[0]) ? (
-                                <div
-                                  style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: '#fff5f5',
-                                    gap: 6,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      width: 46,
-                                      height: 46,
-                                      borderRadius: 10,
-                                      backgroundColor: '#fee2e2',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: '#dc2626',
-                                    }}
-                                  >
-                                    <FilePdf size={28} weight="fill" />
-                                  </div>
-                                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#991b1b' }}>
-                                    Documento PDF
-                                  </span>
-                                </div>
-                              ) : (
-                                <img
-                                  src={nota.fotos[0]}
-                                  alt={nota.titulo || 'Nota fiscal'}
-                                  style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                    display: 'block',
-                                  }}
-                                />
-                              )
-                            ) : (
-                              <div
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'var(--text-muted)',
-                                }}
-                              >
-                                <FileText size={32} />
-                              </div>
-                            )}
-
-                            {/* Badge discreto indicando quantidade quando houver mais de 1 foto */}
-                            {nota.fotos && nota.fotos.length > 1 && (
-                              <span
-                                style={{
-                                  position: 'absolute',
-                                  bottom: 8,
-                                  right: 8,
-                                  background: 'rgba(26, 19, 10, 0.82)',
-                                  color: '#ffffff',
-                                  fontSize: '0.70rem',
-                                  fontWeight: 700,
-                                  padding: '3px 8px',
-                                  borderRadius: 100,
-                                  backdropFilter: 'blur(4px)',
-                                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                                  zIndex: 2,
-                                  pointerEvents: 'none',
-                                }}
-                              >
-                                +{nota.fotos.length - 1} foto{nota.fotos.length - 1 > 1 ? 's' : ''}
-                              </span>
-                            )}
-
-                            {/* Botão de Ampliação */}
-                            {nota.fotos && nota.fotos.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
-                                }}
-                                style={{
-                                  position: 'absolute',
-                                  top: 8,
-                                  left: 8,
-                                  background: 'rgba(26, 19, 10, 0.65)',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: 'var(--radius-xs)',
-                                  width: 28,
-                                  height: 28,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  cursor: 'pointer',
-                                  transition: 'background 0.15s ease',
-                                  zIndex: 2,
-                                }}
-                                title="Visualizar foto ampliada"
-                              >
-                                <ArrowsOut size={14} weight="bold" />
-                              </button>
-                            )}
-
-                            {/* Botão de Excluir Nota */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteTarget({
-                                  obraId: obra.id,
-                                  notaId: nota.id,
-                                  titulo: nota.titulo || `Nota #${idx + 1}`,
-                                });
-                              }}
-                              style={{
-                                position: 'absolute',
-                                top: 8,
-                                right: 8,
-                                background: 'rgba(255, 255, 255, 0.90)',
-                                color: '#b91c1c',
-                                border: '1px solid rgba(185, 28, 28, 0.2)',
-                                borderRadius: 'var(--radius-xs)',
-                                width: 28,
-                                height: 28,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'background 0.15s ease',
-                                zIndex: 2,
-                              }}
-                              title="Excluir nota"
-                            >
-                              <Trash size={14} weight="bold" />
-                            </button>
-                          </div>
-
-                          {/* Detalhes da Nota */}
-                          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                                <strong
-                                  style={{
-                                    fontSize: '0.88rem',
-                                    color: 'var(--text-main)',
-                                    display: 'block',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }}
-                                  title={nota.titulo || `Nota #${idx + 1}`}
-                                >
-                                  {nota.titulo || `Nota #${idx + 1}`}
-                                </strong>
-                              </div>
-
-                              {nota.observacoes && (
-                                <p
-                                  style={{
-                                    margin: '0 0 8px 0',
-                                    fontSize: '0.78rem',
-                                    color: 'var(--text-muted)',
-                                    lineHeight: 1.4,
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 2,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  {nota.observacoes}
-                                </p>
-                              )}
-                            </div>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                fontSize: '0.72rem',
-                                color: 'var(--text-muted)',
-                                borderTop: '1px solid var(--border-subtle)',
-                                paddingTop: 8,
-                                marginTop: 6,
-                              }}
-                            >
-                              <CalendarBlank size={12} />
-                              <span>{formatarData(nota.criadoEm)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-                {/* ========================================================
-                    VERSÃO MOBILE (Card Minimizado / Accordion por Obra)
-                    ======================================================== */}
-                <div className="registro-notas-card-mobile">
-                  {/* Cabeçalho Minimizado (Clickable / Accordion Trigger) */}
+              <section key={obra.id} className="rg-obra">
+                {isMobile ? (
                   <div
                     role="button"
                     tabIndex={0}
-                    className="registro-notas-card-mobile-header"
-                    onClick={() => toggleMobileObra(obra.id)}
+                    className="rg-obra-head rg-obra-head--toggle"
+                    aria-expanded={aberta}
+                    onClick={() => toggleObra(obra.id)}
                     onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        toggleMobileObra(obra.id);
+                        toggleObra(obra.id);
                       }
                     }}
-                    aria-expanded={isExpandedMobile}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          width: 34,
-                          height: 34,
-                          borderRadius: 'var(--radius-xs)',
-                          background: '#ffffff',
-                          border: '1px solid var(--border-hairline)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--primary-accent)',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <BuildingApartment size={18} weight="bold" />
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <h2
-                          style={{
-                            fontSize: '0.95rem',
-                            fontWeight: 700,
-                            color: 'var(--text-main)',
-                            margin: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {obra.nome}
-                        </h2>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                          <User size={12} color="var(--primary-accent)" />
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{obra.cliente}</span>
-                        </div>
-                      </div>
+                    <div className="rg-obra-id">
+                      <h2 className="rg-obra-name">{obra.nome}</h2>
+                      <div className="list-row-sub rg-row-sub">{obra.cliente}</div>
                     </div>
-
-                    {/* Lado Direito: Badge de Notas + Caret */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: 100,
-                          background: temNotas ? 'var(--dark-coffee-100)' : '#f3f4f6',
-                          color: temNotas ? 'var(--dark-coffee-800)' : '#6b7280',
-                          border: `1px solid ${temNotas ? 'var(--dark-coffee-200)' : '#e5e7eb'}`,
-                        }}
-                      >
-                        {temNotas ? `${notasDaObra.length} ${notasDaObra.length === 1 ? 'nota' : 'notas'}` : 'Sem notas'}
-                      </span>
-
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 26,
-                          height: 26,
-                          borderRadius: '50%',
-                          background: isExpandedMobile ? 'var(--dark-coffee-100)' : 'transparent',
-                          color: 'var(--text-main)',
-                          flexShrink: 0,
-                          transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease',
-                          transform: isExpandedMobile ? 'rotate(180deg)' : 'rotate(0deg)',
-                        }}
-                      >
-                        <CaretDown size={15} weight="bold" />
-                      </div>
-                    </div>
+                    <span className={`badge ${temNotas ? '' : 'badge--neutral'}`}>{contagem}</span>
+                    <CaretDown size={18} weight="bold" className={`rg-caret${aberta ? ' is-open' : ''}`} aria-hidden="true" />
                   </div>
-
-                  {/* Conteúdo Expandido no Mobile */}
-                  {isExpandedMobile && (
-                    <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border-hairline)' }}>
-                      {/* Barra superior de ações e endereço no mobile */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                          marginBottom: 14,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        {obra.endereco && obra.endereco !== 'Endereço não informado' ? (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                            <MapPin size={13} color="var(--primary-accent)" />
-                            <span style={{ maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {obra.endereco}
-                            </span>
-                          </div>
-                        ) : <div />}
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAddNota(obra.id)}
-                          className="btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '0.78rem', gap: 6, marginLeft: 'auto' }}
-                        >
-                          <Plus size={14} weight="bold" />
-                          <span>Anexar Nota</span>
-                        </button>
+                ) : (
+                  <div className="rg-obra-head">
+                    <div className="rg-obra-id">
+                      <h2 className="rg-obra-name">{obra.nome}</h2>
+                      <div className="list-row-sub rg-row-sub">
+                        {[obra.cliente, enderecoValido ? obra.endereco : null].filter(Boolean).join(' · ')}
                       </div>
+                    </div>
+                    <span className={`badge ${temNotas ? '' : 'badge--neutral'}`}>{contagem}</span>
+                  </div>
+                )}
 
-                      {/* Galeria de Fotos / Empty State no Mobile */}
-                      {!temNotas ? (
-                        <div
-                          onClick={() => handleOpenAddNota(obra.id)}
-                          style={{
-                            border: '1.5px dashed var(--border-hairline)',
-                            borderRadius: 'var(--radius-sm)',
-                            padding: '22px 14px',
-                            textAlign: 'center',
-                            background: '#ffffff',
-                            cursor: 'pointer',
-                            color: 'var(--text-muted)',
-                          }}
-                        >
-                          <Receipt size={24} weight="light" style={{ margin: '0 auto 6px auto', display: 'block', color: 'var(--text-muted)' }} />
-                          <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-main)', display: 'block' }}>
-                            Nenhuma nota fiscal ou recibo anexado
-                          </span>
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 2, display: 'block' }}>
-                            Toque aqui para anexar a primeira nota
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {notasDaObra.map((nota, idx) => (
-                            <div
-                              key={nota.id || idx}
-                              style={{
-                                border: '1px solid var(--border-hairline)',
-                                borderRadius: 'var(--radius-sm)',
-                                background: '#ffffff',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                              }}
-                            >
-                              {/* Imagem de Capa da Nota (sem passar para o lado fora do card) */}
-                              <div
-                                style={{
-                                  position: 'relative',
-                                  width: '100%',
-                                  height: 160,
-                                  background: '#f8f5f0',
-                                  overflow: 'hidden',
-                                  cursor: nota.fotos && nota.fotos.length > 0 ? 'pointer' : 'default',
-                                }}
-                                onClick={() => {
-                                  if (nota.fotos && nota.fotos.length > 0) {
-                                    setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
-                                  }
-                                }}
-                              >
-                                {nota.fotos && nota.fotos.length > 0 ? (
-                                  isPdfUrl(nota.fotos[0]) ? (
-                                    <div
-                                      style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        backgroundColor: '#fff5f5',
-                                        gap: 6,
-                                      }}
-                                    >
-                                      <div
-                                        style={{
-                                          width: 44,
-                                          height: 44,
-                                          borderRadius: 10,
-                                          backgroundColor: '#fee2e2',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          color: '#dc2626',
-                                        }}
-                                      >
-                                        <FilePdf size={26} weight="fill" />
-                                      </div>
-                                      <span style={{ fontSize: '0.76rem', fontWeight: 700, color: '#991b1b' }}>
-                                        Documento PDF
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <img
-                                      src={nota.fotos[0]}
-                                      alt={nota.titulo || 'Nota fiscal'}
-                                      style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover',
-                                        display: 'block',
-                                      }}
-                                    />
-                                  )
-                                ) : (
-                                  <div
-                                    style={{
-                                      width: '100%',
-                                      height: '100%',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: 'var(--text-muted)',
-                                    }}
-                                  >
-                                    <FileText size={28} />
-                                  </div>
-                                )}
+                {aberta && (
+                  <div className="rg-obra-body">
+                    {isMobile && enderecoValido && <p className="rg-obra-address">{obra.endereco}</p>}
 
-                                {/* Badge discreto indicando quantidade de fotos */}
-                                {nota.fotos && nota.fotos.length > 1 && (
-                                  <span
-                                    style={{
-                                      position: 'absolute',
-                                      bottom: 8,
-                                      right: 8,
-                                      background: 'rgba(26, 19, 10, 0.82)',
-                                      color: '#ffffff',
-                                      fontSize: '0.70rem',
-                                      fontWeight: 700,
-                                      padding: '3px 8px',
-                                      borderRadius: 100,
-                                      backdropFilter: 'blur(4px)',
-                                      boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                                      zIndex: 2,
-                                      pointerEvents: 'none',
-                                    }}
-                                  >
-                                    +{nota.fotos.length - 1} foto{nota.fotos.length - 1 > 1 ? 's' : ''}
-                                  </span>
-                                )}
-
-                                {/* Botão de Ampliação */}
-                                {nota.fotos && nota.fotos.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setLightboxState({ fotos: nota.fotos, index: 0, titulo: nota.titulo });
-                                    }}
-                                    style={{
-                                      position: 'absolute',
-                                      top: 8,
-                                      left: 8,
-                                      background: 'rgba(26, 19, 10, 0.65)',
-                                      color: '#ffffff',
-                                      border: 'none',
-                                      borderRadius: 'var(--radius-xs)',
-                                      width: 28,
-                                      height: 28,
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      cursor: 'pointer',
-                                      zIndex: 2,
-                                    }}
-                                    title="Visualizar foto ampliada"
-                                  >
-                                    <ArrowsOut size={14} weight="bold" />
-                                  </button>
-                                )}
-
+                    {!temNotas ? (
+                      <EmptyState icon={Receipt} className="empty-state--nested" title="Nenhuma nota registrada." />
+                    ) : isMobile ? (
+                      <ul className="rg-list">
+                        {notasDaObra.map((nota, idx) => (
+                          <li key={nota.id || idx} className="list-row rg-row">
+                            {miniatura(nota, obra, idx, 'rg-thumb rg-thumb--lg')}
+                            <div className="list-row-main">
+                              <div className="list-row-title rg-row-name">{tituloDaNota(nota, idx)}</div>
+                              <div className="list-row-sub">{formatarDataIsoBR(nota.criadoEm)}</div>
+                              {nota.observacoes && <div className="list-row-sub rg-row-sub">{nota.observacoes}</div>}
+                            </div>
+                            {podeEditar && <div className="list-row-end">{menuDaNota(nota, obra, idx)}</div>}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <ul className="rg-notas-grid">
+                        {notasDaObra.map((nota, idx) => (
+                          <li key={nota.id || idx} className="rg-nota-card">
+                            {miniatura(nota, obra, idx, 'rg-nota-cover')}
+                            <div className="rg-nota-info">
+                              <div className="rg-nota-text">
+                                <strong className="rg-row-name" title={tituloDaNota(nota, idx)}>
+                                  {tituloDaNota(nota, idx)}
+                                </strong>
+                                <span className="list-row-sub">{formatarDataIsoBR(nota.criadoEm)}</span>
+                                {nota.observacoes && <span className="list-row-sub rg-clamp-2">{nota.observacoes}</span>}
+                              </div>
+                              {nota.fotos && nota.fotos.length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteTarget({
-                                      obraId: obra.id,
-                                      notaId: nota.id,
-                                      titulo: nota.titulo || `Nota #${idx + 1}`,
-                                    });
-                                  }}
-                                  style={{
-                                    position: 'absolute',
-                                    top: 8,
-                                    right: 8,
-                                    background: 'rgba(255, 255, 255, 0.90)',
-                                    color: '#b91c1c',
-                                    border: '1px solid rgba(185, 28, 28, 0.2)',
-                                    borderRadius: 'var(--radius-xs)',
-                                    width: 28,
-                                    height: 28,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    zIndex: 2,
-                                  }}
-                                  title="Excluir nota"
+                                  className="btn-icon rg-zoom-btn"
+                                  onClick={() => abrirLightbox(nota, obra)}
+                                  aria-label={`Ampliar ${tituloDaNota(nota, idx)}`}
                                 >
-                                  <Trash size={14} />
+                                  <MagnifyingGlassPlus size={18} aria-hidden="true" />
                                 </button>
-                              </div>
-
-                              {/* Metadados da Nota */}
-                              <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                                  <div style={{ minWidth: 0, flex: 1 }}>
-                                    <strong
-                                      style={{
-                                        fontSize: '0.88rem',
-                                        color: 'var(--text-main)',
-                                        display: 'block',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                      }}
-                                    >
-                                      {nota.titulo || 'Nota Fiscal / Cupom'}
-                                    </strong>
-                                    {nota.criadoEm && (
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                        <CalendarBlank size={12} />
-                                        <span>{formatarData(nota.criadoEm)}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {nota.observacoes && (
-                                  <div
-                                    style={{
-                                      fontSize: '0.76rem',
-                                      color: 'var(--text-muted)',
-                                      background: 'var(--dark-coffee-50)',
-                                      padding: '6px 8px',
-                                      borderRadius: 'var(--radius-xs)',
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: 5,
-                                      lineHeight: 1.35,
-                                    }}
-                                  >
-                                    <NotePencil size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-                                    <span>{nota.observacoes}</span>
-                                  </div>
-                                )}
-                              </div>
+                              )}
+                              {menuDaNota(nota, obra, idx)}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </React.Fragment>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </section>
             );
           })}
         </div>
       )}
 
-      {/* Modal de Registro de Notas */}
-      <ModalRegistroNota
-        isOpen={isModalNotaOpen}
-        onClose={() => setIsModalNotaOpen(false)}
-        obras={obras}
-        preselectedObraId={selectedObraIdForModal}
-        onSave={handleSaveNota}
-      />
+      {podeEditar && (
+        <ModalRegistroNota
+          isOpen={isModalNotaOpen}
+          onClose={() => setIsModalNotaOpen(false)}
+          obras={obras}
+          preselectedObraId={selectedObraIdForModal}
+          onSave={handleSaveNota}
+        />
+      )}
 
-      {/* Modal de Confirmação de Exclusão */}
       <ModalConfirm
         isOpen={Boolean(deleteTarget)}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
-        title="Excluir Nota Fiscal"
-        message={`Deseja realmente remover a nota "${deleteTarget?.titulo || 'selecionada'}"? As fotos anexadas a ela serão excluídas desta obra.`}
-        confirmText="Excluir Nota"
+        title="Excluir nota"
+        message={`Deseja remover a nota "${deleteTarget?.titulo || 'selecionada'}"? Os arquivos anexados a ela serão excluídos.`}
+        confirmText="Excluir nota"
         variant="danger"
       />
 
-      {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
       {lightboxState && (
-        <div
-          onClick={() => setLightboxState(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.94)',
-            zIndex: 10000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            touchAction: 'pan-y',
-            userSelect: 'none',
-          }}
-        >
-          {/* Cabeçalho do Lightbox */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 960,
-              color: '#ffffff',
-              padding: '6px 4px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: '#ffffff',
-                }}
-              >
-                {lightboxState.titulo || 'Visualização da Nota'}
-              </span>
-              {lightboxState.fotos.length > 1 && (
-                <span
-                  style={{
-                    fontSize: '0.76rem',
-                    background: 'rgba(255, 255, 255, 0.22)',
-                    padding: '2px 9px',
-                    borderRadius: 100,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    color: '#ffffff',
-                  }}
-                >
-                  {lightboxState.index + 1} / {lightboxState.fotos.length}
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setLightboxState(null)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                color: '#ffffff',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-              title="Fechar (Escape)"
-            >
-              <X size={20} weight="bold" />
-            </button>
-          </div>
-
-          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: 960,
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 0,
-              touchAction: 'pan-y',
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              touchLightboxX.current = e.touches[0].clientX;
-            }}
-            onTouchEnd={(e) => {
-              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
-              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
-              touchLightboxX.current = null;
-              if (diff > 35) {
-                // Arrasto para a esquerda -> próxima foto
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                );
-              } else if (diff < -35) {
-                // Arrasto para a direita -> foto anterior
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                );
-              }
-            }}
-          >
-            {/* Seta Lateral Esquerda */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  left: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Foto anterior"
-                aria-label="Foto anterior"
-              >
-                <CaretLeft size={24} weight="bold" />
-              </button>
-            )}
-
-            {isPdfUrl(lightboxState.fotos[lightboxState.index]) ? (
-              <div
-                style={{
-                  width: '92vw',
-                  maxWidth: 860,
-                  height: '75vh',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <FilePdf size={22} weight="fill" color="#dc2626" />
-                    <span
-                      style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {lightboxState.titulo || 'Documento PDF'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        color: 'var(--text-main)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <ArrowSquareOut size={14} weight="bold" />
-                      <span>Abrir</span>
-                    </a>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      download
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: 'var(--primary-accent)',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <DownloadSimple size={14} weight="bold" />
-                      <span>Baixar</span>
-                    </a>
-                  </div>
-                </div>
-
-                <iframe
-                  src={lightboxState.fotos[lightboxState.index]}
-                  title="Documento PDF"
-                  style={{
-                    width: '100%',
-                    flex: 1,
-                    border: 'none',
-                    backgroundColor: '#525659',
-                  }}
-                />
-              </div>
-            ) : (
-              <img
-                src={lightboxState.fotos[lightboxState.index]}
-                alt=""
-                draggable={false}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  borderRadius: '6px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                  userSelect: 'none',
-                }}
-              />
-            )}
-
-            {/* Seta Lateral Direita */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Próxima foto"
-                aria-label="Próxima foto"
-              >
-                <CaretRight size={24} weight="bold" />
-              </button>
-            )}
-          </div>
-
-          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
-          {lightboxState.fotos.length > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                maxWidth: 960,
-                padding: '6px 0',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <CaretLeft size={16} weight="bold" />
-                  <span>Anterior</span>
-                </button>
-
-                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
-                  {lightboxState.index + 1} de {lightboxState.fotos.length}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>Próxima</span>
-                  <CaretRight size={16} weight="bold" />
-                </button>
-              </div>
-
-              {/* Faixa de Miniaturas */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  padding: '4px',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {lightboxState.fotos.map((fUrl, fIdx) => (
-                  isPdfUrl(fUrl) ? (
-                    <div
-                      key={fIdx}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        backgroundColor: '#fff5f5',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.65,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        color: '#dc2626',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                      title="Documento PDF"
-                    >
-                      <FilePdf size={20} weight="fill" />
-                      <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#991b1b', lineHeight: 1 }}>PDF</span>
-                    </div>
-                  ) : (
-                    <img
-                      key={fIdx}
-                      src={fUrl}
-                      alt=""
-                      draggable={false}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.55,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                    />
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <GalleryLightbox
+          fotos={lightboxState.fotos}
+          index={lightboxState.index}
+          titulo={lightboxState.titulo}
+          tituloPadrao="Visualização da nota"
+          onIndexChange={(i) => setLightboxState((prev) => (prev ? { ...prev, index: i } : null))}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );

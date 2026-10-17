@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { CalendarBlank, CaretLeft, CaretRight, X } from '@phosphor-icons/react';
 
 interface DatePickerInputProps {
   value: string; // Formato YYYY-MM-DD
@@ -8,6 +11,7 @@ interface DatePickerInputProps {
   label?: string;
   helperText?: string;
   required?: boolean;
+  /** Mantido por compatibilidade: no mobile o calendário agora é uma sheet e dispensa rolagem automática. */
   autoScrollOnMobile?: boolean;
 }
 
@@ -65,32 +69,102 @@ const NOMES_MESES = [
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+/** Altura aproximada do popover do calendário no desktop (para decidir se abre para cima ou para baixo). */
+const ALTURA_POPOVER = 360;
+
+interface CalendarPanelProps {
+  viewDate: Date;
+  value: string;
+  minDate?: string;
+  onPrev: (e: React.MouseEvent) => void;
+  onNext: (e: React.MouseEvent) => void;
+  onSelect: (iso: string) => void;
+  onAddDays: (days: number) => void;
+}
+
+/** Mês, grade de dias e atalhos: o mesmo conteúdo no popover (desktop) e na sheet (mobile). */
+const CalendarPanel: React.FC<CalendarPanelProps> = ({ viewDate, value, minDate, onPrev, onNext, onSelect, onAddDays }) => {
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const totalDays = new Date(year, month + 1, 0).getDate();
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  return (
+    <>
+      <div className="cal-nav">
+        <button type="button" className="cal-nav-btn" onClick={onPrev} aria-label="Mês anterior">
+          <CaretLeft size={16} weight="bold" />
+        </button>
+        <span className="cal-month" aria-live="polite">
+          {NOMES_MESES[month]} {year}
+        </span>
+        <button type="button" className="cal-nav-btn" onClick={onNext} aria-label="Próximo mês">
+          <CaretRight size={16} weight="bold" />
+        </button>
+      </div>
+
+      <div className="cal-grid" role="grid" aria-label={`${NOMES_MESES[month]} ${year}`}>
+        {DIAS_SEMANA.map((d) => (
+          <span key={d} className="cal-dow" role="columnheader">
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+          <span key={`blank-${i}`} aria-hidden="true" />
+        ))}
+        {Array.from({ length: totalDays }, (_, i) => {
+          const dia = i + 1;
+          const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+          const desabilitado = minDate ? iso < minDate : false;
+          const classe = ['cal-day', value === iso ? 'is-selected' : '', todayIso === iso ? 'is-today' : '']
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <button
+              key={iso}
+              type="button"
+              className={classe}
+              disabled={desabilitado}
+              aria-pressed={value === iso}
+              aria-label={isoToBr(iso)}
+              onClick={() => onSelect(iso)}
+            >
+              {dia}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="cal-shortcuts">
+        {[30, 60, 90].map((dias) => (
+          <button key={dias} type="button" className="cal-chip" onClick={() => onAddDays(dias)}>
+            +{dias} dias
+          </button>
+        ))}
+      </div>
+    </>
+  );
+};
+
 export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   value,
   onChange,
   minDate,
-  label = 'Data Prevista de Conclusão',
+  label = 'Data prevista de conclusão',
   helperText = 'Informe a previsão de conclusão da obra (DD/MM/AAAA).',
   required = false,
-  autoScrollOnMobile = true,
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [textoBr, setTextoBr] = useState<string>(() => isoToBr(value));
   const [avisoErro, setAvisoErro] = useState<string>('');
+  const [direcao, setDirecao] = useState<'up' | 'down'>('up');
 
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
-  });
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Mês e ano em visualização no calendário customizado
+  // Mês e ano em visualização no calendário
   const [viewDate, setViewDate] = useState<Date>(() => {
     if (value) {
       const parts = value.split('-');
@@ -104,25 +178,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputWrapRef = useRef<HTMLDivElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
-  const calendarPopoverRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll exclusivo para mobile ao abrir o pop-up
-  useEffect(() => {
-    if (isCalendarOpen && autoScrollOnMobile && isMobile) {
-      const timer = setTimeout(() => {
-        if (calendarPopoverRef.current) {
-          calendarPopoverRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'nearest',
-          });
-
-        }
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isCalendarOpen, autoScrollOnMobile, isMobile]);
 
   // Sincronizar texto quando o valor externo mudar
   useEffect(() => {
@@ -137,9 +194,20 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   }, [value]);
 
-  // Click outside & Escape key listeners para fechar o pop-up
+  // Desktop: abre para baixo quando há espaço (dentro do corpo do modal ou da janela); senão, para cima.
+  useLayoutEffect(() => {
+    if (!isCalendarOpen || isMobile || !inputWrapRef.current) return;
+    const rect = inputWrapRef.current.getBoundingClientRect();
+    const corpo = inputWrapRef.current.closest('.modal-body');
+    const limite = Math.min(corpo ? corpo.getBoundingClientRect().bottom : window.innerHeight, window.innerHeight);
+    const abaixo = limite - rect.bottom;
+    const acima = rect.top - (corpo ? Math.max(corpo.getBoundingClientRect().top, 0) : 0);
+    setDirecao(abaixo >= ALTURA_POPOVER || abaixo >= acima ? 'down' : 'up');
+  }, [isCalendarOpen, isMobile]);
+
+  // Desktop: clique fora fecha o popover. No mobile a sheet tem backdrop próprio.
   useEffect(() => {
-    if (!isCalendarOpen) return;
+    if (!isCalendarOpen || isMobile) return;
 
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -147,24 +215,18 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       }
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation();
-        setIsCalendarOpen(false);
-      }
-    };
-
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [isCalendarOpen]);
+  }, [isCalendarOpen, isMobile]);
 
+  // Escape fecha só o calendário (topo da pilha), sem fechar o modal pai. A entrada na pilha
+  // também trava a rolagem da página enquanto a sheet do mobile estiver aberta.
+  useEscapeKey(() => setIsCalendarOpen(false), isCalendarOpen);
 
   // Manipular digitação manual no input (SEM disparar clique nem abrir picker)
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,11 +256,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
       }
 
       const dataObj = new Date(ano, mes - 1, dia);
-      if (
-        dataObj.getFullYear() !== ano ||
-        dataObj.getMonth() !== mes - 1 ||
-        dataObj.getDate() !== dia
-      ) {
+      if (dataObj.getFullYear() !== ano || dataObj.getMonth() !== mes - 1 || dataObj.getDate() !== dia) {
         setAvisoErro('Data inexistente no calendário.');
         return;
       }
@@ -218,7 +276,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     }
   };
 
-  // Navegação de mês no calendário customizado
+  // Navegação de mês no calendário
   const handlePrevMonth = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -231,7 +289,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
-  // Selecionar dia no calendário customizado
+  // Selecionar dia no calendário
   const handleSelectDate = (iso: string) => {
     if (minDate && iso < minDate) {
       setAvisoErro('A data não pode ser anterior à data mínima permitida.');
@@ -250,115 +308,49 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     const y = base.getFullYear();
     const m = String(base.getMonth() + 1).padStart(2, '0');
     const d = String(base.getDate()).padStart(2, '0');
-    const iso = `${y}-${m}-${d}`;
-    handleSelectDate(iso);
+    handleSelectDate(`${y}-${m}-${d}`);
   };
 
-  // Formatação amigável para exibição
-  const getDataAmigavel = () => {
-    if (!value) return '';
-    try {
-      const [ano, mes, dia] = value.split('-');
-      const dataObj = new Date(parseInt(ano, 10), parseInt(mes, 10) - 1, parseInt(dia, 10));
-      return dataObj.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return isoToBr(value);
-    }
-  };
+  const painel = (
+    <CalendarPanel
+      viewDate={viewDate}
+      value={value}
+      minDate={minDate}
+      onPrev={handlePrevMonth}
+      onNext={handleNextMonth}
+      onSelect={handleSelectDate}
+      onAddDays={handleAddDays}
+    />
+  );
 
-  // Cálculo dos dias para o mês visível
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const totalDays = new Date(year, month + 1, 0).getDate();
-  const firstDayOfWeek = new Date(year, month, 1).getDay();
-
-  // Data atual para marcação de "hoje"
-  const now = new Date();
-  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-
-  const diasDoMes = Array.from({ length: totalDays }, (_, i) => {
-    const dia = i + 1;
-    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-    const isDisabled = minDate ? iso < minDate : false;
-    const isSelected = value === iso;
-    const isToday = todayIso === iso;
-
-    return {
-      dia,
-      iso,
-      isDisabled,
-      isSelected,
-      isToday,
-    };
-  });
+  const inputId = `date-${label.replace(/\W+/g, '-').toLowerCase()}`;
 
   return (
-    <div
-      ref={containerRef}
-      className="date-picker-custom"
-      style={{
-        position: 'relative',
-        marginBottom: 16,
-      }}
-    >
+    <div ref={containerRef} className="date-picker-custom">
+      <label className="form-label" htmlFor={inputId}>
+        {label}
+        {required && <span className="field-optional"> *</span>}
+      </label>
 
-      {/* Rótulo com Data Amigável */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 6,
-        }}
-      >
-        <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <CalendarBlank size={17} color="var(--primary-accent)" weight="bold" />
-            {label}
-            {required && <span style={{ color: 'var(--coral-glow-500)' }}>*</span>}
-          </span>
-        </label>
-
-        {value && !avisoErro && (
-          <span style={{ fontSize: '0.74rem', color: 'var(--primary-accent)', fontWeight: 600 }}>
-            {getDataAmigavel()}
-          </span>
-        )}
-      </div>
-
-      {/* Input de Texto Livre: digitação direta com teclado sem abrir popups no Focus */}
-      <div style={{ position: 'relative' }}>
+      {/* Digitação direta (DD/MM/AAAA) sem abrir popups no foco */}
+      <div className="date-input-wrap" ref={inputWrapRef}>
         <input
+          id={inputId}
           ref={textInputRef}
           type="text"
           inputMode="numeric"
           pattern="[0-9/]*"
           maxLength={10}
           placeholder="DD/MM/AAAA"
-          className="form-input"
+          className={`form-input${textoBr ? ' has-value' : ''}${avisoErro ? ' is-invalid' : ''}`}
           value={textoBr}
           onChange={handleTextChange}
-          /* 
-             IMPORTANTE: Nenhum evento de click ou showPicker no focus do input!
-             O usuário pode focar, digitar, apagar e navegar livremente sem popups intrusivos.
-          */
-          style={{
-            paddingRight: 42,
-            fontSize: '15px',
-            fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '0.5px',
-            fontWeight: textoBr ? 600 : 400,
-            borderColor: avisoErro ? '#dc2626' : isCalendarOpen ? 'var(--primary-accent)' : undefined,
-          }}
+          aria-invalid={!!avisoErro}
         />
 
-        {/* Botão de Disparo do Calendário Customizado */}
         <button
           type="button"
+          className="date-trigger"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -367,290 +359,59 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
           title={isCalendarOpen ? 'Fechar calendário' : 'Abrir calendário'}
           aria-label="Abrir calendário"
           aria-expanded={isCalendarOpen}
-          style={{
-            position: 'absolute',
-            right: 6,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            background: isCalendarOpen ? 'var(--coral-glow-50)' : 'transparent',
-            border: 'none',
-            color: isCalendarOpen ? 'var(--primary-accent)' : 'var(--dark-coffee-700)',
-            padding: 6,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 'var(--radius-xs)',
-            transition: 'all 0.15s ease',
-          }}
         >
-          <CalendarBlank size={19} weight={isCalendarOpen ? 'fill' : 'bold'} />
+          <CalendarBlank size={20} weight={isCalendarOpen ? 'fill' : 'bold'} />
         </button>
 
-        {/* Pop-up do Calendário Customizado (Aberto para Cima) */}
-        {isCalendarOpen && (
-          <div
-            ref={calendarPopoverRef}
-            role="dialog"
-            aria-label="Calendário"
-            style={{
-              position: 'absolute',
-              bottom: 'calc(100% + 6px)',
-              left: 0,
-              zIndex: 1050,
-              width: '296px',
-              maxWidth: '100%',
-              background: '#ffffff',
-              border: '1px solid var(--border-hairline)',
-              borderRadius: 'var(--radius-md, 10px)',
-              boxShadow: '0 -10px 28px -4px rgba(26, 19, 10, 0.16), 0 -4px 12px -2px rgba(26, 19, 10, 0.08)',
-              padding: '14px',
-              animation: 'fadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          >
-
-          {/* Header do Calendário: Navegação de Mês */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 10,
-            }}
-          >
-            <button
-              type="button"
-              onClick={handlePrevMonth}
-              style={{
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-xs)',
-                padding: '5px 7px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.12s ease',
-              }}
-              title="Mês anterior"
-            >
-              <CaretLeft size={14} weight="bold" />
-            </button>
-
-            <span
-              style={{
-                fontSize: '0.86rem',
-                fontWeight: 700,
-                color: 'var(--text-main)',
-                textTransform: 'capitalize',
-              }}
-            >
-              {NOMES_MESES[month]} {year}
-            </span>
-
-            <button
-              type="button"
-              onClick={handleNextMonth}
-              style={{
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                borderRadius: 'var(--radius-xs)',
-                padding: '5px 7px',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.12s ease',
-              }}
-              title="Próximo mês"
-            >
-              <CaretRight size={14} weight="bold" />
-            </button>
+        {/* Desktop: popover ancorado no campo */}
+        {isCalendarOpen && !isMobile && (
+          <div className="cal-popover" data-dir={direcao} role="dialog" aria-label="Calendário">
+            {painel}
           </div>
-
-          {/* Cabeçalho dos Dias da Semana */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: 2,
-              marginBottom: 6,
-              textAlign: 'center',
-            }}
-          >
-            {DIAS_SEMANA.map((diaSem) => (
-              <span
-                key={diaSem}
-                style={{
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  color: 'var(--text-muted)',
-                  padding: '2px 0',
-                }}
-              >
-                {diaSem}
-              </span>
-            ))}
-          </div>
-
-          {/* Grid dos Dias do Mês */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: 2,
-            }}
-          >
-            {/* Espaços em branco para os dias antes do início do mês */}
-            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-              <div key={`blank-${i}`} style={{ height: 32 }} />
-            ))}
-
-            {/* Células de Dias */}
-            {diasDoMes.map(({ dia, iso, isDisabled, isSelected, isToday }) => (
-              <button
-                key={iso}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => handleSelectDate(iso)}
-                style={{
-                  height: 32,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.78rem',
-                  fontWeight: isSelected ? 700 : isToday ? 700 : 500,
-                  borderRadius: 'var(--radius-xs)',
-                  border: isSelected
-                    ? 'none'
-                    : isToday
-                      ? '1px dashed var(--primary-accent)'
-                      : 'none',
-                  background: isSelected
-                    ? 'var(--primary-accent)'
-                    : 'transparent',
-                  color: isSelected
-                    ? '#ffffff'
-                    : isDisabled
-                      ? 'var(--mauve-bark-300)'
-                      : isToday
-                        ? 'var(--primary-accent)'
-                        : 'var(--pitch-black-950)',
-                  cursor: isDisabled ? 'not-allowed' : 'pointer',
-                  opacity: isDisabled ? 0.35 : 1,
-                  transition: 'all 0.12s ease',
-                }}
-                title={isDisabled ? 'Data não permitida (anterior à data mínima)' : isoToBr(iso)}
-              >
-                {dia}
-              </button>
-            ))}
-          </div>
-
-          {/* Atalhos Rápidos para Prazos de Obra */}
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 8,
-              borderTop: '1px solid var(--border-hairline)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 4,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => handleAddDays(30)}
-              style={{
-                fontSize: '0.70rem',
-                fontWeight: 600,
-                padding: '3px 7px',
-                borderRadius: 'var(--radius-xs)',
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                color: 'var(--text-body)',
-                cursor: 'pointer',
-              }}
-              title="Prazo de 30 dias a partir de hoje"
-            >
-              +30 dias
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddDays(60)}
-              style={{
-                fontSize: '0.70rem',
-                fontWeight: 600,
-                padding: '3px 7px',
-                borderRadius: 'var(--radius-xs)',
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                color: 'var(--text-body)',
-                cursor: 'pointer',
-              }}
-              title="Prazo de 60 dias a partir de hoje"
-            >
-              +60 dias
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddDays(90)}
-              style={{
-                fontSize: '0.70rem',
-                fontWeight: 600,
-                padding: '3px 7px',
-                borderRadius: 'var(--radius-xs)',
-                background: 'var(--dark-coffee-50)',
-                border: '1px solid var(--border-hairline)',
-                color: 'var(--text-body)',
-                cursor: 'pointer',
-              }}
-              title="Prazo de 90 dias a partir de hoje"
-            >
-              +90 dias
-            </button>
-          </div>
-        </div>
-      )}
+        )}
       </div>
 
-
-      {/* Mensagem de Erro de Validação de Data */}
       {avisoErro && (
-        <div
-          role="alert"
-          style={{
-            fontSize: '0.78rem',
-            color: 'var(--coral-glow-600)',
-            fontWeight: 600,
-            marginTop: 5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-          }}
-        >
-          <span>•</span>
-          <span>{avisoErro}</span>
+        <div role="alert" className="date-error">
+          {avisoErro}
         </div>
       )}
 
-      {/* Helper text padrão */}
-      {!avisoErro && helperText && (
-        <span
-          style={{
-            display: 'block',
-            fontSize: '0.76rem',
-            color: 'var(--text-muted)',
-            marginTop: 5,
-            lineHeight: 1.4,
-          }}
-        >
-          {helperText}
-        </span>
-      )}
+      {!avisoErro && helperText && <span className="date-hint">{helperText}</span>}
+
+      {/* Mobile: segunda sheet, sem cobrir os campos do formulário */}
+      {isCalendarOpen &&
+        isMobile &&
+        createPortal(
+          <div
+            className="modal-backdrop"
+            style={{ zIndex: 'var(--z-modal-stacked)' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCalendarOpen(false);
+            }}
+            // Evita que popovers de quem hospeda este campo (ex.: filtro do Diário) tratem o toque como "fora".
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+          >
+            <div
+              className="modal-card date-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-label={label}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2 className="modal-title">{label}</h2>
+                <button type="button" className="btn-icon" onClick={() => setIsCalendarOpen(false)} aria-label="Fechar calendário">
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+              <div className="modal-body">{painel}</div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

@@ -60,7 +60,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 ### 3.3 Compartilhamento e Sincronização
 - Parâmetros de URL sincronizados automaticamente em tempo real (`?obra=ID_DA_OBRA&tab=ABA_ATIVA&perfil=PERFIL`), garantindo que ao atualizar a página (F5) o usuário nunca perca o contexto da obra aberta.
 - Suporte à navegação nativa do navegador (botões Voltar/Avançar via evento `popstate`).
-- Aba dedicada no corpo da obra (**Compartilhar**) com botão de cópia rápida e resumo claro de permissões.
+- Aba dedicada no corpo da obra (**Compartilhar**): contém a lista de e-mails com acesso à obra (adicionar/remover salva na hora; quem está na lista acessa ao cadastrar-se/entrar com o e-mail), mais o botão de cópia do link. Os e-mails podem ser informados já na criação da obra (opcional); depois, só nesta aba (a edição da obra não tem o campo).
 
 ---
 
@@ -125,7 +125,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Toda entidade (Obras, Etapas, Tarefas, Evidências, Decisões, Arquivos, Locações, Perfis de Usuário) é estruturada em tabelas relacionais com chaves estrangeiras, índices e políticas de segurança RLS (Row Level Security).
   - Toda comunicação e sincronização é realizada através de serviços de API tipados (`src/services/api.ts`).
   - Scripts DDL versionados em `supabase/*.sql` para qualquer alteração estrutural no banco de dados.
-  - O `localStorage` atua exclusivamente como cache offline temporário de leitura rápida para resiliência de rede, e nunca como arquitetura principal ou substituto de banco de dados.
+  - O app **não usa `localStorage`/`sessionStorage`**: não há cache local nem modo offline (ADR 0001). O único armazenamento no navegador é o da sessão do próprio `supabase-js`.
 
 ---
 
@@ -138,7 +138,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Customização de serviços padrão dentro de cada etapa (adição rápida, edição inline, exclusão e reordenação).
   - Opção de **Restaurar Padrões de Fábrica** para recuperar os conjuntos originais de *Construção* e *Reforma*.
 - **Sincronização com o Wizard de Etapas**:
-  - O `ModalCreateEtapaWizard` consome dinamicamente os modelos ativos em `localStorage`.
+  - O `ModalCreateEtapaWizard` consome dinamicamente os modelos ativos carregados do banco (`templatesApi`, tabela `modelos_etapas_templates`, por usuário).
   - Quaisquer alterações ou novos modelos criados ficam imediatamente disponíveis para inclusão em qualquer obra.
 
 ---
@@ -201,7 +201,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Emissão e Entrega: **Baixar Relatório** (visualização executiva e impressão nativa A4 / Salvar como PDF via motor do navegador, 100% gratuita).
 - **Vinculação de Empresa/Empreiteiro e Transição para Login**:
   - A propriedade `empresaResponsavel` foi estruturada nativamente na interface `Obra` (`src/types/obra.ts`).
-  - No estágio atual (sem login obrigatório), o sistema utiliza a persistência local (`eixo_empresa_cadastrada`) para preencher e lembrar a empresa que registrou a obra.
+  - O login é obrigatório: a empresa da obra vem do perfil do usuário autenticado (`profiles.empresa`) e é gravada em `obra.empresaResponsavel`.
   - **Diretriz para o Módulo de Login**: Quando o sistema de autenticação for implementado, o nome da empresa ou empreiteiro será populado automaticamente a partir do perfil do usuário logado (`user.organization` / `user.company_name`), garantindo preenchimento 100% automático e eliminando a necessidade de inserção manual.
 
 ---
@@ -339,7 +339,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 19. Autenticação Frontend Mockada & Gerenciamento de Estado de Role
+## 19. Autenticação (Supabase Auth) & Gerenciamento de Estado de Role
 
 - **Tela de Autenticação Completa com Login e Cadastro (`LoginPage.tsx`)**:
   - Interface moderna, segura e minimalista alinhada ao design system do Eixo (paleta terrosa, ícones Phosphor, zero emojis e zero alerts nativos).
@@ -348,9 +348,8 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
       - Seletor de Perfil (`[ Construtor ]` / `[ Cliente ]`).
       - Campo **E-mail** com validação de formato e ícone `<EnvelopeSimple />`.
       - Campo **Senha** com toggle de visibilidade de senha (ícones `<Eye />` e `<EyeSlash />`).
-      - Checkbox padrão **Lembrar de mim neste dispositivo**.
       - Link **Esqueceu a senha?** com modal acessível de envio simulado de link de recuperação e listener de tecla `Escape`.
-      - Botão primário `Entrar como [Perfil]` e atalhos rápidos de demonstração com 1 clique (`Demo Construtor`, `Demo Cliente`).
+      - Botão primário `Entrar como [Perfil]`. Não há atalhos de demonstração nem "Lembrar de mim" (a sessão é gerenciada pelo Supabase Auth).
       - Link de rodapé para alternância direta: *"Ainda não possui uma conta? Cadastre-se gratuitamente"*.
     - **Aba "Criar Conta" (Cadastro / Registro)**:
       - Seletor de Tipo de Conta (`[ Construtor ]` / `[ Cliente ]`).
@@ -363,7 +362,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
       - Botão primário `Criar Conta e Acessar` e badge de segurança criptográfica com `<ShieldCheck />`.
       - Link de rodapé para retorno ao login: *"Já possui uma conta cadastrada? Fazer Login"*.
   - **Persistência de Dados Cadastrais**:
-    - Ao cadastrar-se, o sistema autentica diretamente e armazena os dados locais (`eixo_auth_isLogged = true`, `eixo_auth_role`, `eixo_auth_userName`, `eixo_auth_userEmail`, `eixo_empresa_cadastrada`), integrando-os de imediato ao cabeçalho, perfil do usuário e relatórios emitidos.
+    - Ao cadastrar-se, a conta é criada no Supabase Auth e o perfil em `profiles` (nome, papel e empresa); nada é guardado em `localStorage`. A senha exige 8 caracteres com maiúscula, minúscula, número e símbolo.
 - **Permissões Visuais e Renderização Condicional por Role**:
   - **`Role === 'Construtor'`**:
     - Acesso integral a menus de edição, criação de novas obras e gerenciamento de modelos de etapas (`ConfigTemplatesPage`).
@@ -392,7 +391,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
     - **Aba "Configurar Perfil"**:
       - Seletor de perfil de acesso (`[ Construtor ]` / `[ Cliente ]`) com descrição contextual dos recursos de cada perfil.
       - Campos de dados cadastrais editáveis: Nome Completo / Exibição, E-mail de Contato e Empresa / Construtora.
-      - Botão "Salvar Perfil" com feedback de sucesso em tempo real e persistência em `localStorage`.
+      - Botão "Salvar Perfil" com feedback de sucesso, gravando nome e empresa em `profiles`.
 - **Área de Sessão / Login no Rodapé do Sandwich Menu**:
   - Fixado no rodapé da gaveta com divisor sutil (`border-top: 1px solid var(--border-hairline)`).
   - Exibe avatar dinâmico com ícone temático (`<HardHat />` ou `<User />`), nome do usuário conectado, e-mail da sessão e badge de perfil ativo.
@@ -532,9 +531,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - `src/services/supabaseClient.ts`: Inicialização segura do cliente Supabase a partir de `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
   - `src/services/dbTypes.ts`: Tipagem formal do schema relacional do PostgreSQL (snake_case) com mapeamento bidirecional para os tipos de domínio do Eixo (camelCase).
   - `src/services/api.ts`: Camada centralizada de chamadas RESTful assíncronas (`obrasApi`, `decisoesApi`, `storageApi`, `authApi`, `templatesApi`).
-- **Modo de Operação Híbrido Resiliente**:
+- **Modo de Operação Único (sem fallback local)**:
   - Quando as credenciais do Supabase estão configuradas no arquivo `.env`, o sistema conecta-se ao banco de dados PostgreSQL na nuvem e ao Object Storage.
-  - Caso não estejam configuradas (desenvolvimento offline ou demonstração local), a camada de serviço ativa automaticamente o fallback para `localStorage`, garantindo zero quebras de compilação ou execução.
+  - Sem `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` o app mostra `ConfigErrorScreen`; não existe fallback para `localStorage` nem modo demonstração.
 - **Row Level Security (RLS) & Regras de Acesso**:
   - Construtor possui permissões plenas de gerenciamento (`CRUD`) nas suas obras, etapas, tarefas, projetos e notas.
   - Cliente possui permissão de leitura (`SELECT`) nas obras associadas e permissão ativa exclusiva (`INSERT` / `UPDATE`) na tabela `decisoes` e `decisao_assinaturas`.
@@ -570,5 +569,50 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - Tabela `public.registro_locacoes` criada no PostgreSQL com colunas `renovado`, `renovado_em` e `vencimento_original`, chaves estrangeiras, índices e políticas de Row Level Security (RLS).
   - Sincronização bidirecional na nuvem (`obrasApi.saveAll`, `obrasApi.list`, `locacoesApi`) e cache local isolado por ID do usuário autenticado.
 
+---
+
+## 25. Engenharia pós-refatoração "banco como fonte única" (leia antes de mexer)
+
+Documentação completa em `docs/ARQUITETURA.md` (mapa do código, fluxo de dados, como adicionar funcionalidades, migrations), `docs/adr/` (decisões), `docs/BACKLOG.md` (pendências) e `GLOSSARY.md` (linguagem do domínio).
+
+- **Persistência**: `ObraStore` (`src/services/obraStore.ts`) salva por diff e reconcilia exclusões; adapters Supabase e em memória. Erros viram `ObraStoreError` e aparecem em português simples (`utils/mensagensErro.ts`).
+- **Regras de negócio** em módulos puros de `src/utils/` (`obraMetrics`, `obraTransitions`, `diarioExtrato`, `locacao`, `routeState`, `fileIntake`). Não reimplemente cálculos dentro de componentes nem nos testes.
+- **Prazo da decisão**: `proporDecisao` ajusta `obra.dataPrevista` ao registrar; `recusarDecisao` desfaz uma única vez.
+- **Acesso do cliente**: `obraAccess.ts` no cliente e `private.can_access_obra` no banco; o cliente é vinculado pelo campo "E-mail do cliente" da obra. `?perfil=` na URL nunca concede privilégio.
+- **Overlays**: Escape via `useEscapeKey` (só o do topo fecha), breakpoint via `useIsMobile`, lightbox via `Lightbox`/`GalleryLightbox`, tokens `--z-*` e `--fs-*` em vez de números soltos. `initModalBackdropGuard()` é chamada em `main.tsx`.
+- **Migrations**: `supabase/migrations/` na ordem dos timestamps; `schema.sql` só para instalação nova.
+- **Testes**: `npm run build` e `npm test` devem passar; `noLocalStorage.test.ts` falha se `localStorage` voltar.
 
 
+---
+
+## 26. Redesenho mobile-first (clareza e usabilidade) — prevalece sobre as seções anteriores
+
+Referência técnica: `docs/design/PADROES-MOBILE.md` (tokens, componentes, checklist de migração) e `docs/adr/0007-redesenho-mobile-first.md`. Onde uma seção anterior diz o contrário do que está abaixo, vale esta seção. O desktop (> 768px) continua como antes, salvo onde indicado.
+
+### 26.1 Padrões globais
+- **Uma ação principal por tela, nunca repetida.** Ações secundárias viram ícone de 44px ou menu `⋯` (`OverflowMenu`). Estados vazios não repetem o botão do cabeçalho.
+- **Estrutura de página**: `PageHeader` (voltar + título + no máximo uma ação) → uma faixa de toolbar (busca/filtro em ícones) → conteúdo. Gutter de 16px (12px até 360px), espaçamentos só pelos tokens `--space-*`.
+- **Navegação da obra no mobile**: barra de abas fixa no rodapé com as 5 abas (construtor: Etapas, Arquivos, Decisões, Diário, Compartilhar; cliente: Diário primeiro). Não existe mais faixa de abas com rolagem horizontal. No desktop as abas continuam no topo. O nome de cada aba tem **uma palavra** (Decisões, não "Decisões e Aprovações").
+- **Modais no mobile são bottom sheets**: cabeçalho fixo, um único corpo com rolagem, rodapé fixo com o botão principal em largura total, campos de 44–48px, sem subtítulos que repetem o título. Em desktop continuam centralizados.
+- **Rolagem**: scrollbar fina e discreta em todo o app (tokens `--scrollbar-*`); com modal, sheet, lightbox ou gaveta aberto a rolagem da página é travada (`bodyScrollLock`, ligada à pilha de overlays).
+- **Estados vazios** usam sempre `EmptyState` (ícone + uma frase + no máximo uma ação; variante "filtrado" com "Limpar filtros"). O cliente vê só a frase.
+- **Tamanhos**: corpo 14px, meta 13px, piso 12px; alvos de toque ≥ 44px; badges e botões pelas classes da fundação.
+- **Toasts** no mobile ficam embaixo, acima da barra de abas, e continuam suprimidos durante o preenchimento de formulários (seção 1).
+
+### 26.2 O que mudou em cada tela (substitui as seções indicadas)
+- **Login (§19, §22.14)**: a aba "Entrar" não tem seletor de perfil (o papel vem do perfil no servidor), nem link de rodapé duplicado; só "Criar conta" pergunta "Eu sou". Requisitos de senha em uma linha que aparece ao focar. Recuperação de senha em sheet.
+- **Navbar, menu e conta (§20, §21)**: sino de notificações abre como bottom sheet no mobile; menu lateral com identidade do usuário e item ativo; "Configurações do Cliente" virou "Minha conta" (nome, empresa só para construtor, e-mail só leitura).
+- **Calendário (§22.1, §22.8)**: no mobile é uma segunda sheet com dias de 44px e atalhos; no desktop é popover (abre para baixo quando cabe).
+- **Lista de obras (§22.4)**: linhas com divisor fino (sem cartões), endereço completo, progresso, e um único `⋯` (Copiar endereço, Excluir) só para o construtor; título "Obras" para os dois perfis; home vazia sem hero nem cartões de passos.
+- **Cabeçalho da obra (§3.2, §5.2, §22.2, §22.3)**: no mobile: voltar, título, uma linha de metadados e barra de progresso; menu `⋮` com "Editar obra" (construtor) e o relatório. Sem a pílula "Acompanhamento do Cliente". O rótulo do relatório é "Relatório parcial" abaixo de 100% e "Relatório final" a 100% (`rotuloRelatorio`).
+- **Etapas (§2.2, §6, §15)**: linhas com divisor fino, título de etapa com até 2 linhas, ações no menu `⋯`; "Inserir etapa aqui" só no desktop (no mobile é item de menu); sem "Adicionar próxima etapa". Vistoria sem texto de ajuda nem cartões aninhados.
+- **Arquivos (§9)**: um projeto = uma linha tocável com `⋯` (Visualizar, Baixar, Excluir); "Link de envio" fica no menu; sem estouro horizontal.
+- **Decisões (§4, §12, §22.9, §22.13)**: "Nova proposta" no cabeçalho; resumo financeiro como acordeão fechado no mobile (lista de números, sem caixas); cada decisão é uma linha (recolhida: título, status e valor); WhatsApp vira ícone no mobile; modal com seletores "Sem valor | Aditivo | Supressivo" e "Sem alteração | Mais dias | Menos dias" mais "Nova data prevista"; termo de assinatura sem UUID.
+- **Diário (§16)**: "Novo registro" no cabeçalho; busca e filtro como popovers dentro da tela; cabeçalho do dia em texto simples (pílula de saldo some no mobile); H2 "Diário".
+- **Detalhe da tarefa (§6)**: abas "Fotos" e "Anotações" (sem "Visão Geral" e sem rodapé "Fechar"); tamanho fixo 640x560 no desktop, sheet no mobile.
+- **Compartilhar (§3.3)**: a aba é a lista de e-mails com acesso à obra (adicionar/colar vários, remover com confirmação, salvamento imediato). O e-mail do cliente também pode ser informado ao criar a obra; depois, só se gerencia aqui. O cliente não vê a lista.
+- **Registro de Notas (§22.11, §22.12)**: um "Registrar nota" no cabeçalho (sem "Anexar nota" por obra), obras em linhas/acordeão, filtro em ícone. **Cliente apenas visualiza**: não cria, edita nem exclui (resolve a contradição entre §19 e §22.6).
+- **Registro de Locação (§24)**: um "Nova locação" no cabeçalho; os 4 indicadores viram uma linha de texto ("2 vencidos · 4 ativos · 1 devolvido"); linhas com `⋯` (Devolver, Prolongar, Desfazer, Excluir); "Prolongar" abre sheet com +7/+15/+30/+60 e o seletor de data do app. Cliente apenas visualiza.
+- **Modelos de obra (§8)**: um "Novo modelo"; modo "Reordenar" com setas de 44px; seletor de modelo no mobile; etapas e serviços em linhas.
+- **Relatório (§11, §22.2)**: emissão em sheet ("Gerar relatório"); título do parcial "Relatório Parcial de Evolução da Obra"; prévia sem rolagem horizontal no mobile (impressão inalterada).

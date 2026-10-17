@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, FloppyDisk, PencilSimple, HouseLine } from '@phosphor-icons/react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { X, FloppyDisk } from '@phosphor-icons/react';
 
 interface ModalEditTaskProps {
   isOpen: boolean;
@@ -26,14 +27,7 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
     setAmbiente(initialAmbiente || '');
   }, [initialNome, initialAmbiente, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -45,65 +39,60 @@ export const ModalEditTask: React.FC<ModalEditTaskProps> = ({
     onClose();
   };
 
+  const mostrarAmbiente = ambientesDisponiveis.length > 0 || Boolean(initialAmbiente);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Editar serviço">
         <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'var(--dark-coffee-100)', color: 'var(--dark-coffee-800)', padding: 8, borderRadius: 10 }}>
-              <PencilSimple size={22} weight="bold" />
-            </div>
-            <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>Editar Serviço</h2>
-          </div>
-          <button onClick={onClose} className="btn-icon" title="Fechar" type="button">
+          <h2 className="modal-title">Editar serviço</h2>
+          <button onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar" type="button">
             <X size={18} weight="bold" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Descrição do Serviço:</label>
-              <input
-                type="text"
-                className="form-input"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
+          <div className="modal-body">
+            <div className="modal-stack">
+              <div className="form-group">
+                <label className="form-label" htmlFor="editar-servico-nome">Serviço</label>
+                <input
+                  id="editar-servico-nome"
+                  type="text"
+                  className="form-input"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
 
-            {/* Seletor de Agrupamento / Ambiente (Apenas os já existentes) */}
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <HouseLine size={16} weight="bold" style={{ color: 'var(--primary-accent)' }} />
-                <span>Ambiente / Agrupamento:</span>
-              </label>
-
-              <select
-                className="form-input"
-                value={ambiente}
-                onChange={(e) => setAmbiente(e.target.value)}
-                style={{ width: '100%', background: '#ffffff', cursor: 'pointer' }}
-              >
-                <option value="">Sem agrupamento (Geral)</option>
-                {ambientesDisponiveis.map((amb) => (
-                  <option key={amb} value={amb}>
-                    {amb}
-                  </option>
-                ))}
-              </select>
+              {mostrarAmbiente && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="editar-servico-ambiente">Ambiente</label>
+                  <select
+                    id="editar-servico-ambiente"
+                    className="form-input"
+                    value={ambiente}
+                    onChange={(e) => setAmbiente(e.target.value)}
+                    style={{ background: '#ffffff', cursor: 'pointer' }}
+                  >
+                    <option value="">Sem agrupamento (geral)</option>
+                    {ambientesDisponiveis.map((amb) => (
+                      <option key={amb} value={amb}>
+                        {amb}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" onClick={onClose} className="btn-secondary">
-              Cancelar
-            </button>
             <button type="submit" className="btn-primary">
               <FloppyDisk size={18} weight="bold" />
-              <span>Salvar Alterações</span>
+              <span>Salvar</span>
             </button>
           </div>
         </form>

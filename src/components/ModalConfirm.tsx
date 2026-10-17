@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import { Warning, Trash, CircleNotch } from '@phosphor-icons/react';
 
 interface ModalConfirmProps {
@@ -24,21 +25,14 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
   onCancel,
   isLoading = false,
 }) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
+  useEscapeKey(onCancel, isOpen);
 
   if (!isOpen) return null;
 
   const isDanger = variant === 'danger';
 
   return (
-    <div className="modal-backdrop" onClick={onCancel} style={{ zIndex: 120 }}>
+    <div className="modal-backdrop" onClick={onCancel} style={{ zIndex: 'var(--z-modal-stacked)' }}>
       <div
         className="modal-card"
         style={{ maxWidth: '440px' }}
@@ -46,7 +40,7 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
         role="dialog"
         aria-modal="true"
       >
-        <div style={{ padding: '24px 24px 16px 24px' }}>
+        <div className="modal-body" style={{ padding: '24px 24px 16px 24px', flex: 'none' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div
               style={{
@@ -74,16 +68,7 @@ export const ModalConfirm: React.FC<ModalConfirmProps> = ({
           </div>
         </div>
 
-        <div
-          style={{
-            padding: '14px 24px',
-            borderTop: '1px solid var(--border-subtle)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 10,
-            background: 'var(--dark-coffee-50)',
-          }}
-        >
+        <div className="modal-footer" style={{ padding: '14px 24px' }}>
           {cancelText && (
             <button type="button" onClick={onCancel} className="btn-secondary">
               {cancelText}

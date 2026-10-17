@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { mapObraFromDb, mapTarefaFromDb, mapEtapaFromDb, mapLocacaoFromDb, TarefaEvidenciaRow, RegistroLocacaoRow } from '../services/dbTypes';
 import { Obra, Etapa, Tarefa, Decisao, RegistroLocacao } from '../types/obra';
+import { filtrarObrasVisiveis } from '../services/obraAccess';
+import { totaisFinanceiros } from '../utils/obraMetrics';
 
 describe('1. Mapeamento e Resiliência de Ambientes (Supabase / Local)', () => {
   it('deve extrair ambiente a partir da anotação especial de sincronização resiliente __AMBIENTE__', () => {
@@ -55,42 +57,19 @@ describe('1. Mapeamento e Resiliência de Ambientes (Supabase / Local)', () => {
 
 describe('2. Cálculos Financeiros: Aditivos e Supressivos Contratuais', () => {
   it('deve calcular corretamente o investimento atualizado com aditivos e supressivos aprovados', () => {
-    const orcamentoBase = 150000;
+    const decisoes = [
+      { id: 'd1', status: 'aprovada', valorAditivo: 4500 },
+      { id: 'd2', status: 'aprovada', valorSupressivo: 1800 },
+      // Pendente: não entra no saldo contratual
+      { id: 'd3', status: 'pendente', valorAditivo: 3000 },
+    ] as Decisao[];
 
-    const decisoes: Partial<Decisao>[] = [
-      {
-        id: 'd1',
-        titulo: 'Troca de piso porcelanato',
-        status: 'aprovada',
-        valorAditivo: 4500, // Aditivo
-      },
-      {
-        id: 'd2',
-        titulo: 'Cancelamento de sanca iluminada',
-        status: 'aprovada',
-        valorSupressivo: 1800, // Supressivo
-      },
-      {
-        id: 'd3',
-        titulo: 'Pintura externa extra',
-        status: 'pendente', // Ainda não aprovada, não entra no saldo contratual
-        valorAditivo: 3000,
-      },
-    ];
+    const totais = totaisFinanceiros(decisoes, 150000);
 
-    const aditivosAprovados = decisoes
-      .filter((d) => d.status === 'aprovada' && d.valorAditivo)
-      .reduce((acc, d) => acc + (d.valorAditivo || 0), 0);
-
-    const supressivosAprovados = decisoes
-      .filter((d) => d.status === 'aprovada' && d.valorSupressivo)
-      .reduce((acc, d) => acc + (d.valorSupressivo || 0), 0);
-
-    const investimentoAtualizado = orcamentoBase + aditivosAprovados - supressivosAprovados;
-
-    expect(aditivosAprovados).toBe(4500);
-    expect(supressivosAprovados).toBe(1800);
-    expect(investimentoAtualizado).toBe(152700);
+    expect(totais.aprovadas.aditivos).toBe(4500);
+    expect(totais.aprovadas.supressivos).toBe(1800);
+    expect(totais.investimentoAtualizado).toBe(152700);
+    expect(totais.pendentes.aditivos).toBe(3000);
   });
 });
 
@@ -367,18 +346,8 @@ describe('4. Acesso e Listagem de Obras para Clientes Convidados por E-mail', ()
       },
     ];
 
-    const isClientUser = true;
-    const visibleObras = obras.filter((o) => {
-      if (!isClientUser) return true;
-      if (!userEmailLower) return true;
-      const matchesEmailList = (o.emailsClientes || []).some(
-        (em: string) => em.trim().toLowerCase() === userEmailLower
-      );
-      const matchesDirectEmail =
-        o.clienteEmail && o.clienteEmail.trim().toLowerCase() === userEmailLower;
-      const matchesClienteId = false;
-      return Boolean(matchesEmailList || matchesDirectEmail || matchesClienteId);
-    });
+    expect(userEmailLower).toBe('cliente.convidado@empresa.com');
+    const visibleObras = filtrarObrasVisiveis(obras, { userId: null, email: userEmail, role: 'cliente' });
 
     expect(visibleObras).toHaveLength(2);
     expect(visibleObras.map((o) => o.id)).toEqual(['o1', 'o3']);

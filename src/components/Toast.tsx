@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { ToastMessage } from '../types/obra';
 import { CheckCircle, Info, Warning, XCircle, X } from '@phosphor-icons/react';
 
@@ -8,22 +9,9 @@ interface ToastProps {
 }
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.innerWidth <= 768;
-  });
+  const isMobile = useIsMobile();
 
   const [isRegisteringOrFilling, setIsRegisteringOrFilling] = useState<boolean>(false);
-
-  // Monitorar tamanho da janela
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Monitorar se há preenchimento ou registro ativo
   useEffect(() => {
@@ -96,19 +84,16 @@ export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
         }
 
         return (
-          <div key={toast.id} className={`toast-item ${toast.tipo}`}>
+          <div key={toast.id} className={`toast-item ${toast.tipo}`} role={toast.tipo === 'error' ? 'alert' : 'status'}>
             <IconComponent size={24} weight="fill" color={iconColor} style={{ flexShrink: 0, marginTop: 2 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{toast.titulo}</div>
-              {toast.descricao && (
-                <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 3 }}>
-                  {toast.descricao}
-                </div>
-              )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="toast-title">{toast.titulo}</div>
+              {toast.descricao && <div className="toast-desc">{toast.descricao}</div>}
             </div>
             <button
+              type="button"
+              className="toast-close"
               onClick={() => onDismiss(toast.id)}
-              style={{ color: '#94a3b8', padding: 4, display: 'flex', alignItems: 'center' }}
               title="Fechar"
               aria-label="Fechar notificação"
             >

@@ -1,9 +1,7 @@
 /**
- * Utilitário central de UUIDs e Sanitização de IDs para Persistência Cloud (Supabase / PostgreSQL)
+ * Utilitário central de UUIDs para Persistência Cloud (Supabase / PostgreSQL)
  * Garante que todas as entidades possuam identificadores válidos no formato UUID v4.
  */
-
-import { Obra, Etapa, Tarefa, Decisao, ProjetoPDF, RegistroNota, PunchListItem, RegistroLocacao } from '../types/obra';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -45,94 +43,4 @@ export function generateUUID(): string {
 export function ensureUUID(id?: string | null): string {
   if (isValidUUID(id)) return id!.trim();
   return generateUUID();
-}
-
-/**
- * Converte qualquer obra existente (mesmo com IDs legados como "obra_123" ou "etapa_demo_1")
- * para a estrutura 100% compatível com UUIDs do PostgreSQL, mantendo integridade referencial.
- */
-export function sanitizeObraUUIDs(obra: Obra, userId?: string): Obra {
-  const idMap = new Map<string, string>();
-
-  const getOrAssignUUID = (oldId: string): string => {
-    if (isValidUUID(oldId)) return oldId;
-    if (!idMap.has(oldId)) {
-      idMap.set(oldId, generateUUID());
-    }
-    return idMap.get(oldId)!;
-  };
-
-  const newObraId = getOrAssignUUID(obra.id);
-
-  // Etapas e tarefas
-  const etapasSanitizadas: Etapa[] = (obra.etapas || []).map((etapa) => {
-    const newEtapaId = getOrAssignUUID(etapa.id);
-    const tarefasSanitizadas: Tarefa[] = (etapa.tarefas || []).map((tarefa) => {
-      const newTarefaId = getOrAssignUUID(tarefa.id);
-      return {
-        ...tarefa,
-        id: newTarefaId,
-      };
-    });
-
-    return {
-      ...etapa,
-      id: newEtapaId,
-      tarefas: tarefasSanitizadas,
-    };
-  });
-
-  // Decisões
-  const decisoesSanitizadas: Decisao[] = (obra.decisoes || []).map((decisao) => {
-    return {
-      ...decisao,
-      id: getOrAssignUUID(decisao.id),
-    };
-  });
-
-  // Projetos PDF
-  const projetosSanitizados: ProjetoPDF[] = (obra.projetos || []).map((proj) => {
-    return {
-      ...proj,
-      id: getOrAssignUUID(proj.id),
-    };
-  });
-
-  // Notas / Recibos
-  const notasSanitizadas: RegistroNota[] = (obra.notas || []).map((nota) => {
-    return {
-      ...nota,
-      id: getOrAssignUUID(nota.id),
-      obraId: newObraId,
-    };
-  });
-
-  // Punch List
-  const punchSanitizado: PunchListItem[] = (obra.punchList || []).map((item) => {
-    return {
-      ...item,
-      id: getOrAssignUUID(item.id),
-    };
-  });
-
-  // Locações
-  const locacoesSanitizadas: RegistroLocacao[] = (obra.locacoes || []).map((loc) => {
-    return {
-      ...loc,
-      id: getOrAssignUUID(loc.id),
-      obraId: newObraId,
-    };
-  });
-
-  return {
-    ...obra,
-    id: newObraId,
-    construtorId: userId || obra.construtorId,
-    etapas: etapasSanitizadas,
-    decisoes: decisoesSanitizadas,
-    projetos: projetosSanitizados,
-    notas: notasSanitizadas,
-    punchList: punchSanitizado,
-    locacoes: locacoesSanitizadas,
-  };
 }

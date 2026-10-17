@@ -7,7 +7,9 @@ import {
 } from '@phosphor-icons/react';
 import { PunchListItem, PerfilUsuario } from '../types/obra';
 import { ModalConfirm } from './ModalConfirm';
+import { EmptyState } from './EmptyState';
 import { generateUUID } from '../utils/uuid';
+import { formatarDataHoraBR } from '../utils/data';
 
 interface VistoriaPunchListProps {
   punchList: PunchListItem[];
@@ -21,7 +23,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
   punchList = [],
   onUpdatePunchList,
   perfilAtivo = 'construtor',
-  clienteNome,
+  clienteNome: _clienteNome,
   showToast,
 }) => {
   const [novoItemTexto, setNovoItemTexto] = useState('');
@@ -31,7 +33,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
 
   const total = punchList.length;
   const concluidos = punchList.filter((i) => i.concluido).length;
-  const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
   const tudoResolvido = total > 0 && concluidos === total;
 
   const handleToggleItem = (id: string) => {
@@ -76,265 +77,103 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
     setDeleteTargetId(null);
   };
 
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return isoStr;
-    }
-  };
+  const formatarDataHora = (isoStr?: string) => formatarDataHoraBR(isoStr, { ano: false, separador: ', ' });
 
   return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid var(--border-hairline)',
-        borderRadius: 'var(--radius-md)',
-        padding: '22px 24px',
-        boxShadow: 'var(--shadow-subtle)',
-      }}
-    >
-      {/* Cabeçalho da Vistoria */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 14,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 'var(--radius-sm)',
-              background: tudoResolvido ? '#dcfce7' : 'var(--dark-coffee-100)',
-              color: tudoResolvido ? '#15803d' : 'var(--dark-coffee-800)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Key size={20} weight={tudoResolvido ? 'fill' : 'bold'} />
+    <section className="vistoria" aria-label="Vistoria final">
+      <div className="vistoria-head">
+        <div className="vistoria-title">
+          <div className={`vistoria-icon ${tudoResolvido ? 'is-ok' : ''}`}>
+            <Key size={18} weight={tudoResolvido ? 'fill' : 'bold'} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={{ fontSize: '1.10rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                Vistoria Final
-              </h3>
-              {total > 0 && (
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 'var(--radius-full)',
-                    background: tudoResolvido ? '#dcfce7' : 'var(--dark-coffee-100)',
-                    color: tudoResolvido ? '#15803d' : 'var(--dark-coffee-800)',
-                  }}
-                >
-                  {concluidos}/{total} resolvidos ({percentual}%)
-                </span>
-              )}
-            </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-              Checklist de conformidade técnica e validação final da obra para entrega a {clienteNome}
-            </p>
-          </div>
+          <h3>Vistoria final</h3>
+          {total > 0 && (
+            <span className={`badge ${tudoResolvido ? 'badge--ok' : 'badge--neutral'}`}>
+              {concluidos}/{total}
+            </span>
+          )}
         </div>
 
         {perfilAtivo === 'construtor' && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setIsAdding((prev) => !prev)}
-              className="btn-primary"
-              style={{ padding: '7px 13px', fontSize: '0.80rem' }}
-            >
-              <Plus size={14} weight="bold" />
-              <span>Adicionar Item</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsAdding((prev) => !prev)}
+            className="btn-secondary btn--sm"
+            aria-expanded={isAdding}
+          >
+            <Plus size={14} weight="bold" />
+            <span>Adicionar item</span>
+          </button>
         )}
       </div>
 
-      {/* Selo de Entrega Pronta quando 100% resolvido */}
       {tudoResolvido && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: 'var(--radius-sm)',
-            padding: '10px 14px',
-            marginBottom: 16,
-          }}
-        >
-          <SealCheck size={20} weight="fill" color="#16a34a" style={{ flexShrink: 0 }} />
-          <div style={{ fontSize: '0.82rem', color: '#14532d', lineHeight: 1.35 }}>
-            <strong>Todas as pendências da vistoria foram resolvidas!</strong> A obra está formalmente apta para a
-            entrega de chaves e encerramento técnico.
-          </div>
+        <div className="vistoria-ok">
+          <SealCheck size={18} weight="fill" style={{ flexShrink: 0 }} />
+          <span>Todas as pendências foram resolvidas. A obra está pronta para a entrega de chaves.</span>
         </div>
       )}
 
-      {/* Formulário Inline de Adição */}
       {isAdding && perfilAtivo === 'construtor' && (
-        <form
-          onSubmit={handleAddItem}
-          style={{
-            background: 'var(--dark-coffee-50)',
-            border: '1px solid var(--border-hairline)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '12px 14px',
-            marginBottom: 16,
-            display: 'flex',
-            gap: 10,
-            flexWrap: 'wrap',
-          }}
-        >
+        <form onSubmit={handleAddItem} className="vistoria-form">
           <input
             type="text"
-            placeholder="Ex: Retoque de pintura no rodapé do corredor..."
+            placeholder="O que precisa ser resolvido?"
+            aria-label="Descrição do item"
             value={novoItemTexto}
             onChange={(e) => setNovoItemTexto(e.target.value)}
-            className="form-input"
-            style={{ flex: 1, minWidth: '220px', fontSize: '0.85rem' }}
+            className="form-input vistoria-input-main"
             autoFocus
           />
           <input
             type="text"
-            placeholder="Ambiente (ex: Sala, Suíte)"
+            placeholder="Ambiente (ex: Sala)"
+            aria-label="Ambiente"
             value={novoItemAmbiente}
             onChange={(e) => setNovoItemAmbiente(e.target.value)}
-            className="form-input"
-            style={{ width: '150px', fontSize: '0.85rem' }}
+            className="form-input vistoria-input-amb"
           />
-          <button type="submit" className="btn-primary" style={{ padding: '6px 14px', fontSize: '0.82rem' }}>
-            Salvar
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAdding(false)}
-            className="btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '0.82rem' }}
-          >
-            Cancelar
-          </button>
+          <button type="submit" className="btn-primary">Salvar</button>
+          <button type="button" onClick={() => setIsAdding(false)} className="btn-secondary">Cancelar</button>
         </form>
       )}
 
-      {/* Lista de Itens da Vistoria */}
       {total === 0 ? (
-        <div
-          style={{
-            padding: '24px 16px',
-            textAlign: 'center',
-            color: 'var(--text-muted)',
-            fontSize: '0.85rem',
-            background: 'var(--dark-coffee-50)',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px dashed var(--border-hairline)',
-          }}
-        >
-          Nenhum item cadastrado na Vistoria Final.{' '}
-          {perfilAtivo === 'construtor' && (
-            <span>Clique em <strong>Adicionar Item</strong> acima para registrar pendências e testes técnicos.</span>
-          )}
-        </div>
+        <EmptyState icon={Key} className="empty-state--nested" title={perfilAtivo === 'construtor' ? 'Nenhum item na vistoria.' : 'Ainda não há itens na vistoria.'} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="vistoria-list">
           {punchList.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: item.concluido ? '#f8fafc' : '#ffffff',
-                border: '1px solid var(--border-hairline)',
-                gap: 12,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <input
-                  type="checkbox"
-                  checked={item.concluido}
-                  disabled={perfilAtivo === 'cliente'}
-                  onChange={() => handleToggleItem(item.id)}
-                  style={{
-                    width: 17,
-                    height: 17,
-                    cursor: perfilAtivo === 'cliente' ? 'default' : 'pointer',
-                    accentColor: 'var(--primary-accent)',
-                  }}
-                  title={perfilAtivo === 'cliente' ? 'Status gerenciado pelo construtor' : 'Marcar pendência como resolvida'}
-                />
+            <div key={item.id} className={`vistoria-row ${item.concluido ? 'is-done' : ''}`}>
+              <input
+                type="checkbox"
+                className="task-checkbox"
+                checked={item.concluido}
+                disabled={perfilAtivo === 'cliente'}
+                onChange={() => handleToggleItem(item.id)}
+                aria-label={item.item}
+                style={{ cursor: perfilAtivo === 'cliente' ? 'default' : 'pointer' }}
+              />
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    style={{
-                      fontSize: '0.86rem',
-                      color: item.concluido ? 'var(--text-muted)' : 'var(--text-main)',
-                      textDecoration: item.concluido ? 'line-through' : 'none',
-                      fontWeight: item.concluido ? 400 : 500,
-                    }}
-                  >
-                    {item.item}
-                  </span>
-
-                  {item.concluidoEm && (
-                    <span style={{ fontSize: '0.72rem', color: '#16a34a', marginLeft: 8 }}>
-                      • Resolvido em {formatarDataHora(item.concluidoEm)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                {item.ambiente && (
-                  <span
-                    style={{
-                      fontSize: '0.70rem',
-                      fontWeight: 600,
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius-full)',
-                      background: 'var(--dark-coffee-100)',
-                      color: 'var(--dark-coffee-800)',
-                    }}
-                  >
-                    {item.ambiente}
-                  </span>
-                )}
-
-                {perfilAtivo === 'construtor' && (
-                  <button
-                    type="button"
-                    onClick={() => setDeleteTargetId(item.id)}
-                    className="btn-icon"
-                    style={{ width: 26, height: 26, color: 'var(--text-muted)' }}
-                    title="Excluir pendência"
-                  >
-                    <Trash size={14} />
-                  </button>
+              <div className="vistoria-row-main">
+                <div className="vistoria-row-text">{item.item}</div>
+                {item.concluidoEm && (
+                  <div className="vistoria-row-sub">Resolvido em {formatarDataHora(item.concluidoEm)}</div>
                 )}
               </div>
+
+              {item.ambiente && <span className="badge badge--neutral">{item.ambiente}</span>}
+
+              {perfilAtivo === 'construtor' && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteTargetId(item.id)}
+                  className="btn-icon touch-target-44"
+                  style={{ border: 'none', background: 'transparent' }}
+                  aria-label={`Excluir item ${item.item}`}
+                >
+                  <Trash size={16} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -343,7 +182,7 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
       {deleteTargetId && (
         <ModalConfirm
           isOpen={true}
-          title="Excluir Item da Vistoria Final"
+          title="Excluir item da vistoria"
           message="Tem certeza que deseja remover este item da Vistoria Final?"
           confirmText="Sim, excluir"
           cancelText="Cancelar"
@@ -352,6 +191,6 @@ export const VistoriaPunchList: React.FC<VistoriaPunchListProps> = ({
           onCancel={() => setDeleteTargetId(null)}
         />
       )}
-    </div>
+    </section>
   );
 };

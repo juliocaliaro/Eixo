@@ -10,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import { Obra, TipoProjeto } from '../types/obra';
 import { TIPOS_PROJETO_LISTA, formatBytes } from '../utils/projetoConfig';
-import { storageApi } from '../services/api';
+import { storeFile } from '../utils/fileIntake';
 import { generateUUID } from '../utils/uuid';
 
 interface PublicUploadProjetoPageProps {
@@ -106,15 +106,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
       const sanitizedName = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${obra.id}/projetos/${projId}_${sanitizedName}`;
 
-      let finalUrl = await storageApi.uploadFile('projetos-pdf', storagePath, arquivo);
-
-      if (!finalUrl) {
-        finalUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(arquivo);
-        });
-      }
+      const finalUrl = await storeFile(arquivo, { bucket: 'projetos-pdf', path: storagePath });
 
       onUploadProjeto({
         titulo: titulo.trim(),
@@ -148,7 +140,7 @@ export const PublicUploadProjetoPage: React.FC<PublicUploadProjetoPageProps> = (
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: 'var(--bg-app)',
         display: 'flex',
         flexDirection: 'column',

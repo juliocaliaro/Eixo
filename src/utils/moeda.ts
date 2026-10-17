@@ -55,6 +55,15 @@ export function formatarMoeda(valor?: number | null, maxDecimais: number = 2): s
 }
 
 /**
+ * Formata apenas a parte numérica (sem símbolo), ex: 1250 -> "1.250,00".
+ * Útil para textos como "R$ {valor}" com espaço comum.
+ */
+export function formatarValorBR(valor?: number | null): string {
+  const n = typeof valor === 'number' && !isNaN(valor) ? valor : 0;
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+}
+
+/**
  * Aplica máscara monetária brasileira (pt-BR) em tempo real durante a digitação.
  * - Proíbe letras e caracteres não numéricos.
  * - Desloca centavos da direita para a esquerda (ex: "1" -> "0,01", "1500" -> "15,00", "18500000" -> "185.000,00").

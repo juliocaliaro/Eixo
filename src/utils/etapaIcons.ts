@@ -15,7 +15,6 @@ import {
   SealCheck,
   ShieldCheck,
   Hammer,
-  Key,
   IconProps
 } from '@phosphor-icons/react';
 

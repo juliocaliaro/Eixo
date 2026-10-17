@@ -1,14 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+// Ordem do CSS: index e foundation antes deste arquivo (App importa os componentes antes de main.tsx importar os CSS globais)
+import '../index.css';
+import '../styles/foundation.css';
+import '../styles/decisoes-diario.css';
+import { SegmentedControl } from './SegmentedControl';
 import { X, Camera, CircleNotch } from '@phosphor-icons/react';
 import { Decisao, PerfilUsuario } from '../types/obra';
 import { parseMoedaBR, formatarMoeda, mascararMoedaInput, proibirNaoNumericosMoeda } from '../utils/moeda';
 import { generateUUID } from '../utils/uuid';
+import { useFileIntake } from '../utils/useFileIntake';
+import { blobToDataUrl } from '../utils/fileIntake';
+import { apenasDigitos, diasAssinados, novaDataPrevista, type CamposPrazo } from '../utils/prazoDecisao';
+import { formatarDataBR } from '../utils/data';
 
 interface ModalCreateDecisaoProps {
   isOpen: boolean;
   onClose: () => void;
   perfilAtivo: PerfilUsuario;
   nomeUsuario: string;
+  /** Data prevista atual da obra (YYYY-MM-DD), usada para exibir a nova data. */
+  dataPrevistaObra?: string;
   onSubmit: (novaDecisao: Decisao) => void;
 }
 
@@ -17,71 +29,48 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
   onClose,
   perfilAtivo,
   nomeUsuario,
+  dataPrevistaObra,
   onSubmit,
 }) => {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [aditivo, setAditivo] = useState<string>('');
-  const [supressivo, setSupressivo] = useState<string>('');
-  const [impactoPrazoDias, setImpactoPrazoDias] = useState<string>('');
-  const [fotos, setFotos] = useState<string[]>([]);
+  type ModoImpacto = 'nenhum' | 'aditivo' | 'supressivo';
+  type ModoPrazo = 'nenhum' | 'mais' | 'menos';
+  const [modoImpacto, setModoImpacto] = useState<ModoImpacto>('nenhum');
+  const [valor, setValor] = useState<string>('');
+  const [modoPrazo, setModoPrazo] = useState<ModoPrazo>('nenhum');
+  const [dias, setDias] = useState<string>('');
+  const { items: fotoItems, handleInputChange: handleFileUpload, remove: handleRemoveFoto, clear: clearFotos } = useFileIntake();
+  const fotos = fotoItems.map((f) => f.previewUrl);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotos((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  // Exclusão mútua garantida pelo seletor: existe UM campo de valor e UM de dias.
+  const prazo: CamposPrazo = {
+    acrescimo: modoPrazo === 'mais' ? dias : '',
+    reducao: modoPrazo === 'menos' ? dias : '',
+  };
+  const parsedValor = parseMoedaBR(valor);
+  const valorPositivo = parsedValor !== undefined && parsedValor > 0 ? parsedValor : undefined;
+  const parsedAditivo = modoImpacto === 'aditivo' ? valorPositivo : undefined;
+  const parsedSupressivo = modoImpacto === 'supressivo' ? valorPositivo : undefined;
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValor(mascararMoedaInput(e.target.value));
   };
 
-  const handleRemoveFoto = (index: number) => {
-    setFotos((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleAditivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const masked = mascararMoedaInput(e.target.value);
-    setAditivo(masked);
-    const parsed = parseMoedaBR(masked);
-    if (parsed && parsed > 0) {
-      setSupressivo('');
-    }
-  };
-
-  const handleSupressivoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const masked = mascararMoedaInput(e.target.value);
-    setSupressivo(masked);
-    const parsed = parseMoedaBR(masked);
-    if (parsed && parsed > 0) {
-      setAditivo('');
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titulo.trim() || !descricao.trim()) return;
-
+    if (!titulo.trim() || !descricao.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
     const agora = new Date().toISOString();
-
-    const parsedAditivo = parseMoedaBR(aditivo);
-    const parsedSupressivo = parseMoedaBR(supressivo);
+    // Fotos comprimidas pela política única; o contrato de Decisao carrega data URLs até o save (services/assets.ts sobe ao Storage)
+    const fotosDataUrl = await Promise.all(fotoItems.map((f) => blobToDataUrl(f.blob)));
 
     const temAditivo = parsedAditivo !== undefined && parsedAditivo > 0;
     const temSupressivo = !temAditivo && parsedSupressivo !== undefined && parsedSupressivo > 0;
@@ -109,7 +98,7 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
       tipoImpactoFinanceiro: tipoImpacto,
       valorAditivo: valorAditivoFinal,
       valorSupressivo: valorSupressivoFinal,
-      impactoPrazoDias: impactoPrazoDias ? parseInt(impactoPrazoDias, 10) : undefined,
+      impactoPrazoDias: diasAssinados(prazo),
       criadaPor: perfilAtivo,
       criadorNome: nomeUsuario,
       criadaEm: agora,
@@ -119,54 +108,45 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
         nomeSignatario: nomeUsuario,
         assinadoEm: agora,
       },
-      fotos: fotos.length > 0 ? fotos : undefined,
+      fotos: fotosDataUrl.length > 0 ? fotosDataUrl : undefined,
     };
 
-    setIsSubmitting(true);
-    try {
       onSubmit(decisao);
       onClose();
 
       // Resetar
       setTitulo('');
       setDescricao('');
-      setAditivo('');
-      setSupressivo('');
-      setImpactoPrazoDias('');
-      setFotos([]);
+      setModoImpacto('nenhum');
+      setValor('');
+      setModoPrazo('nenhum');
+      setDias('');
+      clearFotos();
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const numAditivo = parseMoedaBR(aditivo);
-  const numSupressivo = parseMoedaBR(supressivo);
-  const hasAditivo = numAditivo !== undefined && numAditivo > 0;
-  const hasSupressivo = numSupressivo !== undefined && numSupressivo > 0;
+  const diasPrazo = diasAssinados(prazo);
+  const novaData = novaDataPrevista(dataPrevistaObra, diasPrazo);
+  const podeEnviar = Boolean(titulo.trim() && descricao.trim()) && !isSubmitting;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-card"
-        style={{ maxWidth: 480 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Cabeçalho Limpo */}
-        <div className="modal-header" style={{ padding: '16px 20px' }}>
-          <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>
-            Nova Proposta
-          </h2>
-          <button onClick={onClose} className="btn-icon" title="Fechar">
+      <div className="modal-card dec-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 className="modal-title">Nova proposta</h2>
+          <button type="button" onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        {/* Formulário Enxuto */}
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ padding: '20px' }}>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Título da Proposta</label>
+        <form onSubmit={handleSubmit} className="dec-form">
+          <div className="modal-body">
+            <div className="form-group dec-field">
+              <label className="form-label" htmlFor="dec-titulo">Título</label>
               <input
+                id="dec-titulo"
                 type="text"
                 autoFocus
                 required
@@ -177,97 +157,98 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
               />
             </div>
 
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Descrição</label>
+            <div className="form-group dec-field">
+              <label className="form-label" htmlFor="dec-descricao">Descrição</label>
               <textarea
+                id="dec-descricao"
                 required
                 rows={3}
                 className="form-textarea"
-                placeholder="Descreva o que foi combinado..."
+                placeholder="Descreva o que foi combinado"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: hasAditivo || hasSupressivo ? 8 : 14 }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Aditivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: hasSupressivo ? 'var(--text-muted)' : 'var(--primary-accent)', fontWeight: 600 }}>+ Acréscimo</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className="form-input"
-                  placeholder="0,00"
-                  value={aditivo}
-                  onChange={handleAditivoChange}
-                  onKeyDown={proibirNaoNumericosMoeda}
-                />
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Supressivo (R$)</span>
-                  <span style={{ fontSize: '0.70rem', color: hasAditivo ? 'var(--text-muted)' : '#16a34a', fontWeight: 600 }}>- Redução</span>
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  className="form-input"
-                  placeholder="0,00"
-                  value={supressivo}
-                  onChange={handleSupressivoChange}
-                  onKeyDown={proibirNaoNumericosMoeda}
-                />
-              </div>
+            <div className="form-group dec-field">
+              <span className="form-label" id="dec-seg-impacto">Impacto no valor</span>
+              <SegmentedControl<ModoImpacto>
+                labelledBy="dec-seg-impacto"
+                valor={modoImpacto}
+                opcoes={[
+                  { valor: 'nenhum', texto: 'Sem valor' },
+                  { valor: 'aditivo', texto: 'Aditivo' },
+                  { valor: 'supressivo', texto: 'Supressivo' },
+                ]}
+                onChange={(m) => {
+                  setModoImpacto(m);
+                  if (m === 'nenhum') setValor('');
+                }}
+              />
             </div>
-
-            {/* Resumo do Impacto Financeiro Selecionado */}
-            {hasAditivo && numAditivo && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: 'var(--cinnamon-wood-50)',
-                  border: '1px solid var(--cinnamon-wood-200)',
-                  borderRadius: 'var(--radius-sm)',
-                  marginBottom: 14,
-                  fontSize: '0.80rem',
-                }}
-              >
-                <span style={{ color: 'var(--cinnamon-wood-700)', fontWeight: 600 }}>Impacto no Contrato:</span>
-                <strong style={{ color: 'var(--cinnamon-wood-700)', fontWeight: 700 }}>
-                  + {formatarMoeda(numAditivo)} (Aditivo / Acréscimo)
-                </strong>
+            {modoImpacto !== 'nenhum' && (
+              <div className="form-group dec-field">
+                <label className="form-label" htmlFor="dec-valor">
+                  {modoImpacto === 'aditivo' ? 'Valor do aditivo (R$)' : 'Valor do supressivo (R$)'}
+                </label>
+                <input
+                  id="dec-valor"
+                  type="text"
+                  inputMode="numeric"
+                  className="form-input"
+                  placeholder="0,00"
+                  value={valor}
+                  onChange={handleValorChange}
+                  onKeyDown={proibirNaoNumericosMoeda}
+                />
+                <p className="dec-hint">
+                  {modoImpacto === 'aditivo'
+                    ? valorPositivo ? `Soma ${formatarMoeda(valorPositivo)} ao valor do contrato.` : 'Soma ao valor do contrato.'
+                    : valorPositivo ? `Reduz ${formatarMoeda(valorPositivo)} do valor do contrato.` : 'Reduz o valor do contrato.'}
+                </p>
               </div>
             )}
 
-            {hasSupressivo && numSupressivo && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '8px 12px',
-                  background: '#dcfce7',
-                  border: '1px solid #bbf7d0',
-                  borderRadius: 'var(--radius-sm)',
-                  marginBottom: 14,
-                  fontSize: '0.80rem',
+            <div className="form-group dec-field">
+              <span className="form-label" id="dec-seg-prazo">Prazo da obra</span>
+              <SegmentedControl<ModoPrazo>
+                labelledBy="dec-seg-prazo"
+                valor={modoPrazo}
+                opcoes={[
+                  { valor: 'nenhum', texto: 'Sem alteração' },
+                  { valor: 'mais', texto: 'Mais dias' },
+                  { valor: 'menos', texto: 'Menos dias' },
+                ]}
+                onChange={(m) => {
+                  setModoPrazo(m);
+                  if (m === 'nenhum') setDias('');
                 }}
-              >
-                <span style={{ color: '#15803d', fontWeight: 600 }}>Impacto no Contrato:</span>
-                <strong style={{ color: '#15803d', fontWeight: 700 }}>
-                  - {formatarMoeda(numSupressivo)} (Supressivo / Redução)
-                </strong>
+              />
+            </div>
+            {modoPrazo !== 'nenhum' && (
+              <div className="form-group dec-field">
+                <label className="form-label" htmlFor="dec-dias">
+                  {modoPrazo === 'mais' ? 'Dias a mais' : 'Dias a menos'}
+                </label>
+                <input
+                  id="dec-dias"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="form-input"
+                  placeholder="0"
+                  value={dias}
+                  onChange={(e) => setDias(apenasDigitos(e.target.value))}
+                />
+                {diasPrazo !== undefined && (
+                  <p className="dec-hint dec-hint--strong">
+                    {novaData ? `Nova data prevista: ${formatarDataBR(novaData)}` : 'Obra sem data prevista'}
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Anexo de Foto Opcional */}
-            <div>
+            <div className="dec-field">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -275,103 +256,39 @@ export const ModalCreateDecisao: React.FC<ModalCreateDecisaoProps> = ({
                 onChange={handleFileUpload}
                 style={{ display: 'none' }}
               />
-
-              {fotos.length > 0 ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+              {fotos.length > 0 && (
+                <div className="dec-thumbs">
                   {fotos.map((f, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: 'relative',
-                        width: 48,
-                        height: 48,
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-hairline)',
-                      }}
-                    >
-                      <img src={f} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div key={i} className="dec-thumb">
+                      <img src={f} alt="" />
                       <button
                         type="button"
+                        className="dec-thumb-remove"
                         onClick={() => handleRemoveFoto(i)}
-                        style={{
-                          position: 'absolute',
-                          top: 2,
-                          right: 2,
-                          background: 'rgba(0,0,0,0.7)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: 16,
-                          height: 16,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          fontSize: 9,
-                        }}
+                        aria-label="Remover foto"
                       >
-                        <X size={10} weight="bold" />
+                        <X size={12} weight="bold" />
                       </button>
                     </div>
                   ))}
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="btn-secondary"
-                    style={{ padding: '6px 10px', fontSize: '0.78rem' }}
-                  >
-                    + Foto
-                  </button>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-secondary"
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '0.8rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Camera size={14} />
-                  <span>Anexar foto ou amostra (opcional)</span>
-                </button>
               )}
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-secondary btn--block">
+                <Camera size={16} />
+                <span>{fotos.length > 0 ? 'Adicionar outra foto' : 'Adicionar foto (opcional)'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Rodapé */}
-          <div className="modal-footer" style={{ padding: '12px 20px' }}>
-            <button type="button" onClick={onClose} className="btn-secondary" style={{ fontSize: '0.84rem' }}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!titulo.trim() || !descricao.trim() || isSubmitting}
-              className="btn-primary"
-              style={{
-                fontSize: '0.84rem',
-                opacity: !titulo.trim() || !descricao.trim() || isSubmitting ? 0.65 : 1,
-                cursor: !titulo.trim() || !descricao.trim() || isSubmitting ? 'not-allowed' : 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
+          <div className="modal-footer">
+            <button type="submit" disabled={!podeEnviar} className="btn-primary">
               {isSubmitting ? (
                 <>
                   <CircleNotch size={14} className="spin-animate" weight="bold" />
-                  <span>Criando e Assinando...</span>
+                  <span>Registrando...</span>
                 </>
               ) : (
-                <span>Criar e Assinar</span>
+                <span>Registrar proposta</span>
               )}
             </button>
           </div>

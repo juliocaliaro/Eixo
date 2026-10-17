@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { prefersReducedMotion } from '../utils/motion';
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
   CaretDown,
-  CaretUp,
   Plus,
   Trash,
   PencilSimple,
   CheckCircle,
   Camera,
   NotePencil,
-  Kanban,
+  ListChecks,
   DotsSixVertical,
   Eye,
   Check,
   HouseLine,
   SquaresFour,
-  DotsThreeVertical
+  DotsThreeVertical,
+  ArrowLineDown,
 } from '@phosphor-icons/react';
-import { Obra, Etapa, Tarefa } from '../types/obra';
+import { Obra, Tarefa } from '../types/obra';
 import { ModalEditItem } from './ModalEditItem';
 import { ModalEditTask } from './ModalEditTask';
 import { ModalMoveTask } from './ModalMoveTask';
@@ -24,6 +26,11 @@ import { ModalConfirm } from './ModalConfirm';
 import { ModalTaskDetails } from './ModalTaskDetails';
 import { ModalCreateTask } from './ModalCreateTask';
 import { getEtapaIcon } from '../utils/etapaIcons';
+import { progressoDeEtapa } from '../utils/obraMetrics';
+import { isTarefaConcluida } from '../utils/cronogramaStatus';
+import { formatarDataHoraBR, formatarDataIsoBR } from '../utils/data';
+import { OverflowMenu } from './OverflowMenu';
+import { EmptyState } from './EmptyState';
 
 interface TimelineEtapasProps {
   obra: Obra;
@@ -66,44 +73,12 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   isReadOnly = false,
   targetTaskNavigation,
 }) => {
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
-  });
+  const isMobile = useIsMobile();
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Vazio = padrão responsivo: no mobile as etapas iniciam recolhidas; no desktop, abertas.
+  const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>({});
 
-  const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>(() => {
-    const mobile = typeof window !== 'undefined' ? window.innerWidth <= 768 : false;
-    const initial: { [key: string]: boolean } = {};
-    obra.etapas.forEach((e) => {
-      initial[e.id] = !mobile;
-    });
-    return initial;
-  });
-
-
-  const [newTaskInput, setNewTaskInput] = useState<{ [etapaId: string]: string }>({});
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
-  // Estado para menu de ações de cada tarefa no mobile [...]
-  const [activeTaskMenu, setActiveTaskMenu] = useState<{ etapaId: string; tarefaId: string } | null>(null);
-
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && !target.closest('.mobile-task-actions')) {
-        setActiveTaskMenu(null);
-      }
-    };
-    window.addEventListener('click', handleOutsideClick);
-    return () => window.removeEventListener('click', handleOutsideClick);
-  }, []);
-
   const [addingTaskEtapa, setAddingTaskEtapa] = useState<{
     etapaId: string;
     etapaNome: string;
@@ -128,7 +103,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const [creatingGroupEtapaId, setCreatingGroupEtapaId] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<{ etapaId: string; oldName: string; currentName: string } | null>(null);
   const [deleteGroupTarget, setDeleteGroupTarget] = useState<{ etapaId: string; nome: string; count: number } | null>(null);
-  const [selectedAddAmbiente, setSelectedAddAmbiente] = useState<{ [etapaId: string]: string }>({});
 
   // Estado para Modal de Detalhes da Tarefa (Fotos e Anotações)
   const [viewingTaskDetails, setViewingTaskDetails] = useState<{
@@ -209,20 +183,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const [draggedTask, setDraggedTask] = useState<{ etapaId: string; index: number } | null>(null);
   const [dragOverTask, setDragOverTask] = useState<{ etapaId: string; index: number } | null>(null);
 
-  const formatarDataHora = (isoStr?: string) => {
-    if (!isoStr) return '';
-    try {
-      const d = new Date(isoStr);
-      const dia = String(d.getDate()).padStart(2, '0');
-      const mes = String(d.getMonth() + 1).padStart(2, '0');
-      const ano = d.getFullYear();
-      const hora = String(d.getHours()).padStart(2, '0');
-      const min = String(d.getMinutes()).padStart(2, '0');
-      return `${dia}/${mes}/${ano} às ${hora}:${min}`;
-    } catch {
-      return '';
-    }
-  };
+  const formatarDataHora = formatarDataHoraBR;
 
   const toggleAccordion = (etapaId: string) => {
     setOpenAccordions((prev) => {
@@ -232,14 +193,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         [etapaId]: !current,
       };
     });
-  };
-
-  const handleQuickAddTask = (etapaId: string) => {
-    const text = newTaskInput[etapaId]?.trim();
-    if (!text) return;
-    const amb = selectedAddAmbiente[etapaId];
-    onAddTaskToEtapa(etapaId, text, undefined, amb && amb !== '__SEM_GRUPO__' ? amb : undefined);
-    setNewTaskInput((prev) => ({ ...prev, [etapaId]: '' }));
   };
 
   // Drag handlers de Etapa
@@ -353,73 +306,31 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     handleTaskDragEnd();
   };
 
+  const cabecalhoAba = (
+    <div className="tab-head">
+      <h2 className="tab-title">{isMobile ? 'Cronograma' : 'Cronograma Físico'}</h2>
+      {!isReadOnly && (
+        <button onClick={() => onOpenWizard(null)} className="btn-primary tab-cta">
+          <Plus size={16} weight="bold" />
+          <span>Nova etapa</span>
+        </button>
+      )}
+    </div>
+  );
+
+  // A ação "Nova etapa" já está no cabeçalho da aba: o estado vazio não repete o botão
   if (obra.etapas.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: '56px 20px', border: '1px dashed var(--border-hairline)', borderRadius: 'var(--radius-lg)', background: '#ffffff' }}>
-        <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--dark-coffee-100)', color: 'var(--primary-accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-          <Kanban size={28} weight="duotone" />
-        </div>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 6 }}>
-          Nenhuma etapa no cronograma
-        </h2>
-        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto 18px auto' }}>
-          {isReadOnly
-            ? 'Aguardando o construtor cadastrar as etapas deste cronograma para acompanhamento.'
-            : 'Adicione etapas para estruturar a execução e acompanhar os serviços diários.'}
-        </p>
-        {!isReadOnly ? (
-          <button onClick={() => onOpenWizard(null)} className="btn-primary">
-            <Plus size={16} weight="bold" />
-            <span>Adicionar Etapa</span>
-          </button>
-        ) : (
-          <span
-            className="timeline-badge"
-            style={{
-              background: 'var(--coral-glow-100)',
-              color: 'var(--coral-glow-700)',
-              padding: '6px 14px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-            }}
-          >
-            Modo de Acompanhamento (Leitura)
-          </span>
-        )}
+      <div className="timeline-section">
+        {cabecalhoAba}
+        <EmptyState icon={ListChecks} title={isReadOnly ? 'Ainda não há etapas nesta obra.' : 'Nenhuma etapa criada.'} />
       </div>
     );
   }
 
   return (
     <div className="timeline-section">
-      {/* Título de Seção */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
-            Cronograma Físico
-          </h2>
-        </div>
-
-        {isReadOnly ? (
-          <span
-            className="timeline-badge"
-            style={{
-              background: 'var(--coral-glow-100)',
-              color: 'var(--coral-glow-700)',
-              padding: '6px 12px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-            }}
-          >
-            Acompanhamento do Cliente (Leitura)
-          </span>
-        ) : (
-          <button onClick={() => onOpenWizard(null)} className="btn-primary" style={{ padding: '8px 14px', fontSize: '0.88rem' }}>
-            <Plus size={16} weight="bold" />
-            <span>Nova Etapa</span>
-          </button>
-        )}
-      </div>
+      {cabecalhoAba}
 
       {/* Linha do Tempo Vertical Contínua */}
       <div className="vertical-timeline-container">
@@ -431,9 +342,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             const isOpen = openAccordions[etapa.id] ?? (!isMobile);
             const totalTarefas = etapa.tarefas.length;
 
-            const concluidas = etapa.tarefas.filter((t) => t.concluida).length;
-            const todasConcluidas = totalTarefas > 0 && concluidas === totalTarefas;
-            const percEtapa = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
+            const { concluidas, percentual: percEtapa, concluida: todasConcluidas } = progressoDeEtapa(etapa);
             const etapaIconCfg = getEtapaIcon(etapa.nome, etapa.id);
             const EtapaIcon = etapaIconCfg.Icon;
             const isDragging = draggedEtapaIndex === etapaIndex;
@@ -482,7 +391,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             onDragStart={(e) => handleEtapaDragStart(e, etapaIndex)}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
-                            className="drag-handle-grip"
+                            className="drag-handle-grip etapa-header-handle"
                             title="Arrastar para reordenar etapa"
                           >
                             <DotsSixVertical size={18} weight="bold" />
@@ -507,18 +416,18 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span className="timeline-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span className="timeline-title etapa-title-text" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {etapa.nome}
                             </span>
                             {etapa.tipoOrigem && (
                               <span className="timeline-badge">{etapa.tipoOrigem}</span>
                             )}
                           </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                          <div className="etapa-sub" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
                             {todasConcluidas ? (
                               <span style={{ color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <Check size={14} weight="bold" />
-                                <span>Concluída {etapa.concluidaEm ? `em ${formatarDataHora(etapa.concluidaEm)}` : '100%'}</span>
+                                <span>Concluída {etapa.concluidaEm ? `em ${isMobile ? formatarDataIsoBR(etapa.concluidaEm) : formatarDataHora(etapa.concluidaEm)}` : '100%'}</span>
                               </span>
                             ) : (
                               <span>{concluidas} de {totalTarefas} serviços ({percEtapa}%)</span>
@@ -531,6 +440,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {!isReadOnly && (
                           <div
+                            className="etapa-header-actions"
                             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
@@ -553,6 +463,45 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                             >
                               <Trash size={14} />
                             </button>
+                          </div>
+                        )}
+
+                        {!isReadOnly && (
+                          <div className="etapa-menu-mobile">
+                            <OverflowMenu
+                              label={`Opções da etapa ${etapa.nome}`}
+                              items={[
+                                {
+                                  key: 'editar',
+                                  label: 'Editar nome da etapa',
+                                  icon: <PencilSimple size={18} weight="bold" />,
+                                  onSelect: () => setEditingEtapa({ id: etapa.id, nome: etapa.nome }),
+                                },
+                                {
+                                  key: 'novo-agrupamento',
+                                  label: 'Novo agrupamento por ambiente',
+                                  icon: <SquaresFour size={18} weight="bold" />,
+                                  onSelect: () => {
+                                    setOpenAccordions((prev) => ({ ...prev, [etapa.id]: true }));
+                                    setCreatingGroupEtapaId(etapa.id);
+                                  },
+                                },
+                                {
+                                  key: 'inserir-depois',
+                                  label: 'Inserir etapa depois desta',
+                                  icon: <ArrowLineDown size={18} weight="bold" />,
+                                  hidden: etapaIndex >= obra.etapas.length - 1,
+                                  onSelect: () => onOpenWizard(etapaIndex + 1),
+                                },
+                                {
+                                  key: 'excluir',
+                                  label: 'Excluir etapa',
+                                  icon: <Trash size={18} weight="bold" />,
+                                  danger: true,
+                                  onSelect: () => setDeleteEtapaTarget({ id: etapa.id, nome: etapa.nome }),
+                                },
+                              ]}
+                            />
                           </div>
                         )}
 
@@ -587,20 +536,19 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                         const temAnexos = (tarefa.fotos && tarefa.fotos.length > 0) || (tarefa.anotacoes && tarefa.anotacoes.length > 0);
                         const isTaskOver = dragOverTask?.etapaId === etapa.id && dragOverTask?.index === globalTaskIndex;
                         const isTaskDragging = draggedTask?.etapaId === etapa.id && draggedTask?.index === globalTaskIndex;
-                        const isMenuOpen = activeTaskMenu?.etapaId === etapa.id && activeTaskMenu?.tarefaId === tarefa.id;
+                        const openDetails = () => setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
 
                         return (
                           <div
                             key={tarefa.id}
                             id={`task-row-${tarefa.id}`}
-                            className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''} ${isMenuOpen ? 'has-active-menu' : ''}`}
+                            className={`task-row ${tarefa.concluida ? 'is-done' : ''} ${isTaskOver ? 'drag-target-highlight' : ''}`}
+                            onClick={isMobile ? openDetails : undefined}
                             onDragOver={(e) => handleTaskDragOver(e, etapa.id, globalTaskIndex)}
                             onDrop={(e) => handleTaskDrop(e, etapa.id, globalTaskIndex)}
                             onDragEnd={handleTaskDragEnd}
                             style={{
                               opacity: isTaskDragging ? 0.35 : 1,
-                              position: isMenuOpen ? 'relative' : undefined,
-                              zIndex: isMenuOpen ? 150 : undefined,
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
@@ -623,10 +571,11 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                 className="task-checkbox"
                                 checked={tarefa.concluida}
                                 disabled={isReadOnly}
+                                onClick={(e) => e.stopPropagation()}
                                 onChange={() => {
                                   if (isReadOnly) return;
                                   onToggleTask(etapa.id, tarefa.id);
-                                  if (!tarefa.concluida) {
+                                  if (!tarefa.concluida && !prefersReducedMotion()) {
                                     import('canvas-confetti')
                                       .then((confettiModule) => {
                                         const fire = confettiModule.default || confettiModule;
@@ -733,96 +682,37 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                               )}
                             </div>
 
-                            {/* Ações da Tarefa no Mobile (Menu Compacto [...]) */}
-                            <div className="mobile-task-actions" style={{ position: 'relative', zIndex: isMenuOpen ? 160 : undefined }}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveTaskMenu((prev) =>
-                                    prev?.etapaId === etapa.id && prev?.tarefaId === tarefa.id
-                                      ? null
-                                      : { etapaId: etapa.id, tarefaId: tarefa.id }
-                                  );
-                                }}
-                                className="btn-icon mobile-task-menu-btn"
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  background: temAnexos ? 'var(--coral-glow-50)' : '#ffffff',
-                                  color: temAnexos ? 'var(--primary-accent)' : 'var(--text-main)',
-                                }}
-                                aria-label="Opções do serviço"
-                              >
-                                <DotsThreeVertical size={18} weight="bold" />
-                              </button>
-
-                              {activeTaskMenu?.etapaId === etapa.id && activeTaskMenu?.tarefaId === tarefa.id && (
-                                <div
-                                  className="task-mobile-menu-dropdown"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveTaskMenu(null);
-                                      setViewingTaskDetails({ tarefa, etapaNome: etapa.nome, etapaId: etapa.id });
-                                    }}
-                                    className="task-mobile-menu-item"
-                                  >
-                                    <Eye size={16} weight={temAnexos ? 'bold' : 'regular'} style={{ color: 'var(--primary-accent)' }} />
-                                    <span>Ver fotos e notas {temAnexos ? `(${(tarefa.fotos?.length || 0) + (tarefa.anotacoes?.length || 0)})` : ''}</span>
-                                  </button>
-
-                                  {!isReadOnly && (
-                                    <>
-                                      {hasAgrupamentos && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setActiveTaskMenu(null);
-                                            setMovingTaskTarget({ etapaId: etapa.id, tarefa });
-                                          }}
-                                          className="task-mobile-menu-item"
-                                        >
-                                          <HouseLine size={16} weight="bold" style={{ color: 'var(--primary-accent)' }} />
-                                          <span>Mover ambiente</span>
-                                        </button>
-                                      )}
-
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveTaskMenu(null);
-                                          setEditingTask({
-                                            etapaId: etapa.id,
-                                            id: tarefa.id,
-                                            nome: tarefa.nome,
-                                            ambiente: tarefa.ambiente,
-                                          });
-                                        }}
-                                        className="task-mobile-menu-item"
-                                      >
-                                        <PencilSimple size={16} weight="bold" />
-                                        <span>Editar serviço</span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveTaskMenu(null);
-                                          setDeleteTaskTarget({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome });
-                                        }}
-                                        className="task-mobile-menu-item danger"
-                                      >
-                                        <Trash size={16} weight="bold" />
-                                        <span>Excluir serviço</span>
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                            {/* Ações da Tarefa no Mobile: só para o construtor (a linha toda abre os detalhes) */}
+                            {!isReadOnly && (
+                              <div className="mobile-task-actions">
+                                <OverflowMenu
+                                  label={`Opções do serviço ${tarefa.nome}`}
+                                  items={[
+                                    {
+                                      key: 'mover',
+                                      label: 'Mover de ambiente',
+                                      icon: <HouseLine size={18} weight="bold" />,
+                                      hidden: !hasAgrupamentos,
+                                      onSelect: () => setMovingTaskTarget({ etapaId: etapa.id, tarefa }),
+                                    },
+                                    {
+                                      key: 'editar',
+                                      label: 'Editar serviço',
+                                      icon: <PencilSimple size={18} weight="bold" />,
+                                      onSelect: () =>
+                                        setEditingTask({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome, ambiente: tarefa.ambiente }),
+                                    },
+                                    {
+                                      key: 'excluir',
+                                      label: 'Excluir serviço',
+                                      icon: <Trash size={18} weight="bold" />,
+                                      danger: true,
+                                      onSelect: () => setDeleteTaskTarget({ etapaId: etapa.id, id: tarefa.id, nome: tarefa.nome }),
+                                    },
+                                  ]}
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       };
@@ -862,9 +752,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                           )}
 
                           {etapa.tarefas.length === 0 ? (
-                            <div style={{ padding: '12px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                              Nenhum serviço listado. Digite no campo abaixo para incluir.
-                            </div>
+                            <EmptyState icon={ListChecks} className="empty-state--nested" title="Nenhum serviço nesta etapa." hint={isReadOnly ? undefined : 'Digite no campo abaixo para incluir.'} />
                           ) : !hasAgrupamentos ? (
                             /* Modo sem agrupamentos: visual idêntico ao original */
                             <div>
@@ -880,7 +768,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                   .filter(({ tarefa }) => !tarefa.ambiente || !etapaAmbientes.includes(tarefa.ambiente));
 
                                 if (semGrupo.length === 0 && !hasAgrupamentos) return null;
-                                const concluidasCount = semGrupo.filter(({ tarefa }) => tarefa.concluida).length;
+                                const concluidasCount = semGrupo.filter(({ tarefa }) => isTarefaConcluida(tarefa)).length;
                                 const isGeralOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === '__SEM_GRUPO__';
                                 const isGeralOpen = isAgrupamentoOpen(etapa.id, '__SEM_GRUPO__');
 
@@ -968,7 +856,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                   .map((t, idx) => ({ tarefa: t, originalIndex: idx }))
                                   .filter(({ tarefa }) => tarefa.ambiente === ambienteNome);
 
-                                const concluidasCount = grupoTarefas.filter(({ tarefa }) => tarefa.concluida).length;
+                                const concluidasCount = grupoTarefas.filter(({ tarefa }) => isTarefaConcluida(tarefa)).length;
                                 const isGroupOver = dragOverGroup?.etapaId === etapa.id && dragOverGroup?.ambiente === ambienteNome;
                                 const isGroupOpen = isAgrupamentoOpen(etapa.id, ambienteNome);
 
@@ -1023,6 +911,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
                                       {!isReadOnly && (
                                         <div
+                                          className="grupo-actions-desktop"
                                           style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                                           onClick={(e) => e.stopPropagation()}
                                         >
@@ -1055,6 +944,30 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                           >
                                             <Trash size={13} />
                                           </button>
+                                        </div>
+                                      )}
+                                      {!isReadOnly && (
+                                        <div className="grupo-actions-mobile">
+                                          <OverflowMenu
+                                            label={`Opções do agrupamento ${ambienteNome}`}
+                                            items={[
+                                              {
+                                                key: 'renomear',
+                                                label: 'Renomear agrupamento',
+                                                icon: <PencilSimple size={18} weight="bold" />,
+                                                onSelect: () =>
+                                                  setEditingGroup({ etapaId: etapa.id, oldName: ambienteNome, currentName: ambienteNome }),
+                                              },
+                                              {
+                                                key: 'excluir',
+                                                label: 'Excluir agrupamento',
+                                                icon: <Trash size={18} weight="bold" />,
+                                                danger: true,
+                                                onSelect: () =>
+                                                  setDeleteGroupTarget({ etapaId: etapa.id, nome: ambienteNome, count: grupoTarefas.length }),
+                                              },
+                                            ]}
+                                          />
                                         </div>
                                       )}
                                     </div>
@@ -1137,20 +1050,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         </div>
       </div>
 
-      {/* Botão Final (apenas Construtor) */}
-      {!isReadOnly && (
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <button
-            type="button"
-            onClick={() => onOpenWizard(null)}
-            className="btn-outline-teal"
-          >
-            <Plus size={16} weight="bold" />
-            <span>Adicionar Próxima Etapa</span>
-          </button>
-        </div>
-      )}
-
       {/* Modal de Criação de Serviço (com opções de agrupamentos existentes) */}
       {addingTaskEtapa && (
         <ModalCreateTask
@@ -1178,7 +1077,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             if (onCreateAgrupamento) {
               onCreateAgrupamento(creatingGroupEtapaId, novoNome);
             }
-            setSelectedAddAmbiente((prev) => ({ ...prev, [creatingGroupEtapaId]: novoNome }));
             setCreatingGroupEtapaId(null);
           }}
         />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import {
   X,
   ArrowRight,
@@ -8,12 +9,13 @@ import {
   Buildings,
   PaintBrushHousehold,
   Sparkle,
-  Trash
+  Trash,
+  ListChecks
 } from '@phosphor-icons/react';
+import { EmptyState } from './EmptyState';
 import { PRESET_TIPOS_OBRA } from '../data/presetObras';
 import { PresetEtapa, PresetTipoObra } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
-import { loadTemplatesFromStorage } from '../utils/storage';
 import { generateUUID } from '../utils/uuid';
 
 interface ModalCreateEtapaWizardProps {
@@ -35,7 +37,7 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   templates,
   onAddEtapa,
 }) => {
-  const availableTemplates = templates && templates.length > 0 ? templates : loadTemplatesFromStorage();
+  const availableTemplates = templates && templates.length > 0 ? templates : PRESET_TIPOS_OBRA;
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [selectedTipo, setSelectedTipo] = useState<PresetTipoObra | null>(availableTemplates[0] || null);
   const [isTipoPersonalizado, setIsTipoPersonalizado] = useState(false);
@@ -46,15 +48,7 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   const [novaTarefaTexto, setNovaTarefaTexto] = useState('');
   const [erroMsg, setErroMsg] = useState('');
 
-  // Fechar com tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
 
@@ -172,330 +166,174 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
   const qtdMarcadas = tarefasSelecionadas.filter((t) => t.checked).length;
   const todasMarcadas = tarefasSelecionadas.length > 0 && qtdMarcadas === tarefasSelecionadas.length;
 
+  const tituloPasso =
+    currentStep === 1 ? 'Tipo de obra' : currentStep === 2 ? 'Escolha da etapa' : null;
+  const iconCfgPasso3 = currentStep === 3 ? getEtapaIcon(etapaNomeDisplay) : null;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-card"
-        style={{ maxWidth: '620px' }}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-      >
-        {/* Cabeçalho Minimalista */}
+      <div className="modal-card" style={{ maxWidth: '560px' }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nova etapa">
         <div className="modal-header">
-          <div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-accent)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Passo {currentStep} de 3
-            </span>
-            <h2 className="modal-title" style={{ fontSize: '1.2rem', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-              {currentStep === 1 && 'Tipo de Obra'}
-              {currentStep === 2 && 'Escolha da Etapa'}
-              {currentStep === 3 && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                  {(() => {
-                    const iconCfg = getEtapaIcon(etapaNomeDisplay);
-                    const StepIcon = iconCfg.Icon;
-                    return (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 28,
-                          height: 28,
-                          borderRadius: 'var(--radius-xs)',
-                          background: iconCfg.bg,
-                          color: iconCfg.color,
-                        }}
-                      >
-                        <StepIcon size={17} weight="bold" />
-                      </span>
-                    );
-                  })()}
-                  <span>{etapaNomeDisplay}</span>
-                </span>
+          <div style={{ minWidth: 0 }}>
+            <span className="wizard-step-label">Passo {currentStep} de 3</span>
+            <h2 className="modal-title wizard-title">
+              {tituloPasso}
+              {iconCfgPasso3 && (
+                <>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 28,
+                      height: 28,
+                      borderRadius: 'var(--radius-xs)',
+                      background: iconCfgPasso3.bg,
+                      color: iconCfgPasso3.color,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <iconCfgPasso3.Icon size={17} weight="bold" />
+                  </span>
+                  <span style={{ overflowWrap: 'anywhere' }}>{etapaNomeDisplay}</span>
+                </>
               )}
             </h2>
           </div>
-          <button onClick={onClose} className="btn-icon" title="Fechar">
+          <button onClick={onClose} className="btn-icon" title="Fechar" aria-label="Fechar" type="button">
             <X size={18} weight="bold" />
           </button>
         </div>
 
-        {/* Linha de Progresso Fina */}
-        <div style={{ height: 3, background: 'var(--dark-coffee-100)' }}>
-          <div
-            style={{
-              height: '100%',
-              background: 'var(--primary-accent)',
-              width: `${(currentStep / 3) * 100}%`,
-              transition: 'width 0.2s ease',
-            }}
-          />
+        <div className="wizard-progress">
+          <div style={{ width: `${(currentStep / 3) * 100}%` }} />
         </div>
 
-        {/* Corpo do Modal */}
-        <div className="modal-body" style={{ padding: '20px 24px' }}>
+        <div className="modal-body">
           {erroMsg && (
-            <div
-              style={{
-                background: 'var(--coral-glow-50)',
-                border: '1px solid var(--coral-glow-300)',
-                borderRadius: 'var(--radius-sm)',
-                padding: '8px 12px',
-                color: 'var(--coral-glow-700)',
-                fontSize: '0.85rem',
-                marginBottom: 14,
-              }}
-            >
-              {erroMsg}
+            <div className="modal-error" role="alert">
+              <span>{erroMsg}</span>
             </div>
           )}
 
-          {/* PASSO 1: MODELO */}
+          {/* PASSO 1: TIPO DE OBRA (escolher já avança) */}
           {currentStep === 1 && (
-            <div className="choice-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="wizard-list">
               {availableTemplates.map((tipo, idx) => (
-                <div
+                <button
                   key={tipo.id}
-                  className={`choice-card ${selectedTipo?.id === tipo.id && !isTipoPersonalizado ? 'selected' : ''}`}
+                  type="button"
+                  className="wizard-option"
                   onClick={() => handleSelectTipo(tipo)}
-                  style={{ padding: '16px' }}
                 >
-                  <div style={{ color: idx % 2 === 0 ? 'var(--cinnamon-wood-500)' : 'var(--coral-glow-500)', marginBottom: 6 }}>
-                    {idx % 2 === 0 ? <Buildings size={28} weight="duotone" /> : <PaintBrushHousehold size={28} weight="duotone" />}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>{tipo.nome}</div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                    {tipo.etapas.length} {tipo.etapas.length === 1 ? 'etapa cadastrada' : 'etapas cadastradas'}
-                  </div>
-                </div>
+                  <span
+                    className="wizard-option-icon"
+                    style={{
+                      background: 'var(--dark-coffee-100)',
+                      color: idx % 2 === 0 ? 'var(--cinnamon-wood-600)' : 'var(--coral-glow-600)',
+                    }}
+                  >
+                    {idx % 2 === 0 ? <Buildings size={20} weight="duotone" /> : <PaintBrushHousehold size={20} weight="duotone" />}
+                  </span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="wizard-option-name" style={{ display: 'block' }}>{tipo.nome}</span>
+                    <span className="wizard-option-sub">
+                      {tipo.etapas.length} {tipo.etapas.length === 1 ? 'etapa' : 'etapas'}
+                    </span>
+                  </span>
+                  <ArrowRight size={16} weight="bold" color="var(--mauve-bark-400)" />
+                </button>
               ))}
 
-              <div
-                className={`choice-card ${isTipoPersonalizado ? 'selected' : ''}`}
-                onClick={handleSelectTipoCustom}
-                style={{ padding: '16px' }}
-              >
-                <div style={{ color: 'var(--pitch-black-500)', marginBottom: 6 }}>
-                  <Sparkle size={28} weight="duotone" />
-                </div>
-                <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>Personalizado</div>
-                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                  Criar etapa livre
-                </div>
-              </div>
+              <button type="button" className="wizard-option" onClick={handleSelectTipoCustom}>
+                <span className="wizard-option-icon" style={{ background: 'var(--dark-coffee-100)', color: 'var(--pitch-black-500)' }}>
+                  <Sparkle size={20} weight="duotone" />
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="wizard-option-name" style={{ display: 'block' }}>Personalizado</span>
+                  <span className="wizard-option-sub">Crie uma etapa do zero</span>
+                </span>
+                <ArrowRight size={16} weight="bold" color="var(--mauve-bark-400)" />
+              </button>
             </div>
           )}
 
-          {/* PASSO 2: SELECIONAR ETAPA COM ÍCONES */}
+          {/* PASSO 2: ETAPA DO CATÁLOGO OU NOME PRÓPRIO */}
           {currentStep === 2 && (
             <div>
-              <div style={{ marginBottom: 12 }}>
-                <span style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                  Selecione uma etapa do catálogo ou crie uma personalizada:
-                </span>
-              </div>
-
               {!isTipoPersonalizado && selectedTipo && (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8,
-                    maxHeight: '280px',
-                    overflowY: 'auto',
-                    paddingRight: 4,
-                  }}
-                >
+                <div className="wizard-list">
                   {selectedTipo.etapas.map((etp) => {
                     const iconCfg = getEtapaIcon(etp.nome, etp.id);
                     const StepIcon = iconCfg.Icon;
-                    const isSelected = selectedEtapa?.id === etp.id;
-
                     return (
-                      <div
-                        key={etp.id}
-                        onClick={() => handleSelectEtapa(etp)}
-                        style={{
-                          padding: '10px 14px',
-                          border: '1.5px solid var(--border-hairline)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          background: isSelected ? 'var(--dark-coffee-50)' : '#ffffff',
-                          borderColor: isSelected ? 'var(--primary-accent)' : 'var(--border-hairline)',
-                          transition: 'all 0.16s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.borderColor = 'var(--border-strong)';
-                            e.currentTarget.style.background = 'var(--dark-coffee-50)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) {
-                            e.currentTarget.style.borderColor = 'var(--border-hairline)';
-                            e.currentTarget.style.background = '#ffffff';
-                          }
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 'var(--radius-sm)',
-                              background: iconCfg.bg,
-                              color: iconCfg.color,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                            }}
-                          >
-                            <StepIcon size={20} weight="bold" />
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                fontSize: '0.92rem',
-                                color: 'var(--text-main)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {etp.nome}
-                            </div>
-                            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                              {etp.tarefas.length} serviços sugeridos
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            color: isSelected ? 'var(--primary-accent)' : 'var(--mauve-bark-400)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            marginLeft: 8,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <ArrowRight size={16} weight="bold" />
-                        </div>
-                      </div>
+                      <button key={etp.id} type="button" className="wizard-option" onClick={() => handleSelectEtapa(etp)}>
+                        <span className="wizard-option-icon" style={{ background: iconCfg.bg, color: iconCfg.color }}>
+                          <StepIcon size={19} weight="bold" />
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span className="wizard-option-name" style={{ display: 'block' }}>{etp.nome}</span>
+                          <span className="wizard-option-sub">{etp.tarefas.length} serviços sugeridos</span>
+                        </span>
+                        <ArrowRight size={16} weight="bold" color="var(--mauve-bark-400)" />
+                      </button>
                     );
                   })}
                 </div>
               )}
 
-              {/* Inserir Nome Customizado */}
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
-                    <div style={{ position: 'absolute', left: 12, color: 'var(--primary-accent)', display: 'flex', alignItems: 'center' }}>
-                      <Sparkle size={16} weight="bold" />
-                    </div>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ paddingLeft: 36, fontSize: '0.88rem' }}
-                      placeholder="Ou digite o nome de outra etapa personalizada..."
-                      value={customEtapaNome}
-                      onChange={(e) => {
-                        setCustomEtapaNome(e.target.value);
-                        setIsCustomEtapa(true);
-                        setSelectedEtapa(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleIniciarEtapaCustom();
-                      }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleIniciarEtapaCustom}
-                    className="btn-primary"
-                    style={{ whiteSpace: 'nowrap', padding: '8px 16px', fontSize: '0.85rem' }}
-                  >
-                    <span>Continuar</span>
-                  </button>
-                </div>
+              <div className="wizard-custom" style={isTipoPersonalizado ? { borderTop: 'none', marginTop: 0, paddingTop: 0 } : undefined}>
+                <label className="form-label" htmlFor="wizard-etapa-nome">
+                  {isTipoPersonalizado ? 'Nome da etapa' : 'Ou crie outra etapa'}
+                </label>
+                <input
+                  id="wizard-etapa-nome"
+                  type="text"
+                  className="form-input"
+                  placeholder="Ex: Paisagismo"
+                  value={customEtapaNome}
+                  onChange={(e) => {
+                    setCustomEtapaNome(e.target.value);
+                    setIsCustomEtapa(true);
+                    setSelectedEtapa(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleIniciarEtapaCustom();
+                    }
+                  }}
+                />
               </div>
             </div>
           )}
 
-          {/* PASSO 3: TAREFAS (MINIMALISTA) */}
+          {/* PASSO 3: SERVIÇOS */}
           {currentStep === 3 && (
             <div>
-              {/* Barra de ação compacta */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <div className="wizard-bar">
+                <span>
                   {qtdMarcadas} de {tarefasSelecionadas.length} selecionados
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleTodas(!todasMarcadas)}
-                  style={{ fontSize: '0.82rem', color: 'var(--primary-accent)', fontWeight: 600 }}
-                >
+                <button type="button" onClick={() => handleToggleTodas(!todasMarcadas)}>
                   {todasMarcadas ? 'Desmarcar todos' : 'Marcar todos'}
                 </button>
               </div>
 
-              {/* Lista com Checkboxes */}
-              <div
-                style={{
-                  maxHeight: '230px',
-                  overflowY: 'auto',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#ffffff',
-                }}
-              >
+              <div className="wizard-tasks">
                 {tarefasSelecionadas.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    Nenhum serviço listado. Digite no campo abaixo para incluir.
-                  </div>
+                  <EmptyState icon={ListChecks} className="empty-state--nested" title="Nenhum serviço adicionado." hint="Adicione os serviços abaixo." />
                 ) : (
                   tarefasSelecionadas.map((item, index) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '9px 12px',
-                        borderBottom: index < tarefasSelecionadas.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                        gap: 10,
-                      }}
-                    >
-                      <label
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 10,
-                          cursor: 'pointer',
-                          flex: 1,
-                        }}
-                      >
+                    <div key={item.id} className="wizard-task">
+                      <label>
                         <input
                           type="checkbox"
                           className="task-checkbox"
                           checked={item.checked}
                           onChange={() => toggleTarefa(index)}
                         />
-                        <span
-                          style={{
-                            fontSize: '0.9rem',
-                            color: item.checked ? 'var(--text-main)' : 'var(--text-faint)',
-                          }}
-                        >
+                        <span style={{ color: item.checked ? 'var(--text-main)' : 'var(--text-muted)', overflowWrap: 'anywhere' }}>
                           {item.nome}
                         </span>
                       </label>
@@ -503,37 +341,38 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
                       <button
                         type="button"
                         onClick={() => handleRemoverTarefa(index)}
-                        style={{ color: 'var(--text-muted)', padding: 4 }}
-                        title="Remover da lista"
+                        className="btn-icon touch-target-44"
+                        style={{ border: 'none', background: 'transparent' }}
+                        aria-label={`Remover ${item.nome}`}
                       >
-                        <Trash size={14} />
+                        <Trash size={16} />
                       </button>
                     </div>
                   ))
                 )}
               </div>
 
-              {/* Campo para Adicionar Novo Serviço */}
-              <form onSubmit={handleAdicionarTarefaCustom} style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <form onSubmit={handleAdicionarTarefaCustom} className="wizard-add">
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="+ Adicionar outro serviço..."
+                  aria-label="Adicionar outro serviço"
+                  placeholder="Adicionar outro serviço"
                   value={novaTarefaTexto}
                   onChange={(e) => setNovaTarefaTexto(e.target.value)}
                 />
                 <button type="submit" className="btn-secondary" style={{ whiteSpace: 'nowrap' }}>
                   <Plus size={16} weight="bold" />
-                  <span>Inserir</span>
+                  <span>Incluir</span>
                 </button>
               </form>
             </div>
           )}
         </div>
 
-        {/* Rodapé */}
-        <div className="modal-footer">
-          {currentStep > 1 && (
+        {/* Rodapé: um único botão primário por passo (no passo 1 a própria escolha avança) */}
+        {currentStep > 1 && (
+          <div className="modal-footer">
             <button
               type="button"
               onClick={() => setCurrentStep((prev) => (prev - 1) as 1 | 2)}
@@ -542,39 +381,36 @@ export const ModalCreateEtapaWizard: React.FC<ModalCreateEtapaWizardProps> = ({
               <ArrowLeft size={16} weight="bold" />
               <span>Voltar</span>
             </button>
-          )}
 
-          {currentStep === 1 && (
-            <button type="button" onClick={() => setCurrentStep(2)} className="btn-primary">
-              <span>Avançar</span>
-              <ArrowRight size={16} weight="bold" />
-            </button>
-          )}
+            {currentStep === 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedEtapa && !isCustomEtapa) {
+                    setCurrentStep(3);
+                    return;
+                  }
+                  if (!customEtapaNome.trim()) {
+                    setErroMsg('Escolha uma etapa da lista ou digite o nome de uma nova.');
+                    return;
+                  }
+                  handleIniciarEtapaCustom();
+                }}
+                className="btn-primary"
+              >
+                <span>Avançar</span>
+                <ArrowRight size={16} weight="bold" />
+              </button>
+            )}
 
-          {currentStep === 2 && (
-            <button
-              type="button"
-              onClick={() => {
-                if (!selectedEtapa && !customEtapaNome.trim()) {
-                  setErroMsg('Selecione uma etapa ou digite um nome.');
-                  return;
-                }
-                setCurrentStep(3);
-              }}
-              className="btn-primary"
-            >
-              <span>Avançar</span>
-              <ArrowRight size={16} weight="bold" />
-            </button>
-          )}
-
-          {currentStep === 3 && (
-            <button type="button" onClick={handleConcluir} className="btn-primary">
-              <Check size={16} weight="bold" />
-              <span>Criar Etapa ({qtdMarcadas})</span>
-            </button>
-          )}
-        </div>
+            {currentStep === 3 && (
+              <button type="button" onClick={handleConcluir} className="btn-primary">
+                <Check size={16} weight="bold" />
+                <span>Criar etapa ({qtdMarcadas})</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

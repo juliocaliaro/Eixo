@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Obra, ToastMessage, ToastType, PerfilUsuario, PresetTipoObra, ProjetoPDF, TipoProjeto, RegistroNota } from './types/obra';
-import { loadObrasFromStorage, saveObrasToStorage, loadTemplatesFromStorage } from './utils/storage';
+import { PRESET_TIPOS_OBRA } from './data/presetObras';
 import { generateUUID } from './utils/uuid';
-import { obrasApi, templatesApi, authApi } from './services/api';
+import { templatesApi, authApi } from './services/api';
+import { isSupabaseConfigured } from './services/supabaseClient';
+import { filtrarObrasVisiveis } from './services/obraAccess';
+import { useSession, SessionUserProvider } from './hooks/useSession';
+import { useObras } from './hooks/useObras';
+import { useRouteState } from './hooks/useRouteState';
+import { normalizeTab } from './utils/routeState';
+import { mensagemParaUsuario, registrarErro } from './utils/mensagensErro';
+import { adicionarToastUnico } from './utils/toasts';
 import { Navbar } from './components/Navbar';
 import { ObraList } from './components/ObraList';
 import { ObraDetail } from './components/ObraDetail';
@@ -10,6 +18,9 @@ import { ModalCreateObra } from './components/ModalCreateObra';
 import { ModalRegistroNota, NovaNotaData } from './components/ModalRegistroNota';
 import { LoginPage, UserRole } from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
+import { WarningCircle } from '@phosphor-icons/react';
+import { ConfigErrorScreen } from './components/ConfigErrorScreen';
+import { ResetPasswordScreen } from './components/ResetPasswordScreen';
 
 const ConfigTemplatesPage = React.lazy(() =>
   import('./components/ConfigTemplatesPage').then((m) => ({ default: m.ConfigTemplatesPage }))
@@ -24,233 +35,129 @@ const RegistroLocacoesPage = React.lazy(() =>
   import('./components/RegistroLocacoesPage').then((m) => ({ default: m.RegistroLocacoesPage }))
 );
 
-export const App: React.FC = () => {
-  const [userId, setUserId] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem('eixo_auth_userId') || null;
-    } catch {
-      return null;
-    }
-  });
+const TelaCarregando: React.FC<{ texto: string }> = ({ texto }) => (
+  <div role="status" aria-live="polite" className="screen-loading">
+    <div className="loading-line" aria-hidden="true" />
+    <span>{texto}</span>
+  </div>
+);
 
-  const [obras, setObras] = useState<Obra[]>(() => {
-    try {
-      const storedId = localStorage.getItem('eixo_auth_userId') || undefined;
-      const storedEmail = localStorage.getItem('eixo_auth_userEmail') || undefined;
-      return loadObrasFromStorage(storedId, storedEmail);
-    } catch {
-      return loadObrasFromStorage();
-    }
+export const App: React.FC = () => {
+  // Sem Supabase configurado nao ha modo local: exibe tela de erro de configuracao.
+  if (!isSupabaseConfigured()) {
+    return <ConfigErrorScreen />;
+  }
+  return <AppShell />;
+};
+
+const AppShell: React.FC = () => {
+  const session = useSession();
+  const sessionUser = session.user;
+  const isLogged = session.status === 'authed';
+  const userId = sessionUser?.id ?? null;
+  const accountRole: PerfilUsuario = sessionUser?.role ?? 'construtor';
+
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const handleDismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Erros de persistencia/rede nunca sao silenciados: geram toast de erro (sem repetir a mesma mensagem visivel).
+  const showError = (titulo: string, descricao?: string) => {
+    const id = generateUUID();
+    setToasts((prev) => adicionarToastUnico(prev, { id, tipo: 'error', titulo, descricao }));
+    window.setTimeout(() => handleDismissToast(id), 9000);
+  };
+
+  // Aviso nao bloqueante (ex.: perfil indisponivel): mesmo mecanismo, tipo warning.
+  const showWarning = (titulo: string, descricao?: string) => {
+    const id = generateUUID();
+    setToasts((prev) => adicionarToastUnico(prev, { id, tipo: 'warning', titulo, descricao }));
+    window.setTimeout(() => handleDismissToast(id), 9000);
+  };
+
+  // Mensagem do erro bloqueante de carga (tela com "Tentar novamente"); null = sem erro.
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
+  const bloqueioCargaRef = useRef(false);
+
+  // Notificacoes de sucesso/info permanecem silenciadas globalmente.
+  const showToast = (
+    _titulo: string,
+    _descricao?: string,
+    _tipo: ToastType = 'success'
+  ) => {
+    return;
+  };
+
+  const identity = useMemo(
+    () => (sessionUser ? { userId: sessionUser.id, email: sessionUser.email, role: sessionUser.role } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionUser?.id, sessionUser?.email, sessionUser?.role]
+  );
+
+  const { obras, setObras, status: obrasStatus, reload: reloadObras } = useObras(identity, {
+    onError: (err) => {
+      registrarErro(err.kind === 'load-failed' ? 'Falha ao carregar obras' : 'Falha ao salvar obras', err);
+      if (err.kind === 'load-failed') {
+        const msg = mensagemParaUsuario(err, 'carregar');
+        setErroCarga(msg);
+        // Sem obras na tela, a propria tela de erro (com "Tentar novamente") ja informa: nada de toast.
+        if (!bloqueioCargaRef.current) showError('Não foi possível atualizar', msg);
+      } else {
+        showError('Falha ao salvar alterações', mensagemParaUsuario(err, 'salvar'));
+      }
+    },
+    onWarning: (res) => {
+      console.warn('[eixo] Gravação com colunas ausentes no banco:', res.warnings);
+      showError('Salvo com ressalvas', 'Algumas informações podem não ter sido gravadas por completo. Avise o suporte.');
+    },
   });
-  const [templates, setTemplates] = useState<PresetTipoObra[]>(() => loadTemplatesFromStorage());
-  const [currentObraId, setCurrentObraId] = useState<string | null>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('obra');
-    } catch {
-      return null;
+  bloqueioCargaRef.current = obrasStatus === 'loading' || obrasStatus === 'idle' || (obrasStatus === 'error' && obras.length === 0);
+
+  // Avisos de sessao: restauracao falhou (login) ou perfil indisponivel apos nova tentativa.
+  useEffect(() => {
+    if (session.notice) showWarning('Sessão não restaurada', session.notice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.notice]);
+  useEffect(() => {
+    if (sessionUser?.perfilIndisponivel) {
+      showWarning('Perfil indisponível', 'Não foi possível carregar seu perfil. Algumas ações podem estar limitadas até a conexão voltar.');
     }
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionUser?.id, sessionUser?.perfilIndisponivel]);
+
+  const [templates, setTemplates] = useState<PresetTipoObra[]>(PRESET_TIPOS_OBRA);
+  const [templatesRetry, setTemplatesRetry] = useState(0);
   const [isCreateObraOpen, setIsCreateObraOpen] = useState(false);
   const [isRegistroNotaOpen, setIsRegistroNotaOpen] = useState(false);
-  const [notaPreselectedObraId, setNotaPreselectedObraId] = useState<string | undefined>(undefined);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [isRegistroNotasPageOpen, setIsRegistroNotasPageOpen] = useState<boolean>(() => {
+  // Estado de URL (obra, aba, perfil, view, upload) vive em useRouteState.
+  // O perfil da URL e apenas preferencia de visao: a conta cliente nunca vira construtor.
+  const { route, tab: activeTab, navigate } = useRouteState(isLogged ? accountRole : null);
+  const currentObraId = route.obraId;
+  const isRegistroNotasPageOpen = route.view === 'notas';
+  const isRegistroLocacoesPageOpen = route.view === 'locacoes';
+  const publicUploadObraId = route.uploadObraId;
+  const perfilAtivo: PerfilUsuario = route.perfil;
+  const Role: UserRole = perfilAtivo === 'cliente' ? 'Cliente' : 'Construtor';
+
+  const setActiveTab = (t: string) => navigate({ tab: normalizeTab(t) }, 'replace');
+
+  const userName = sessionUser?.nome ?? '';
+  const userEmail = sessionUser?.email ?? '';
+  const userEmpresa = sessionUser?.empresa ?? '';
+
+  const handleSaveProfile = async (dados: { nome: string; email: string; empresa?: string }) => {
+    if (!sessionUser) return;
     try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('view') === 'notas';
-    } catch {
-      return false;
+      await authApi.updateProfile(sessionUser.id, { nome: dados.nome, empresa: dados.empresa });
+      await session.refresh();
+    } catch (err) {
+      registrarErro('Falha ao salvar perfil', err);
+      showError('Não foi possível salvar o perfil', mensagemParaUsuario(err, 'salvar'));
     }
-  });
-  const [isRegistroLocacoesPageOpen, setIsRegistroLocacoesPageOpen] = useState<boolean>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('view') === 'locacoes';
-    } catch {
-      return false;
-    }
-  });
-
-  // Gerenciamento de Estado de Autenticação (Sincronizado com Supabase Auth & Local Cache)
-  const [isLogged, setIsLogged] = useState<boolean>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('perfil') === 'cliente' || params.get('upload') === 'projeto') {
-        return true;
-      }
-      const stored = localStorage.getItem('eixo_auth_isLogged');
-      if (stored !== null) return stored === 'true';
-    } catch {}
-    return false;
-  });
-
-  const [Role, setRole] = useState<UserRole>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const perfilParam = params.get('perfil');
-      if (perfilParam === 'cliente') return 'Cliente';
-      if (perfilParam === 'construtor') return 'Construtor';
-      const stored = localStorage.getItem('eixo_auth_role') as UserRole;
-      if (stored === 'Cliente' || stored === 'Construtor') return stored;
-    } catch {}
-    return 'Construtor';
-  });
-
-  const perfilAtivo: PerfilUsuario = Role.toLowerCase() as PerfilUsuario;
-
-  const setPerfilAtivo = (novo: PerfilUsuario) => {
-    const newRole: UserRole = novo === 'cliente' ? 'Cliente' : 'Construtor';
-    setRole(newRole);
-    try {
-      localStorage.setItem('eixo_auth_role', newRole);
-    } catch {}
   };
-
-  // Dados Cadastrais do Perfil de Usuário (campos em branco por padrão)
-  const [userName, setUserName] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem('eixo_auth_userName');
-      if (stored) return stored;
-    } catch {}
-    return '';
-  });
-
-  const [userEmail, setUserEmail] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem('eixo_auth_userEmail');
-      if (stored) return stored;
-    } catch {}
-    return '';
-  });
-
-  const [userEmpresa, setUserEmpresa] = useState<string>(() => {
-    try {
-      const stored = localStorage.getItem('eixo_empresa_cadastrada');
-      if (stored) return stored;
-    } catch {}
-    return '';
-  });
-
-  const handleSaveProfile = (dados: { nome: string; email: string; empresa?: string }) => {
-    setUserName(dados.nome);
-    setUserEmail(dados.email);
-    if (dados.empresa !== undefined) {
-      setUserEmpresa(dados.empresa);
-    }
-    try {
-      localStorage.setItem('eixo_auth_userName', dados.nome);
-      localStorage.setItem('eixo_auth_userEmail', dados.email);
-      if (dados.empresa !== undefined) {
-        localStorage.setItem('eixo_empresa_cadastrada', dados.empresa);
-      }
-    } catch {}
-    showToast(
-      'Perfil Atualizado',
-      'As configurações de perfil foram salvas com sucesso.',
-      'success'
-    );
-  };
-  const [activeTab, setActiveTab] = useState<'etapas' | 'projetos' | 'decisoes' | 'diario' | 'anexos' | 'compartilhar'>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam === 'anexos') return 'diario';
-      if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
-        return tabParam;
-      }
-      const perfilParam = params.get('perfil');
-      if (perfilParam === 'cliente') {
-        return 'diario';
-      }
-    } catch {}
-    return 'etapas';
-  });
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [publicUploadObraId, setPublicUploadObraId] = useState<string | null>(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('upload') === 'projeto') {
-        return params.get('obra');
-      }
-    } catch {}
-    return null;
-  });
-
-  // Refs de controle para evitar requisições redundantes e loops de sincronização
-  const isInitialMountRef = useRef(true);
-  const skipNextCloudSaveRef = useRef(false);
-  const initialSyncDoneRef = useRef(false);
-  const isUserMutationRef = useRef(false);
-
-  // Verificar reset/limpeza inicial de dados via parâmetro de URL
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const resetParam = params.get('reset') || params.get('limpar');
-      if (resetParam === 'true' || resetParam === '1') {
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        // Em produção, exige confirmação para evitar perda acidental de dados através de link malicioso
-        const podeResetar = isLocalhost || window.confirm('Deseja realmente redefinir todos os dados locais do Eixo para o estado inicial?');
-        if (podeResetar) {
-          // Limpa estritamente as chaves gerenciadas pelo Eixo
-          ['eixo_obras_v1', 'eixo_templates_v1', 'eixo_empresa_cadastrada', 'eixo_public_upload_token'].forEach((k) => {
-            localStorage.removeItem(k);
-          });
-          sessionStorage.clear();
-          window.location.href = window.location.origin + window.location.pathname;
-          return;
-        }
-      }
-    } catch {}
-  }, []);
-
-  // Sincronizar parâmetros de URL em tempo real para evitar perda de contexto ao dar F5
-  useEffect(() => {
-    if (publicUploadObraId) return;
-
-    try {
-      const url = new URL(window.location.href);
-      const prevSearch = url.search;
-
-      if (currentObraId) {
-        url.searchParams.set('obra', currentObraId);
-
-        if (perfilAtivo === 'cliente') {
-          url.searchParams.set('perfil', 'cliente');
-        } else {
-          url.searchParams.delete('perfil');
-        }
-
-        const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
-        if (activeTab && activeTab !== defaultTab) {
-          url.searchParams.set('tab', activeTab);
-        } else {
-          url.searchParams.delete('tab');
-        }
-      } else {
-        url.searchParams.delete('obra');
-        url.searchParams.delete('tab');
-        if (perfilAtivo === 'cliente') {
-          url.searchParams.set('perfil', 'cliente');
-        } else {
-          url.searchParams.delete('perfil');
-        }
-      }
-
-      if (isRegistroNotasPageOpen) {
-        url.searchParams.set('view', 'notas');
-      } else if (isRegistroLocacoesPageOpen) {
-        url.searchParams.set('view', 'locacoes');
-      } else {
-        url.searchParams.delete('view');
-      }
-
-      if (url.search !== prevSearch) {
-        window.history.replaceState({}, '', url.toString());
-      }
-    } catch {}
-  }, [currentObraId, perfilAtivo, activeTab, publicUploadObraId, isRegistroNotasPageOpen, isRegistroLocacoesPageOpen]);
 
   // -------------------------------------------------------
   // visualViewport: mantém --vvh sempre igual à altura real
@@ -286,191 +193,44 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Suporte a navegação nativa do navegador (botões Voltar e Avançar via popstate)
+  // Modelos de obra do usuario autenticado (lista vazia = padroes de fabrica).
   useEffect(() => {
-    const handlePopState = () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const obraParam = params.get('obra');
-        const perfilParam = params.get('perfil');
-        const tabParam = params.get('tab');
-        const viewParam = params.get('view');
-
-        setIsRegistroNotasPageOpen(viewParam === 'notas');
-        setCurrentObraId(obraParam);
-        if (perfilParam === 'cliente' || perfilParam === 'construtor') {
-          setPerfilAtivo(perfilParam);
-        } else {
-          setPerfilAtivo('construtor');
-        }
-        if (tabParam === 'anexos') {
-          setActiveTab('diario');
-        } else if (tabParam === 'etapas' || tabParam === 'projetos' || tabParam === 'decisoes' || tabParam === 'diario' || tabParam === 'compartilhar') {
-          setActiveTab(tabParam);
-        } else {
-          setActiveTab(perfilParam === 'cliente' ? 'diario' : 'etapas');
-        }
-      } catch {}
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // 1. Sincronização e Hidratação de Sessão Supabase Auth em Tempo Real (com deduplicação de chamadas)
-  useEffect(() => {
-    let isMounted = true;
-
-    const syncUserObras = async (uid: string, targetRole?: string, targetEmail?: string) => {
-      if (initialSyncDoneRef.current) return;
-      initialSyncDoneRef.current = true;
-      try {
-        const cloudObras = await obrasApi.list(uid, targetRole, targetEmail);
-        if (isMounted && cloudObras) {
-          skipNextCloudSaveRef.current = true;
-          setObras(cloudObras);
-        }
-      } catch (err) {
-        console.warn('Erro ao carregar obras na inicialização:', err);
-      }
-    };
-
-    // Recupera sessão ativa no Supabase (seja no PC, celular ou outro navegador)
-    authApi.getSession().then((session) => {
-      if (!isMounted) return;
-      if (session?.user) {
-        const u = session.user;
-        const meta = u.user_metadata || {};
-        const activeUserEmail = (u.email || '').trim().toLowerCase();
-        setUserId(u.id);
-        setIsLogged(true);
-        if (activeUserEmail) setUserEmail(activeUserEmail);
-        if (meta.nome) setUserName(meta.nome);
-        if (meta.empresa) setUserEmpresa(meta.empresa);
-        if (meta.role === 'cliente') setRole('Cliente');
-        else if (meta.role === 'construtor') setRole('Construtor');
-
-        try {
-          localStorage.setItem('eixo_auth_userId', u.id);
-          localStorage.setItem('eixo_auth_isLogged', 'true');
-          if (activeUserEmail) localStorage.setItem('eixo_auth_userEmail', activeUserEmail);
-        } catch {}
-
-        syncUserObras(u.id, meta.role || (perfilAtivo === 'cliente' ? 'cliente' : 'construtor'), activeUserEmail);
-      }
-    }).catch(() => {});
-
-    // Inscreve-se para eventos de login, logout e renovação de token
-    const subscription = authApi.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (session?.user) {
-          const u = session.user;
-          const meta = u.user_metadata || {};
-          const activeUserEmail = (u.email || '').trim().toLowerCase();
-          setUserId(u.id);
-          setIsLogged(true);
-          if (activeUserEmail) setUserEmail(activeUserEmail);
-          if (meta.nome) setUserName(meta.nome);
-          if (meta.empresa) setUserEmpresa(meta.empresa);
-          if (meta.role === 'cliente') setRole('Cliente');
-          else if (meta.role === 'construtor') setRole('Construtor');
-
-          try {
-            localStorage.setItem('eixo_auth_userId', u.id);
-            localStorage.setItem('eixo_auth_isLogged', 'true');
-            if (activeUserEmail) localStorage.setItem('eixo_auth_userEmail', activeUserEmail);
-            if (meta.nome) localStorage.setItem('eixo_auth_userName', meta.nome);
-          } catch {}
-
-          if (!initialSyncDoneRef.current) {
-            syncUserObras(u.id, meta.role || (perfilAtivo === 'cliente' ? 'cliente' : 'construtor'), activeUserEmail);
-          }
-        }
-      } else if (event === 'SIGNED_OUT') {
-        initialSyncDoneRef.current = false;
-        setUserId(null);
-        setIsLogged(false);
-        setObras([]);
-        setCurrentObraId(null);
-        try {
-          localStorage.removeItem('eixo_auth_userId');
-          localStorage.setItem('eixo_auth_isLogged', 'false');
-        } catch {}
-      }
-    });
-
-    // Carrega templates cadastrados
-    templatesApi.list().then((loadedTemplates) => {
-      if (isMounted && loadedTemplates && loadedTemplates.length > 0) {
-        setTemplates(loadedTemplates);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      if (subscription && typeof (subscription as any).unsubscribe === 'function') {
-        (subscription as any).unsubscribe();
-      }
-    };
-  }, []);
-
-  // 2. Sincronização entre Abas / Dispositivos ao alternar abas no navegador (sem acionar em caixas de diálogo do SO)
-  useEffect(() => {
-    let lastSyncTime = 0;
-    let isSyncing = false;
-
-    const handleVisibilityChange = async () => {
-      const now = Date.now();
-      // Throttle de 60s para evitar flood ao alternar abas
-      if (now - lastSyncTime < 60000 || isSyncing) return;
-      if (document.visibilityState !== 'visible' || !userId) return;
-
-      lastSyncTime = now;
-      isSyncing = true;
-      try {
-        const cloudObras = await obrasApi.list(userId, perfilAtivo, userEmail);
-        if (cloudObras) {
-          skipNextCloudSaveRef.current = true;
-          setObras(cloudObras);
-        }
-      } catch (err) {
-        console.warn('Erro ao sincronizar em background ao focar aba:', err);
-      } finally {
-        isSyncing = false;
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [userId]);
-
-  // 3. Salvar no cache local imediato e persistir no Supabase com debounce apenas quando houver ação explícita do usuário
-  useEffect(() => {
-    // 1. Mantém cache local atualizado imediatamente (rápido e offline-first)
-    if (obras && obras.length > 0) {
-      saveObrasToStorage(obras, userId || undefined);
-    }
-
-    // 2. Se NÃO foi uma alteração disparada pelo usuário, não envia para a nuvem
-    if (!isUserMutationRef.current) {
+    if (!userId) {
+      setTemplates(PRESET_TIPOS_OBRA);
       return;
     }
+    let active = true;
+    templatesApi
+      .list(userId)
+      .then((loaded) => {
+        if (active) setTemplates(loaded.length > 0 ? loaded : PRESET_TIPOS_OBRA);
+      })
+      .catch((err) => {
+        // Falha de modelos nao bloqueia as obras: mantem os padroes de fabrica.
+        registrarErro('Falha ao carregar modelos de obra', err);
+        if (active && !bloqueioCargaRef.current) {
+          showWarning('Modelos de obra indisponíveis', 'Usando os modelos padrão por enquanto.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, templatesRetry]);
 
-    isUserMutationRef.current = false;
-
-    // 3. Persiste na nuvem com debounce para evitar flood enquanto o usuário altera itens
-    if (obras && obras.length > 0 && userId) {
-      const timer = setTimeout(() => {
-        obrasApi.saveAll(obras, userId);
-      }, 400);
-
-      return () => clearTimeout(timer);
-    }
-  }, [obras]);
+  // Sincronização entre abas / dispositivos ao voltar para a aba (throttle de 60s)
+  const lastSyncRef = useRef(0);
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible' || !userId) return;
+      const now = Date.now();
+      if (now - lastSyncRef.current < 60000) return;
+      lastSyncRef.current = now;
+      void reloadObras({ silent: true });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [userId, reloadObras]);
 
   // Garantir que no mobile, com teclado virtual aberto, o scroll continue fluido e o campo focado visível
   useEffect(() => {
@@ -495,63 +255,28 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Função para exibir Toast notification (silenciada globalmente: retira notificações na tela em qualquer atividade)
-  const showToast = (
-    _titulo: string,
-    _descricao?: string,
-    _tipo: ToastType = 'success'
-  ) => {
-    // Notificações em tela removidas conforme solicitado
-    return;
-  };
-
-  const handleDismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
   // Atualizar modelos padrão de etapas e tarefas
   const handleUpdateTemplates = (updated: PresetTipoObra[]) => {
     setTemplates(updated);
-    templatesApi.save(updated);
+    if (!userId) return;
+    templatesApi
+      .save(userId, updated)
+      .catch((err) => {
+        registrarErro('Falha ao salvar modelos de obra', err);
+        showError('Não foi possível salvar os modelos de obra', mensagemParaUsuario(err, 'salvar'));
+      });
   };
 
   // Navegação para dentro de uma obra
   const handleSelectObra = (id: string) => {
     setIsConfigOpen(false);
-    setIsRegistroNotasPageOpen(false);
-    setIsRegistroLocacoesPageOpen(false);
-    setCurrentObraId(id);
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('obra', id);
-      if (perfilAtivo === 'cliente') {
-        url.searchParams.set('perfil', 'cliente');
-      } else {
-        url.searchParams.delete('perfil');
-      }
-      const defaultTab = perfilAtivo === 'cliente' ? 'diario' : 'etapas';
-      if (activeTab && activeTab !== defaultTab) {
-        url.searchParams.set('tab', activeTab);
-      } else {
-        url.searchParams.delete('tab');
-      }
-      window.history.pushState({}, '', url.toString());
-    } catch {}
+    navigate({ obraId: id, view: null, uploadObraId: null }, 'push');
   };
 
-  // Voltar para a lista de obras
+  // Voltar para a lista de obras (limpa obra, aba e view; o perfil de visao e mantido)
   const handleBackToObras = () => {
-    setCurrentObraId(null);
     setIsConfigOpen(false);
-    setIsRegistroNotasPageOpen(false);
-    setIsRegistroLocacoesPageOpen(false);
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('obra');
-      url.searchParams.delete('tab');
-      url.searchParams.delete('view');
-      window.history.pushState({}, '', url.toString());
-    } catch {}
+    navigate({ obraId: null, tab: null, view: null }, 'push');
   };
 
   // Criar nova obra
@@ -562,12 +287,9 @@ export const App: React.FC = () => {
     dataPrevista: string;
     empresaResponsavel?: string;
     orcamentoInicial?: number;
+    emailsClientes?: string[];
   }) => {
-    if (dados.empresaResponsavel) {
-      try {
-        localStorage.setItem('eixo_empresa_cadastrada', dados.empresaResponsavel);
-      } catch {}
-    }
+    if (!sessionUser) return;
 
     const novaObra: Obra = {
       id: generateUUID(),
@@ -575,47 +297,28 @@ export const App: React.FC = () => {
       cliente: dados.cliente,
       endereco: dados.endereco,
       dataPrevista: dados.dataPrevista,
-      empresaResponsavel: dados.empresaResponsavel,
+      empresaResponsavel: dados.empresaResponsavel || sessionUser.empresa || undefined,
       orcamentoInicial: dados.orcamentoInicial,
+      emailsClientes: dados.emailsClientes,
+      clienteEmail: dados.emailsClientes?.[0],
       criadaEm: new Date().toISOString(),
-      construtorId: userId || undefined,
+      construtorId: sessionUser.id,
       etapas: [],
       anexosGerais: [],
     };
 
-    isUserMutationRef.current = true;
-    const updated = [novaObra, ...obras];
-    setObras(updated);
+    setObras((prev) => [novaObra, ...prev]);
     setIsCreateObraOpen(false);
     // Já entra diretamente nos detalhes da obra recém criada!
     handleSelectObra(novaObra.id);
-
-    showToast(
-      'Obra criada com sucesso!',
-      `Bem-vindo ao diário de "${novaObra.nome}". Adicione sua primeira etapa.`
-    );
   };
 
   // Atualizar dados de uma obra existente
   const handleUpdateObra = (updatedObra: Obra) => {
-    isUserMutationRef.current = true;
     setObras((prev) => prev.map((o) => (o.id === updatedObra.id ? updatedObra : o)));
   };
 
   // Controle de Registro de Notas
-  const handleOpenRegistroNota = (targetObraId?: string) => {
-    if (obras.length === 0) {
-      showToast(
-        'Nenhuma obra cadastrada',
-        'Cadastre uma obra antes de realizar o registro de notas.',
-        'warning'
-      );
-      return;
-    }
-    setNotaPreselectedObraId(targetObraId || currentObraId || undefined);
-    setIsRegistroNotaOpen(true);
-  };
-
   const handleSaveNota = (dados: NovaNotaData) => {
     const obraAlvo = obras.find((o) => o.id === dados.obraId);
     if (!obraAlvo) return;
@@ -629,265 +332,40 @@ export const App: React.FC = () => {
       criadoEm: new Date().toISOString(),
     };
 
-    const updatedObra: Obra = {
+    handleUpdateObra({
       ...obraAlvo,
       notas: [novoRegistro, ...(obraAlvo.notas || [])],
-    };
-
-    handleUpdateObra(updatedObra);
+    });
     setIsRegistroNotaOpen(false);
-
-    showToast(
-      'Nota Registrada!',
-      `A nota foi anexada com sucesso à obra "${obraAlvo.nome}".`,
-      'success'
-    );
 
     // Se estiver na visão geral de obras, navega diretamente para os detalhes da obra no diário
     if (!currentObraId || currentObraId !== dados.obraId) {
-      handleSelectObra(dados.obraId);
-      setActiveTab('diario');
+      setIsConfigOpen(false);
+      navigate({ obraId: dados.obraId, view: null, uploadObraId: null, tab: 'diario' }, 'push');
     }
-  };
-
-  // Autenticação Persistente & Sincronização de Conta
-  const handleLogin = (
-    selectedRole: UserRole,
-    emailDigitado?: string,
-    nomeDigitado?: string,
-    empresaDigitada?: string,
-    userIdDigitado?: string
-  ) => {
-    setIsLogged(true);
-    setRole(selectedRole);
-    setCurrentObraId(null);
-    setIsConfigOpen(false);
-    const emailToSet = emailDigitado || (selectedRole === 'Construtor' ? 'engenharia@albuquerque.com.br' : 'carolina.mendes@cliente.com');
-    const nomeToSet = nomeDigitado || (selectedRole === 'Construtor' ? 'Engenheiro Responsável' : 'Carolina Mendes');
-    setUserEmail(emailToSet);
-    setUserName(nomeToSet);
-    if (empresaDigitada) {
-      setUserEmpresa(empresaDigitada);
-    }
-    if (userIdDigitado) {
-      setUserId(userIdDigitado);
-    }
-    try {
-      if (userIdDigitado) localStorage.setItem('eixo_auth_userId', userIdDigitado);
-      localStorage.setItem('eixo_auth_isLogged', 'true');
-      localStorage.setItem('eixo_auth_role', selectedRole);
-      localStorage.setItem('eixo_auth_userEmail', emailToSet);
-      localStorage.setItem('eixo_auth_userName', nomeToSet);
-      if (empresaDigitada) {
-        localStorage.setItem('eixo_empresa_cadastrada', empresaDigitada);
-      }
-    } catch {}
-
-    // Carrega dados da nuvem imediatamente para o usuário conectado com flag para evitar regravação
-    if (userIdDigitado) {
-      obrasApi.list(userIdDigitado, selectedRole, emailToSet).then((cloudObras) => {
-        if (cloudObras) {
-          skipNextCloudSaveRef.current = true;
-          setObras(cloudObras);
-        }
-      });
-    }
-
-    showToast(
-      nomeDigitado ? 'Conta criada com sucesso!' : 'Login realizado com sucesso!',
-      `Bem-vindo ao Eixo, ${nomeToSet} (${selectedRole}).`,
-      'success'
-    );
   };
 
   const handleLogout = async () => {
-    await authApi.signOut();
-    setUserId(null);
-    setIsLogged(false);
-    setObras([]);
-    setCurrentObraId(null);
-    setIsConfigOpen(false);
     try {
-      localStorage.removeItem('eixo_auth_userId');
-      localStorage.setItem('eixo_auth_isLogged', 'false');
-    } catch {}
-    showToast('Sessão encerrada', 'Você saiu do sistema.', 'info');
+      await session.signOut();
+    } catch (err) {
+      registrarErro('Falha ao encerrar sessão', err);
+      showError('Não foi possível encerrar a sessão', 'Tente novamente.');
+      return;
+    }
+    navigate({ perfil: 'construtor', obraId: null, tab: null, view: null, uploadObraId: null }, 'replace');
+    setIsConfigOpen(false);
   };
 
-  // Carregar Obra de Demonstração com IDs UUID válidos
-  const handleLoadDemo = () => {
-    const demoObraId = generateUUID();
-    const demoObra: Obra = {
-      id: demoObraId,
-      nome: 'Reforma Apto 402 - Jardins',
-      empresaResponsavel: 'Albuquerque Engenharia & Reformas',
-      cliente: 'Dra. Carolina Mendes',
-      endereco: 'Alameda Santos, 1820 - Apto 402, São Paulo - SP',
-      dataPrevista: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      orcamentoInicial: 185000,
-      criadaEm: new Date().toISOString(),
-      construtorId: userId || undefined,
-      etapas: [
-        {
-          id: generateUUID(),
-          nome: 'Isolamento e Preparação',
-          tipoOrigem: 'Reforma',
-          tarefas: [
-            {
-              id: generateUUID(),
-              nome: 'Proteção de elevadores e áreas comuns.',
-              concluida: true,
-              concluidaEm: new Date().toISOString(),
-              fotos: [
-                'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=500&auto=format&fit=crop&q=60',
-              ],
-              anotacoes: ['Piso do elevador forrado com plástico bolha e chapas de eucatex.'],
-            },
-            {
-              id: generateUUID(),
-              nome: 'Proteção do piso existente (se for mantido).',
-              concluida: false,
-            },
-          ],
-        },
-        {
-          id: generateUUID(),
-          nome: 'Demolição',
-          tipoOrigem: 'Reforma',
-          tarefas: [
-            {
-              id: generateUUID(),
-              nome: 'Demolição de alvenarias, pisos e revestimentos.',
-              concluida: false,
-            },
-            {
-              id: generateUUID(),
-              nome: 'Ensacamento e descarte de entulho.',
-              concluida: false,
-            },
-          ],
-        },
-      ],
-      anexosGerais: [],
-      decisoes: [
-        {
-          id: generateUUID(),
-          titulo: 'Aprovação do Porcelanato Acetinado 90x90 (Sala e Cozinha)',
-          descricao: 'Confirmada a escolha do modelo Portobello Bianco di Lucca 90x90 retificado com junta de 1,5mm e acabamento acetinado para área social.',
-          categoria: 'acabamento',
-          impactoFinanceiro: 1250,
-          impactoPrazoDias: 0,
-          criadaPor: 'construtor',
-          criadorNome: 'Eng. Roberto Albuquerque',
-          criadaEm: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-          status: 'aprovada',
-          assinaturaCriador: {
-            autor: 'construtor',
-            nomeSignatario: 'Eng. Roberto Albuquerque',
-            assinadoEm: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
-          },
-          assinaturaContraparte: {
-            autor: 'cliente',
-            nomeSignatario: 'Dra. Carolina Mendes (Cliente)',
-            assinadoEm: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-          },
-          fotos: [
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=500&auto=format&fit=crop&q=60',
-          ],
-        },
-        {
-          id: generateUUID(),
-          titulo: 'Definição da Cor da Parede de Destaque da Varanda',
-          descricao: 'Cliente solicitou aplicação da tinta Suvinil cor "Toque de Luz" fosco na parede dos fundos da varanda gourmet, em vez do acabamento padrão.',
-          categoria: 'acabamento',
-          impactoFinanceiro: 320,
-          impactoPrazoDias: 1,
-          criadaPor: 'cliente',
-          criadorNome: 'Dra. Carolina Mendes (Cliente)',
-          criadaEm: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
-          status: 'pendente',
-          assinaturaCriador: {
-            autor: 'cliente',
-            nomeSignatario: 'Dra. Carolina Mendes (Cliente)',
-            assinadoEm: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
-          },
-          fotos: [
-            'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500&auto=format&fit=crop&q=60',
-          ],
-        },
-      ],
-      projetos: [
-        {
-          id: generateUUID(),
-          titulo: 'Planta de Demolição e Fechamentos em Alvenaria',
-          tipo: 'demolicao',
-          arquivoNome: 'Prancha_01_Demolicao_Layout_R02.pdf',
-          tamanhoBytes: 1480000,
-          dataUpload: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-          enviadoPor: 'construtor',
-          enviadoPorNome: 'Eng. Roberto Albuquerque',
-          versao: 'Rev. 02',
-          descricao: 'Indicação das paredes a demolir entre sala e cozinha e ampliação da suíte máster.',
-          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
-        },
-        {
-          id: generateUUID(),
-          titulo: 'Diagrama Unifilar e Pontos de Iluminação / Força',
-          tipo: 'eletrico',
-          arquivoNome: 'Projeto_Eletrico_Executivo_Final.pdf',
-          tamanhoBytes: 2250000,
-          dataUpload: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-          enviadoPor: 'construtor',
-          enviadoPorNome: 'Eng. Roberto Albuquerque',
-          versao: 'Final Executivo',
-          descricao: 'Circuito de tomadas da ilha, pontos 220V do cooktop e fita LED dos cortineiros.',
-          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
-        },
-        {
-          id: generateUUID(),
-          titulo: 'Prumada Hidráulica e Isométrico dos Banheiros',
-          tipo: 'hidraulico',
-          arquivoNome: 'Projeto_Hidraulico_Apto402_R01.pdf',
-          tamanhoBytes: 1890000,
-          dataUpload: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString(),
-          enviadoPor: 'cliente',
-          enviadoPorNome: 'Dra. Carolina Mendes (Cliente)',
-          versao: 'Rev. 01',
-          descricao: 'Desvio de tubulação de água fria e rebaixamento do ralo linear.',
-          url: 'data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0NvdW50IDEvS2lkc1szIDAgUl0+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXS9QYXJlbnQgMiAwIFIvUmVzb3VyY2VzPDw+Pj4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDUyIDAwMDAwIG4gCjAwMDAwMDAxMDEgMDAwMDAgbiAKdHJhaWxlcjw8L1NpemUgNC9Sb290IDEgMCBSPj4Kc3RhcnR4cmVmCjE3OAolJUVPRg==',
-        },
-      ],
-      punchList: [],
-      notas: [
-        {
-          id: generateUUID(),
-          obraId: demoObraId,
-          titulo: 'NF 48.912 - Depósito São Paulo',
-          observacoes: 'Entrega de cimento e areia lavada conferida no canteiro.',
-          fotos: [
-            'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=600&auto=format&fit=crop&q=80',
-          ],
-          criadoEm: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
-        },
-      ],
-    };
-
-    isUserMutationRef.current = true;
-    setObras([demoObra, ...obras]);
-    handleSelectObra(demoObra.id);
-    showToast('Obra de Exemplo Carregada!', 'Explore as etapas, arquivos, decisões e o diário.');
-  };
-
-  // Excluir obra
+  // Excluir obra (o diff do obraStore propaga a exclusão em cascata no banco)
   const handleDeleteObra = (obraId: string) => {
     setObras((prev) => prev.filter((o) => o.id !== obraId));
-    obrasApi.delete(obraId);
     if (currentObraId === obraId) {
       handleBackToObras();
     }
   };
 
-  // Handler para upload público de projetos (sem login)
+  // Handler para upload de projetos via link externo (exige sessão autenticada)
   const handlePublicUploadProjeto = (dados: {
     titulo: string;
     tipo: TipoProjeto;
@@ -916,222 +394,219 @@ export const App: React.FC = () => {
       descricao: dados.descricao,
     };
 
-    isUserMutationRef.current = true;
     setObras((prev) =>
-      prev.map((o) => {
-        if (o.id === publicUploadObraId) {
-          const projetosAtuais = o.projetos || [];
-          return {
-            ...o,
-            projetos: [novoProjeto, ...projetosAtuais],
-          };
-        }
-        return o;
-      })
-    );
-
-    showToast(
-      'Projeto Recebido!',
-      `O arquivo "${dados.titulo}" enviado por ${dados.remetenteNome} foi anexado com sucesso.`
+      prev.map((o) =>
+        o.id === publicUploadObraId ? { ...o, projetos: [novoProjeto, ...(o.projetos || [])] } : o
+      )
     );
   };
 
-  // Se o link foi aberto especificamente para upload externo de pranchas sem login
-  if (publicUploadObraId) {
-    const obraDestino = obras.find((o) => o.id === publicUploadObraId);
-    if (obraDestino) {
-      return (
-        <div className="app-container">
-          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando tela de envio...</div>}>
-            <PublicUploadProjetoPage
-              obra={obraDestino}
-              onUploadProjeto={handlePublicUploadProjeto}
-              onBackToApp={() => {
-                setPublicUploadObraId(null);
-                setCurrentObraId(obraDestino.id);
-                setActiveTab('projetos');
-                try {
-                  const url = new URL(window.location.href);
-                  url.searchParams.delete('upload');
-                  window.history.replaceState({}, '', url.toString());
-                } catch {}
-              }}
-            />
-          </React.Suspense>
-          <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
-        </div>
-      );
-    }
+  // Sessão ainda sendo resolvida pelo Supabase
+  if (session.status === 'loading') {
+    return (
+      <div className="app-container">
+        <TelaCarregando texto="Carregando..." />
+      </div>
+    );
   }
 
-  // Se o usuário não estiver logado, exibe a tela de login
+  // Link de recuperação de senha: define a nova senha antes de entrar no app
+  if (session.status === 'recovery') {
+    return <ResetPasswordScreen onDone={session.finishRecovery} onCancel={session.signOut} />;
+  }
+
+  // Se o usuário não estiver autenticado, exibe a tela de login (inclusive para links de upload externo)
   if (!isLogged) {
     return (
-      <div className="login-screen-wrapper">
-        <LoginPage
-          onLogin={handleLogin}
-          initialRole={Role}
-        />
+      <div className="auth-screen">
+        <LoginPage initialRole={Role} />
         <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
       </div>
     );
   }
 
-  // Obra atualmente aberta
-  const currentObra = obras.find((o) => o.id === currentObraId) || null;
+  // Obras que a conta autenticada pode ver (regra única em obraAccess)
+  const visibleObras = filtrarObrasVisiveis(obras, { userId, email: userEmail, role: accountRole });
+  const currentObra = visibleObras.find((o) => o.id === currentObraId) || null;
 
-  // Filtragem inteligente de obras para o cliente
-  const isClientUser = perfilAtivo === 'cliente' || Role === 'Cliente';
-  const userEmailLower = (userEmail || '').trim().toLowerCase();
-  const visibleObras = obras.filter((o) => {
-    if (!isClientUser) return true;
-    if (!userEmailLower) return true; // se logou como cliente sem e-mail informado
-    const matchesEmailList = (o.emailsClientes || []).some(
-      (em) => em.trim().toLowerCase() === userEmailLower
-    );
-    const matchesDirectEmail =
-      o.clienteEmail && o.clienteEmail.trim().toLowerCase() === userEmailLower;
-    const matchesClienteId = userId && o.clienteId === userId;
-    return Boolean(matchesEmailList || matchesDirectEmail || matchesClienteId);
-  });
+  // Link de upload externo de pranchas
+  if (publicUploadObraId) {
+    const obraDestino = visibleObras.find((o) => o.id === publicUploadObraId);
+    if (obraDestino) {
+      return (
+        <SessionUserProvider user={sessionUser}>
+          <div className="app-container">
+            <React.Suspense fallback={<TelaCarregando texto="Carregando tela de envio..." />}>
+              <PublicUploadProjetoPage
+                obra={obraDestino}
+                onUploadProjeto={handlePublicUploadProjeto}
+                onBackToApp={() => {
+                  navigate({ uploadObraId: null, obraId: obraDestino.id, tab: 'projetos', view: null }, 'replace');
+                }}
+              />
+            </React.Suspense>
+            <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+          </div>
+        </SessionUserProvider>
+      );
+    }
+    if (obrasStatus === 'loading' || obrasStatus === 'idle') {
+      return (
+        <div className="app-container">
+          <TelaCarregando texto="Carregando tela de envio..." />
+        </div>
+      );
+    }
+  }
+
+  const carregandoObras = (obrasStatus === 'loading' || obrasStatus === 'idle') && obras.length === 0;
+  const falhaCarregarObras = obrasStatus === 'error' && obras.length === 0;
 
   return (
-    <div className="app-container">
-      {/* Barra de Navegação Superior com Perfis e Notificações */}
-      <Navbar
-        currentObra={currentObra}
-        onBackToObras={handleBackToObras}
-        perfilAtivo={perfilAtivo}
-        onTogglePerfil={(novo) => {
-          setPerfilAtivo(novo);
-          if (novo === 'cliente' && isConfigOpen) {
+    <SessionUserProvider user={sessionUser}>
+      <div className="app-container">
+        {/* Barra de Navegação Superior com Perfis e Notificações */}
+        <Navbar
+          currentObra={currentObra}
+          onBackToObras={handleBackToObras}
+          perfilAtivo={perfilAtivo}
+          onTogglePerfil={(novo) => {
+            if (novo === 'cliente' && isConfigOpen) {
+              setIsConfigOpen(false);
+            }
+            let tab = route.tab;
+            if (novo === 'cliente' && activeTab === 'etapas') tab = 'diario';
+            else if (novo === 'construtor' && activeTab === 'diario' && accountRole !== 'cliente') tab = 'etapas';
+            navigate({ perfil: novo, tab }, 'replace');
+          }}
+          obras={visibleObras}
+          onNavigateToDecisao={(obraId) => {
             setIsConfigOpen(false);
+            navigate({ obraId, view: null, uploadObraId: null, tab: 'decisoes' }, 'push');
+          }}
+          onOpenSettings={() => {
+            setIsConfigOpen((prev) => !prev);
+          }}
+          isConfigOpen={isConfigOpen}
+          activeView={
+            isConfigOpen ? 'modelos' : isRegistroNotasPageOpen ? 'notas' : isRegistroLocacoesPageOpen ? 'locacoes' : 'obras'
           }
-          if (novo === 'cliente' && activeTab === 'etapas') {
-            setActiveTab('diario');
-          } else if (novo === 'construtor' && activeTab === 'diario') {
-            setActiveTab('etapas');
-          }
-          showToast(
-            `Perfil alterado para ${novo === 'construtor' ? 'Construtor' : 'Cliente'}`,
-            novo === 'construtor' ? 'Acesso pleno à gestão e edição.' : 'Modo de acompanhamento transparente e aprovação de decisões.',
-            'info'
-          );
-        }}
-        obras={visibleObras}
-        onNavigateToDecisao={(obraId) => {
-          setIsConfigOpen(false);
-          handleSelectObra(obraId);
-          setActiveTab('decisoes');
-        }}
-        onOpenSettings={() => {
-          setIsConfigOpen((prev) => !prev);
-        }}
-        isConfigOpen={isConfigOpen}
-        onLogout={handleLogout}
-        onOpenCreateObra={() => setIsCreateObraOpen(true)}
-        onOpenRegistroNota={() => {
-          setIsConfigOpen(false);
-          setIsRegistroLocacoesPageOpen(false);
-          setIsRegistroNotasPageOpen(true);
-        }}
-        onOpenRegistroLocacao={() => {
-          setIsConfigOpen(false);
-          setIsRegistroNotasPageOpen(false);
-          setIsRegistroLocacoesPageOpen(true);
-        }}
-        userName={userName}
-        userEmail={userEmail}
-        userEmpresa={userEmpresa}
-        onSaveProfile={handleSaveProfile}
-        isLogged={isLogged}
-        onOpenLogin={() => setIsLogged(false)}
-        activeTab={activeTab}
-        onChangeTab={(t) => setActiveTab(t)}
-      />
+          onLogout={handleLogout}
+          onOpenCreateObra={() => setIsCreateObraOpen(true)}
+          onOpenRegistroNota={() => {
+            setIsConfigOpen(false);
+            navigate({ view: 'notas' }, 'push');
+          }}
+          onOpenRegistroLocacao={() => {
+            setIsConfigOpen(false);
+            navigate({ view: 'locacoes' }, 'push');
+          }}
+          userName={userName}
+          userEmail={userEmail}
+          userEmpresa={userEmpresa}
+          onSaveProfile={handleSaveProfile}
+          isLogged={isLogged}
+          activeTab={activeTab}
+          onChangeTab={(t) => setActiveTab(t)}
+        />
 
-      {/* Conteúdo Principal */}
-      <main className="main-content">
-        {isConfigOpen ? (
-          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando modelos de obra...</div>}>
-            <ConfigTemplatesPage
+        {/* Conteúdo Principal */}
+        <main className="main-content">
+          {isConfigOpen ? (
+            <React.Suspense fallback={<TelaCarregando texto="Carregando modelos de obra..." />}>
+              <ConfigTemplatesPage
+                templates={templates}
+                onUpdateTemplates={handleUpdateTemplates}
+                onBack={() => setIsConfigOpen(false)}
+                showToast={showToast}
+              />
+            </React.Suspense>
+          ) : isRegistroNotasPageOpen ? (
+            <React.Suspense fallback={<TelaCarregando texto="Carregando registro de notas..." />}>
+              <RegistroNotasPage
+                obras={visibleObras}
+                onUpdateObra={handleUpdateObra}
+                onBack={() => navigate({ view: null }, 'push')}
+                showToast={showToast}
+                perfilAtivo={perfilAtivo}
+              />
+            </React.Suspense>
+          ) : isRegistroLocacoesPageOpen ? (
+            <React.Suspense fallback={<TelaCarregando texto="Carregando registro de locação..." />}>
+              <RegistroLocacoesPage
+                obras={visibleObras}
+                onUpdateObra={handleUpdateObra}
+                onBack={() => navigate({ view: null }, 'push')}
+                showToast={showToast}
+                perfilAtivo={perfilAtivo}
+              />
+            </React.Suspense>
+          ) : carregandoObras ? (
+            <TelaCarregando texto="Carregando suas obras..." />
+          ) : falhaCarregarObras ? (
+            <div className="empty-state" role="alert">
+              <WarningCircle size={32} className="empty-state-icon" aria-hidden="true" />
+              <p className="empty-state-text">{erroCarga ?? mensagemParaUsuario(null, 'carregar')}</p>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setErroCarga(null);
+                  setTemplatesRetry((n) => n + 1);
+                  void reloadObras();
+                }}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : !currentObra ? (
+            /* Visão Externa: Empty State ou Lista de Obras */
+            <ObraList
+              obras={visibleObras}
+              onSelectObra={handleSelectObra}
+              onOpenCreateModal={() => setIsCreateObraOpen(true)}
+              onDeleteObra={handleDeleteObra}
+              perfilAtivo={perfilAtivo}
+              obraNaoEncontrada={!!currentObraId}
+              onDismissAviso={() => navigate({ obraId: null, tab: null }, 'replace')}
+            />
+          ) : (
+            /* Visão Interna: Detalhes da Obra com Abas e Timeline */
+            <ObraDetail
+              obra={currentObra}
+              onUpdateObra={handleUpdateObra}
+              showToast={showToast}
+              perfilAtivo={perfilAtivo}
+              activeTab={activeTab}
+              onChangeTab={(t) => setActiveTab(t)}
+              onBackToObras={handleBackToObras}
+              onSwitchToClient={() => {
+                navigate({ perfil: 'cliente', tab: activeTab === 'etapas' ? 'diario' : route.tab }, 'replace');
+              }}
               templates={templates}
-              onUpdateTemplates={handleUpdateTemplates}
-              onBack={() => setIsConfigOpen(false)}
-              showToast={showToast}
             />
-          </React.Suspense>
-        ) : isRegistroNotasPageOpen ? (
-          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de notas...</div>}>
-            <RegistroNotasPage
-              obras={visibleObras}
-              onUpdateObra={handleUpdateObra}
-              onBack={() => setIsRegistroNotasPageOpen(false)}
-              showToast={showToast}
-              perfilAtivo={perfilAtivo}
-            />
-          </React.Suspense>
-        ) : isRegistroLocacoesPageOpen ? (
-          <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de locação...</div>}>
-            <RegistroLocacoesPage
-              obras={visibleObras}
-              onUpdateObra={handleUpdateObra}
-              onBack={() => setIsRegistroLocacoesPageOpen(false)}
-              showToast={showToast}
-              perfilAtivo={perfilAtivo}
-            />
-          </React.Suspense>
-        ) : !currentObra ? (
-          /* Visão Externa: Empty State ou Lista de Obras */
-          <ObraList
-            obras={visibleObras}
-            onSelectObra={handleSelectObra}
-            onOpenCreateModal={() => setIsCreateObraOpen(true)}
-            onDeleteObra={handleDeleteObra}
-            onLoadDemo={handleLoadDemo}
-            perfilAtivo={perfilAtivo}
-            onOpenSettings={Role === 'Construtor' ? () => setIsConfigOpen(true) : undefined}
-          />
-        ) : (
-          /* Visão Interna: Detalhes da Obra com Abas e Timeline */
-          <ObraDetail
-            obra={currentObra}
-            onUpdateObra={handleUpdateObra}
-            showToast={showToast}
-            perfilAtivo={perfilAtivo}
-            activeTab={activeTab}
-            onChangeTab={(t) => setActiveTab(t)}
-            onBackToObras={handleBackToObras}
-            onSwitchToClient={() => {
-              setPerfilAtivo('cliente');
-              if (activeTab === 'etapas') {
-                setActiveTab('diario');
-              }
-              showToast('Perfil alterado para Cliente', 'Agora você está navegando com a visão do cliente.', 'info');
-            }}
-            templates={templates}
-          />
-        )}
-      </main>
+          )}
+        </main>
 
-      {/* Modal de Criação de Obra */}
-      <ModalCreateObra
-        isOpen={isCreateObraOpen}
-        onClose={() => setIsCreateObraOpen(false)}
-        onSubmit={handleCreateObra}
-      />
+        {/* Modal de Criação de Obra */}
+        <ModalCreateObra
+          isOpen={isCreateObraOpen}
+          onClose={() => setIsCreateObraOpen(false)}
+          onSubmit={handleCreateObra}
+        />
 
-      {/* Modal de Registro de Notas */}
-      <ModalRegistroNota
-        isOpen={isRegistroNotaOpen}
-        onClose={() => setIsRegistroNotaOpen(false)}
-        obras={obras}
-        preselectedObraId={notaPreselectedObraId}
-        onSave={handleSaveNota}
-      />
+        {/* Modal de Registro de Notas */}
+        <ModalRegistroNota
+          isOpen={isRegistroNotaOpen}
+          onClose={() => setIsRegistroNotaOpen(false)}
+          obras={visibleObras}
+          preselectedObraId={currentObraId || undefined}
+          onSave={handleSaveNota}
+        />
 
-      {/* Notificações Toast Flutuantes */}
-      <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
-    </div>
+        {/* Notificações Toast Flutuantes */}
+        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+      </div>
+    </SessionUserProvider>
   );
 };

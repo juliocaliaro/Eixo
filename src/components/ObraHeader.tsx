@@ -1,6 +1,9 @@
 import React from 'react';
 import { MapPin, User, CalendarBlank, CheckCircle, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { Obra, PerfilUsuario } from '../types/obra';
+import { progressoDaObra, rotuloRelatorio, totaisFinanceiros } from '../utils/obraMetrics';
+import { formatarMoeda as formatarMoedaBR } from '../utils/moeda';
+import { formatarDataBR } from '../utils/data';
 
 interface ObraHeaderProps {
   obra: Obra;
@@ -9,44 +12,14 @@ interface ObraHeaderProps {
   perfilAtivo?: PerfilUsuario;
 }
 
-export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRelatorio, perfilAtivo = 'construtor' }) => {
-  const todasTarefas = (obra.etapas || []).flatMap((e) => e.tarefas || []);
-  const totalTarefas = todasTarefas.length;
-  const concluidas = todasTarefas.filter((t) => t.concluida).length;
-  const percentual = totalTarefas > 0 ? Math.round((concluidas / totalTarefas) * 100) : 0;
-  const isConcluida = totalTarefas > 0 && concluidas === totalTarefas;
+export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onOpenRelatorio }) => {
+  const { totalTarefas, concluidas, percentual, concluida: isConcluida } = progressoDaObra(obra);
+  const totais = totaisFinanceiros(obra);
+  const saldoAlteracoes = totais.aprovadas.saldo;
+  const totalInvestimento = totais.investimentoAtualizado;
 
-  const aditivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorAditivo !== undefined ? d.valorAditivo : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro > 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-
-  const supressivosAprovados = (obra.decisoes || [])
-    .filter((d) => d.status === 'aprovada')
-    .reduce((acc, d) => {
-      const val = d.valorSupressivo !== undefined ? -Math.abs(d.valorSupressivo) : (typeof d.impactoFinanceiro === 'number' && d.impactoFinanceiro < 0 ? d.impactoFinanceiro : 0);
-      return acc + val;
-    }, 0);
-
-  const saldoAlteracoes = aditivosAprovados + supressivosAprovados;
-  const totalInvestimento = (obra.orcamentoInicial || 0) + saldoAlteracoes;
-
-  const formatarMoeda = (val: number) => {
-    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-  };
-
-  const formatarData = (dataStr: string) => {
-    if (!dataStr) return 'Não definida';
-    try {
-      const [ano, mes, dia] = dataStr.split('-');
-      if (ano && mes && dia) return `${dia}/${mes}/${ano}`;
-      return dataStr;
-    } catch {
-      return dataStr;
-    }
-  };
+  const formatarMoeda = (val: number) => formatarMoedaBR(val, 0);
+  const formatarData = (dataStr: string) => formatarDataBR(dataStr, 'Não definida');
 
   return (
     <div className="obra-header-panel">
@@ -92,42 +65,38 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
             )}
           </div>
 
-          {/* Faixa de Metadados Diretos - Versão Mobile (exclusivo <= 768px) */}
+          {/* Faixa de Metadados Diretos - Versão Mobile (exclusivo <= 768px): uma linha, sem rótulos */}
           <div className="obra-meta-mobile">
-            <div className="obra-meta-item" style={{ marginBottom: 8 }}>
-              <User size={16} color="var(--primary-accent)" weight="bold" />
-              <span>Cliente: <strong>{obra.cliente}</strong></span>
+            <div className="obra-meta-item">
+              <User size={14} color="var(--primary-accent)" weight="bold" />
+              <strong>{obra.cliente}</strong>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 18,
-                flexWrap: 'wrap',
-              }}
-            >
+            <div className="obra-meta-item">
+              <CalendarBlank size={14} color="var(--primary-accent)" weight="bold" />
+              <strong>{formatarData(obra.dataPrevista)}</strong>
+            </div>
+
+            {obra.orcamentoInicial !== undefined && obra.orcamentoInicial > 0 && (
               <div className="obra-meta-item">
-                <CalendarBlank size={16} color="var(--primary-accent)" weight="bold" />
-                <strong>{formatarData(obra.dataPrevista)}</strong>
+                <CurrencyDollar size={14} color="var(--primary-accent)" weight="bold" />
+                <strong>{formatarMoeda(totalInvestimento)}</strong>
+                {saldoAlteracoes !== 0 && (
+                  <span className="obra-meta-saldo">
+                    ({saldoAlteracoes > 0 ? '+' : '-'}{formatarMoeda(Math.abs(saldoAlteracoes))})
+                  </span>
+                )}
               </div>
-
-              {obra.orcamentoInicial !== undefined && obra.orcamentoInicial > 0 && (
-                <div className="obra-meta-item">
-                  <CurrencyDollar size={16} color="var(--primary-accent)" weight="bold" />
-                  <strong>{formatarMoeda(obra.orcamentoInicial)}</strong>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="obra-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {onOpenRelatorio && (
             <button
               onClick={onOpenRelatorio}
-              className={isConcluida ? 'btn-primary' : 'btn-secondary'}
-              title="Gerar Relatório Final"
+              className={`obra-relatorio-btn ${isConcluida ? 'btn-primary' : 'btn-secondary'}`}
+              title={`Gerar ${rotuloRelatorio(obra).toLowerCase()}`}
               style={{
                 padding: '7px 14px',
                 fontSize: '0.82rem',
@@ -137,42 +106,23 @@ export const ObraHeader: React.FC<ObraHeaderProps> = ({ obra, onEdit, onOpenRela
               }}
             >
               <FileText size={16} weight="bold" />
-              <span>Relatório Final</span>
+              <span>{rotuloRelatorio(obra)}</span>
             </button>
           )}
 
-          {perfilAtivo === 'cliente' && (
-            <span
-              style={{
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                color: 'var(--primary-accent)',
-                background: 'var(--coral-glow-50)',
-                border: '1px solid var(--coral-glow-200)',
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-full)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <User size={15} weight="bold" />
-              <span>Acompanhamento do Cliente</span>
-            </span>
-          )}
         </div>
       </div>
 
       {/* Progresso Geral em Faixa Linear Integrada */}
       <div className="progress-strip-wrapper">
         <div className="progress-strip-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', color: 'var(--text-body)' }}>
+          <div className="progress-label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', color: 'var(--text-body)' }}>
             <CheckCircle size={17} weight="fill" color="var(--primary-accent)" />
             <span>Avanço Físico</span>
           </div>
           <div>
-            <strong style={{ color: 'var(--primary-accent)', fontSize: '1rem' }}>{percentual}%</strong>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
+            <strong className="progress-pct">{percentual}%</strong>
+            <span className="progress-detail" style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: 6 }}>
               ({concluidas} de {totalTarefas} tarefas concluídas)
             </span>
           </div>

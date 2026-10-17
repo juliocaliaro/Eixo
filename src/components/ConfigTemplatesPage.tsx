@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { useIsMobile } from '../hooks/useIsMobile';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
 import {
-  ArrowLeft,
-  Gear,
   Plus,
   Trash,
   PencilSimple,
@@ -9,18 +10,19 @@ import {
   X,
   ArrowCounterClockwise,
   CaretDown,
-  CaretUp,
   ArrowUp,
   ArrowDown,
   ListChecks,
-  Buildings,
-  FolderSimple,
-  Sparkle
+  ArrowsDownUp,
 } from '@phosphor-icons/react';
 import { PresetTipoObra, PresetEtapa, PresetTarefa } from '../types/obra';
 import { getEtapaIcon } from '../utils/etapaIcons';
 import { ModalConfirm } from './ModalConfirm';
-import { resetTemplatesToDefault } from '../utils/storage';
+import { PageHeader } from './PageHeader';
+import { OverflowMenu, OverflowItem } from './OverflowMenu';
+import { EmptyState } from './EmptyState';
+import { PRESET_TIPOS_OBRA } from '../data/presetObras';
+import '../styles/registros-modelos.css';
 
 interface ConfigTemplatesPageProps {
   templates: PresetTipoObra[];
@@ -29,33 +31,42 @@ interface ConfigTemplatesPageProps {
   showToast: (titulo: string, descricao?: string, tipo?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+
 export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
   templates,
   onUpdateTemplates,
   onBack,
   showToast,
 }) => {
+  const isMobile = useIsMobile();
   const [activeTemplateId, setActiveTemplateId] = useState<string>(
     templates.length > 0 ? templates[0].id : ''
   );
 
-  // Controle de accordions das etapas abertas
+  // Etapas abertas (aberta por padrão no desktop; fechada no mobile para reduzir a rolagem)
   const [openAccordions, setOpenAccordions] = useState<{ [etapaId: string]: boolean }>({});
 
-  // Edição inline de nome de modelo
+  // Seletor de modelo (mobile)
+  const [isSeletorOpen, setIsSeletorOpen] = useState(false);
+  const seletorRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(seletorRef, isSeletorOpen, () => setIsSeletorOpen(false), ['mousedown', 'touchstart']);
+
+  // Edição inline de nome de modelo / etapa / serviço
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [tempTemplateNome, setTempTemplateNome] = useState('');
-
-  // Edição inline de nome de etapa
   const [editingEtapaId, setEditingEtapaId] = useState<string | null>(null);
   const [tempEtapaNome, setTempEtapaNome] = useState('');
-
-  // Edição inline de nome de tarefa
   const [editingTarefaKey, setEditingTarefaKey] = useState<string | null>(null); // `${etapaId}__${tarefaId}`
   const [tempTarefaNome, setTempTarefaNome] = useState('');
 
-  // Novo serviço em digitação por etapa
-  const [novaTarefaInputs, setNovaTarefaInputs] = useState<{ [etapaId: string]: string }>({});
+  // Modos de reordenação (setas grandes só enquanto o modo está ativo)
+  const [reordenandoEtapas, setReordenandoEtapas] = useState(false);
+  const [reordenandoTarefasDe, setReordenandoTarefasDe] = useState<string | null>(null);
+
+  // Novo serviço em digitação (uma etapa por vez)
+  const [addingTarefaEtapaId, setAddingTarefaEtapaId] = useState<string | null>(null);
+  const [novaTarefaTexto, setNovaTarefaTexto] = useState('');
 
   // Modais de confirmação e criação
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -67,37 +78,27 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
   const [novaEtapaNome, setNovaEtapaNome] = useState('');
 
   const [deleteTarget, setDeleteTarget] = useState<{
-    type: 'template' | 'etapa' | 'tarefa';
+    type: 'template' | 'etapa';
     templateId?: string;
     etapaId?: string;
-    tarefaId?: string;
     name: string;
   } | null>(null);
 
-  // Fechar modais de criação com tecla Escape
-  useEffect(() => {
-    if (!isAddTemplateOpen && !isAddEtapaOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (isAddTemplateOpen) setIsAddTemplateOpen(false);
-        if (isAddEtapaOpen) setIsAddEtapaOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAddTemplateOpen, isAddEtapaOpen]);
+  useEscapeKey(() => setIsAddTemplateOpen(false), isAddTemplateOpen);
+  useEscapeKey(() => setIsAddEtapaOpen(false), isAddEtapaOpen);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) || templates[0];
 
-  const toggleAccordion = (etapaId: string) => {
-    setOpenAccordions((prev) => ({
-      ...prev,
-      [etapaId]: prev[etapaId] === undefined ? false : !prev[etapaId],
-    }));
-  };
-
   const isAccordionOpen = (etapaId: string) => {
-    return openAccordions[etapaId] !== false; // Aberto por padrão
+    const v = openAccordions[etapaId];
+    return v === undefined ? !isMobile : v;
+  };
+  const toggleAccordion = (etapaId: string) =>
+    setOpenAccordions((prev) => ({ ...prev, [etapaId]: !isAccordionOpen(etapaId) }));
+
+  const atualizarAtivo = (fn: (t: PresetTipoObra) => PresetTipoObra) => {
+    if (!activeTemplate) return;
+    onUpdateTemplates(templates.map((t) => (t.id === activeTemplate.id ? fn(t) : t)));
   };
 
   // --- Handlers de Modelo (Template) ---
@@ -112,12 +113,11 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
       showToast('Nome obrigatório', 'O nome do modelo não pode ser vazio.', 'warning');
       return;
     }
-    const updated = templates.map((t) =>
-      t.id === editingTemplateId ? { ...t, nome: tempTemplateNome.trim() } : t
+    onUpdateTemplates(
+      templates.map((t) => (t.id === editingTemplateId ? { ...t, nome: tempTemplateNome.trim() } : t))
     );
-    onUpdateTemplates(updated);
     setEditingTemplateId(null);
-    showToast('Modelo atualizado', 'O nome do modelo foi alterado com sucesso.');
+    showToast('Modelo atualizado', 'O nome do modelo foi alterado.');
   };
 
   const handleCreateTemplate = (e: React.FormEvent) => {
@@ -131,7 +131,6 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     if (novoModeloClonarDe !== 'blank') {
       const templateOrigem = templates.find((t) => t.id === novoModeloClonarDe);
       if (templateOrigem) {
-        // Clonar com novos IDs
         etapasIniciais = templateOrigem.etapas.map((et, eIdx) => ({
           id: `etapa_custom_${Date.now()}_${eIdx}`,
           nome: et.nome,
@@ -150,13 +149,12 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
       etapas: etapasIniciais,
     };
 
-    const updated = [...templates, novoTemplate];
-    onUpdateTemplates(updated);
+    onUpdateTemplates([...templates, novoTemplate]);
     setActiveTemplateId(novoId);
     setIsAddTemplateOpen(false);
     setNovoModeloNome('');
     setNovoModeloClonarDe('blank');
-    showToast('Modelo criado com sucesso!', `O modelo "${novoTemplate.nome}" já está disponível.`);
+    showToast('Modelo criado', `O modelo "${novoTemplate.nome}" já está disponível.`);
   };
 
   const handleDeleteTemplate = (id: string) => {
@@ -169,7 +167,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     if (activeTemplateId === id) {
       setActiveTemplateId(updated[0].id);
     }
-    showToast('Modelo removido', 'O modelo foi excluído com sucesso.');
+    showToast('Modelo removido', 'O modelo foi excluído.');
   };
 
   // --- Handlers de Etapa ---
@@ -183,20 +181,10 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
       tarefas: [],
     };
 
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: [...t.etapas, novaEtapa],
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
+    atualizarAtivo((t) => ({ ...t, etapas: [...t.etapas, novaEtapa] }));
     setIsAddEtapaOpen(false);
     setNovaEtapaNome('');
-    showToast('Etapa adicionada', `A etapa "${novaEtapa.nome}" foi incluída no modelo.`);
+    showToast('Etapa adicionada', `"${novaEtapa.nome}" foi incluída no modelo.`);
   };
 
   const handleStartEditEtapa = (etapa: PresetEtapa) => {
@@ -205,38 +193,18 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
   };
 
   const handleSaveEditEtapa = (etapaId: string) => {
-    if (!tempEtapaNome.trim() || !activeTemplate) return;
-
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, nome: tempEtapaNome.trim() } : e)),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
+    if (!tempEtapaNome.trim()) return;
+    atualizarAtivo((t) => ({
+      ...t,
+      etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, nome: tempEtapaNome.trim() } : e)),
+    }));
     setEditingEtapaId(null);
     showToast('Etapa renomeada', 'O nome da etapa foi atualizado.');
   };
 
   const handleDeleteEtapa = (etapaId: string) => {
-    if (!activeTemplate) return;
-
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.filter((e) => e.id !== etapaId),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
-    showToast('Etapa removida', 'A etapa e suas tarefas foram excluídas do modelo.');
+    atualizarAtivo((t) => ({ ...t, etapas: t.etapas.filter((e) => e.id !== etapaId) }));
+    showToast('Etapa removida', 'A etapa e seus serviços foram excluídos do modelo.');
   };
 
   const handleMoveEtapa = (index: number, direction: 'up' | 'down') => {
@@ -247,42 +215,24 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     const novasEtapas = [...activeTemplate.etapas];
     const [removido] = novasEtapas.splice(index, 1);
     novasEtapas.splice(targetIndex, 0, removido);
-
-    const updated = templates.map((t) => (t.id === activeTemplate.id ? { ...t, etapas: novasEtapas } : t));
-    onUpdateTemplates(updated);
+    atualizarAtivo((t) => ({ ...t, etapas: novasEtapas }));
   };
 
-  // --- Handlers de Tarefas ---
+  // --- Handlers de Serviços ---
   const handleAddTarefa = (etapaId: string) => {
-    const texto = (novaTarefaInputs[etapaId] || '').trim();
-    if (!texto || !activeTemplate) return;
+    const texto = novaTarefaTexto.trim();
+    if (!texto) return;
 
     const novaTarefa: PresetTarefa = {
       id: `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       nome: texto,
     };
 
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.map((e) => {
-            if (e.id === etapaId) {
-              return {
-                ...e,
-                tarefas: [...e.tarefas, novaTarefa],
-              };
-            }
-            return e;
-          }),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
-    setNovaTarefaInputs((prev) => ({ ...prev, [etapaId]: '' }));
-    showToast('Serviço adicionado', `"${novaTarefa.nome}" adicionado à etapa.`);
+    atualizarAtivo((t) => ({
+      ...t,
+      etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, tarefas: [...e.tarefas, novaTarefa] } : e)),
+    }));
+    setNovaTarefaTexto('');
   };
 
   const handleStartEditTarefa = (etapaId: string, tarefa: PresetTarefa) => {
@@ -291,52 +241,23 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
   };
 
   const handleSaveEditTarefa = (etapaId: string, tarefaId: string) => {
-    if (!tempTarefaNome.trim() || !activeTemplate) return;
-
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.map((e) => {
-            if (e.id === etapaId) {
-              return {
-                ...e,
-                tarefas: e.tarefas.map((ta) => (ta.id === tarefaId ? { ...ta, nome: tempTarefaNome.trim() } : ta)),
-              };
-            }
-            return e;
-          }),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
+    if (!tempTarefaNome.trim()) return;
+    atualizarAtivo((t) => ({
+      ...t,
+      etapas: t.etapas.map((e) =>
+        e.id === etapaId
+          ? { ...e, tarefas: e.tarefas.map((ta) => (ta.id === tarefaId ? { ...ta, nome: tempTarefaNome.trim() } : ta)) }
+          : e
+      ),
+    }));
     setEditingTarefaKey(null);
   };
 
   const handleDeleteTarefa = (etapaId: string, tarefaId: string) => {
-    if (!activeTemplate) return;
-
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.map((e) => {
-            if (e.id === etapaId) {
-              return {
-                ...e,
-                tarefas: e.tarefas.filter((ta) => ta.id !== tarefaId),
-              };
-            }
-            return e;
-          }),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
+    atualizarAtivo((t) => ({
+      ...t,
+      etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, tarefas: e.tarefas.filter((ta) => ta.id !== tarefaId) } : e)),
+    }));
     showToast('Serviço removido', 'O serviço foi excluído da etapa.');
   };
 
@@ -351,642 +272,506 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     const novasTarefas = [...etapa.tarefas];
     const [removido] = novasTarefas.splice(index, 1);
     novasTarefas.splice(targetIndex, 0, removido);
-
-    const updated = templates.map((t) => {
-      if (t.id === activeTemplate.id) {
-        return {
-          ...t,
-          etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, tarefas: novasTarefas } : e)),
-        };
-      }
-      return t;
-    });
-
-    onUpdateTemplates(updated);
+    atualizarAtivo((t) => ({
+      ...t,
+      etapas: t.etapas.map((e) => (e.id === etapaId ? { ...e, tarefas: novasTarefas } : e)),
+    }));
   };
 
   // --- Reset de Fábrica ---
   const handleResetToDefaults = () => {
-    const padroes = resetTemplatesToDefault();
-    onUpdateTemplates(padroes);
-    if (padroes.length > 0) {
-      setActiveTemplateId(padroes[0].id);
+    onUpdateTemplates(PRESET_TIPOS_OBRA);
+    if (PRESET_TIPOS_OBRA.length > 0) {
+      setActiveTemplateId(PRESET_TIPOS_OBRA[0].id);
     }
     setIsResetConfirmOpen(false);
-    showToast('Modelos restaurados!', 'Os modelos de Construção e Reforma foram restaurados para o padrão de fábrica.', 'info');
+    showToast('Modelos restaurados', 'Construção e Reforma voltaram ao padrão de fábrica.', 'info');
   };
 
   if (!activeTemplate) {
     return (
-      <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-        <p>Carregando modelos de templates...</p>
+      <div className="page rg-page">
+        <PageHeader backLabel="Voltar" onBack={onBack} title="Modelos de obra" />
+        <EmptyState icon={ListChecks} title="Nenhum modelo criado." />
       </div>
     );
   }
 
   const totalServicosModelo = activeTemplate.etapas.reduce((acc, e) => acc + e.tarefas.length, 0);
 
+  const menuDoModelo: OverflowItem[] = [
+    {
+      key: 'renomear',
+      label: 'Renomear modelo',
+      icon: <PencilSimple size={18} aria-hidden="true" />,
+      onSelect: () => handleStartEditTemplate(activeTemplate),
+    },
+    {
+      key: 'reordenar',
+      label: 'Reordenar etapas',
+      icon: <ArrowsDownUp size={18} aria-hidden="true" />,
+      disabled: activeTemplate.etapas.length < 2,
+      onSelect: () => {
+        setReordenandoTarefasDe(null);
+        setReordenandoEtapas(true);
+      },
+    },
+    {
+      key: 'restaurar',
+      label: 'Restaurar padrões',
+      icon: <ArrowCounterClockwise size={18} aria-hidden="true" />,
+      onSelect: () => setIsResetConfirmOpen(true),
+    },
+  ];
+  if (templates.length > 1) {
+    menuDoModelo.push({
+      key: 'excluir',
+      label: 'Excluir modelo',
+      icon: <Trash size={18} aria-hidden="true" />,
+      danger: true,
+      onSelect: () => setDeleteTarget({ type: 'template', templateId: activeTemplate.id, name: activeTemplate.nome }),
+    });
+  }
+
+  const setoresMover = (onUp: () => void, onDown: () => void, first: boolean, last: boolean, nome: string) => (
+    <div className="rg-move" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="btn-icon" onClick={onUp} disabled={first} aria-label={`Mover ${nome} para cima`}>
+        <ArrowUp size={18} weight="bold" aria-hidden="true" />
+      </button>
+      <button type="button" className="btn-icon" onClick={onDown} disabled={last} aria-label={`Mover ${nome} para baixo`}>
+        <ArrowDown size={18} weight="bold" aria-hidden="true" />
+      </button>
+    </div>
+  );
+
   return (
-    <div style={{ maxWidth: '1040px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Barra de Ação Superior */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <button onClick={onBack} className="btn-secondary" style={{ padding: '8px 16px', fontSize: '0.9rem' }}>
-          <ArrowLeft size={16} weight="bold" />
-          <span>Voltar para Obras</span>
-        </button>
-
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setIsResetConfirmOpen(true)}
-            className="btn-secondary"
-            title="Restaurar etapas e tarefas para os modelos originais do sistema"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            <ArrowCounterClockwise size={16} weight="bold" />
-            <span>Restaurar Padrões</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsAddTemplateOpen(true)}
-            className="btn-primary"
-          >
-            <Plus size={16} weight="bold" />
-            <span>Novo Modelo</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Hero Header Institucional do Painel de Configurações */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-md)',
-          padding: '24px 28px',
-          marginBottom: 28,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-          <div
-            style={{
-              background: 'var(--dark-coffee-100)',
-              color: 'var(--dark-coffee-800)',
-              padding: 12,
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Gear size={28} weight="fill" />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <span
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.8px',
-                color: 'var(--primary-accent)',
-              }}
-            >
-              Templates & Padronização
+    <div className="page rg-page">
+      <PageHeader
+        backLabel="Voltar"
+        onBack={onBack}
+        title={<><span className="rg-title-long">Modelos de obra</span><span className="rg-title-short">Modelos</span></>}
+        actions={
+          <button type="button" className="btn-primary rg-cta" onClick={() => setIsAddTemplateOpen(true)} aria-label="Novo modelo">
+            <Plus size={18} weight="bold" aria-hidden="true" />
+            <span>
+              Novo<span className="rg-hide-xs"> modelo</span>
             </span>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)', marginTop: 2, marginBottom: 6 }}>
-              Modelos de Etapas e Tarefas
-            </h1>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: 1.5, maxWidth: '780px' }}>
-              Defina o catálogo padrão de etapas e serviços técnicos da sua empresa. Os modelos aqui configurados
-              são carregados automaticamente no <strong>Wizard de Etapas</strong> ao planejar qualquer obra.
-            </p>
-          </div>
-        </div>
-      </div>
+          </button>
+        }
+      />
 
-      {/* Barra de Abas dos Modelos Cadastrados */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginBottom: 20,
-          borderBottom: '1px solid var(--border-hairline)',
-          paddingBottom: 12,
-          overflowX: 'auto',
-        }}
-      >
-        {templates.map((tpl) => {
-          const isActive = tpl.id === activeTemplate.id;
-          return (
-            <button
-              key={tpl.id}
-              onClick={() => setActiveTemplateId(tpl.id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '9px 18px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.9rem',
-                fontWeight: isActive ? 700 : 500,
-                background: isActive ? 'var(--dark-coffee-800)' : 'transparent',
-                color: isActive ? '#ffffff' : 'var(--text-body)',
-                border: isActive ? 'none' : '1px solid var(--border-subtle)',
-                cursor: 'pointer',
-                transition: 'all 0.18s ease',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <FolderSimple size={16} weight={isActive ? 'fill' : 'regular'} />
-              <span>{tpl.nome}</span>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  padding: '2px 7px',
-                  borderRadius: 10,
-                  background: isActive ? 'rgba(255, 255, 255, 0.22)' : 'var(--dark-coffee-100)',
-                  color: isActive ? '#ffffff' : 'var(--text-muted)',
-                }}
-              >
-                {tpl.etapas.length} etapas
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <p className="rg-help">Etapas e serviços padrão usados ao planejar uma obra.</p>
 
-      {/* Detalhes do Modelo Ativo */}
-      <div
-        style={{
-          background: '#ffffff',
-          border: '1px solid var(--border-hairline)',
-          borderRadius: 'var(--radius-md)',
-          padding: '20px 24px',
-          marginBottom: 20,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 14,
-        }}
-      >
-        <div style={{ flex: 1, minWidth: '240px' }}>
-          {editingTemplateId === activeTemplate.id ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="text"
-                className="form-input"
-                value={tempTemplateNome}
-                onChange={(e) => setTempTemplateNome(e.target.value)}
-                style={{ maxWidth: '300px', fontWeight: 700 }}
-                autoFocus
-              />
-              <button onClick={handleSaveEditTemplate} className="btn-icon" title="Salvar">
-                <Check size={18} weight="bold" color="var(--primary-accent)" />
-              </button>
-              <button onClick={() => setEditingTemplateId(null)} className="btn-icon" title="Cancelar">
-                <X size={18} weight="bold" />
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                {activeTemplate.nome}
-              </h2>
+      <div className="toolbar rg-toolbar">
+        <div className="toolbar-lead rg-model-switch" ref={seletorRef}>
+          {isMobile ? (
+            <>
               <button
-                onClick={() => handleStartEditTemplate(activeTemplate)}
-                className="btn-icon"
-                title="Editar nome do modelo"
+                type="button"
+                className="rg-select-btn"
+                aria-haspopup="listbox"
+                aria-expanded={isSeletorOpen}
+                onClick={() => setIsSeletorOpen((v) => !v)}
+                disabled={templates.length < 2}
               >
-                <PencilSimple size={16} />
+                <span className="rg-option-text">{activeTemplate.nome}</span>
+                {templates.length > 1 && <CaretDown size={16} weight="bold" aria-hidden="true" />}
               </button>
-            </div>
-          )}
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginTop: 4 }}>
-            Contém <strong>{activeTemplate.etapas.length} etapas</strong> e <strong>{totalServicosModelo} serviços catalogados</strong>.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {templates.length > 1 && (
-            <button
-              onClick={() =>
-                setDeleteTarget({
-                  type: 'template',
-                  templateId: activeTemplate.id,
-                  name: activeTemplate.nome,
-                })
-              }
-              className="btn-secondary"
-              style={{ color: 'var(--text-muted)' }}
-              title="Excluir este modelo"
-            >
-              <Trash size={16} />
-              <span>Excluir Modelo</span>
-            </button>
-          )}
-
-          <button
-            onClick={() => setIsAddEtapaOpen(true)}
-            className="btn-primary"
-            style={{ padding: '8px 16px', fontSize: '0.88rem' }}
-          >
-            <Plus size={16} weight="bold" />
-            <span>Adicionar Etapa</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Lista de Etapas e Tarefas do Modelo */}
-      {activeTemplate.etapas.length === 0 ? (
-        <div
-          style={{
-            background: '#ffffff',
-            border: '1px dashed var(--border-hairline)',
-            borderRadius: 'var(--radius-md)',
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <ListChecks size={36} color="var(--text-muted)" style={{ marginBottom: 12 }} />
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 6 }}>
-            Nenhuma etapa cadastrada neste modelo
-          </h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 18 }}>
-            Comece adicionando a primeira etapa técnica (ex: "Proteção da área", "Demolição", etc.).
-          </p>
-          <button onClick={() => setIsAddEtapaOpen(true)} className="btn-primary">
-            <Plus size={16} weight="bold" />
-            <span>Cadastrar Primeira Etapa</span>
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {activeTemplate.etapas.map((etapa, etapaIndex) => {
-            const etapaIconConfig = getEtapaIcon(etapa.nome, etapa.id);
-            const IconComponent = etapaIconConfig.Icon;
-            const isOpen = isAccordionOpen(etapa.id);
-
-            return (
-              <div
-                key={etapa.id}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid var(--border-hairline)',
-                  borderRadius: 'var(--radius-md)',
-                  overflow: 'hidden',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                }}
-              >
-                {/* Header da Etapa */}
-                <div
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={isOpen}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '14px 18px',
-                    gap: 12,
-                    background: isOpen ? '#ffffff' : 'var(--dark-coffee-50)',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    borderBottom: isOpen ? '1px solid var(--border-hairline)' : 'none',
-                  }}
-                  onClick={() => toggleAccordion(etapa.id)}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      toggleAccordion(etapa.id);
-                    }
+              {isSeletorOpen && (
+                <div className="toolbar-popover rg-popover rg-popover--left" role="listbox">
+                  {templates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      role="option"
+                      className="option"
+                      aria-selected={tpl.id === activeTemplate.id}
+                      aria-checked={tpl.id === activeTemplate.id}
+                      onClick={() => {
+                        setActiveTemplateId(tpl.id);
+                        setIsSeletorOpen(false);
+                        setReordenandoEtapas(false);
+                        setReordenandoTarefasDe(null);
+                      }}
+                    >
+                      <span className="rg-option-text">{tpl.nome}</span>
+                      <span className="rg-option-meta">{plural(tpl.etapas.length, 'etapa', 'etapas')}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rg-model-chips" role="tablist" aria-label="Modelos">
+              {templates.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tpl.id === activeTemplate.id}
+                  className="rg-model-chip"
+                  onClick={() => {
+                    setActiveTemplateId(tpl.id);
+                    setReordenandoEtapas(false);
+                    setReordenandoTarefasDe(null);
                   }}
                 >
-                  {/* Ícone Temático */}
-                  <div
-                    style={{
-                      background: etapaIconConfig.bg,
-                      color: etapaIconConfig.color,
-                      padding: 8,
-                      borderRadius: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <IconComponent size={20} weight="fill" />
-                  </div>
+                  {tpl.nome}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <OverflowMenu items={menuDoModelo} label={`Ações do modelo ${activeTemplate.nome}`} />
+      </div>
 
-                  {/* Nome da Etapa (Normal ou Edição Inline) */}
-                  <div style={{ flex: 1, minWidth: '180px' }}>
-                    {editingEtapaId === etapa.id ? (
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={tempEtapaNome}
-                          onChange={(e) => setTempEtapaNome(e.target.value)}
-                          style={{ padding: '6px 10px', fontSize: '0.95rem', fontWeight: 700 }}
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEditEtapa(etapa.id);
-                            if (e.key === 'Escape') setEditingEtapaId(null);
-                          }}
-                        />
-                        <button
-                          onClick={() => handleSaveEditEtapa(etapa.id)}
-                          className="btn-icon"
-                          title="Salvar"
-                        >
-                          <Check size={18} weight="bold" color="var(--primary-accent)" />
-                        </button>
-                        <button
-                          onClick={() => setEditingEtapaId(null)}
-                          className="btn-icon"
-                          title="Cancelar"
-                        >
-                          <X size={18} weight="bold" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                          {etapaIndex + 1}. {etapa.nome}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStartEditEtapa(etapa);
-                          }}
-                          className="btn-icon"
-                          title="Editar nome da etapa"
-                          style={{ padding: 4 }}
-                        >
-                          <PencilSimple size={14} />
-                        </button>
-                      </div>
-                    )}
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                      {etapa.tarefas.length} {etapa.tarefas.length === 1 ? 'serviço' : 'serviços'}
-                    </span>
-                  </div>
-
-                  {/* Ações da Etapa: Reordenar / Excluir / Expandir */}
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => handleMoveEtapa(etapaIndex, 'up')}
-                      disabled={etapaIndex === 0}
-                      className="btn-icon"
-                      title="Mover etapa para cima"
-                      style={{ opacity: etapaIndex === 0 ? 0.3 : 1 }}
-                    >
-                      <ArrowUp size={15} weight="bold" />
-                    </button>
-                    <button
-                      onClick={() => handleMoveEtapa(etapaIndex, 'down')}
-                      disabled={etapaIndex === activeTemplate.etapas.length - 1}
-                      className="btn-icon"
-                      title="Mover etapa para baixo"
-                      style={{ opacity: etapaIndex === activeTemplate.etapas.length - 1 ? 0.3 : 1 }}
-                    >
-                      <ArrowDown size={15} weight="bold" />
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        setDeleteTarget({
-                          type: 'etapa',
-                          etapaId: etapa.id,
-                          name: etapa.nome,
-                        })
-                      }
-                      className="btn-icon"
-                      title="Excluir etapa"
-                      style={{ color: 'var(--text-muted)', marginLeft: 4 }}
-                    >
-                      <Trash size={16} />
-                    </button>
-
-                    <div style={{ color: 'var(--text-muted)', marginLeft: 6, display: 'flex', alignItems: 'center' }}>
-                      {isOpen ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Corpo da Etapa: Lista de Serviços e Input de Adição */}
-                {isOpen && (
-                  <div style={{ padding: '16px 20px', background: '#faf9f7' }}>
-                    {/* Linha de cadastro rápido de novo serviço */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                      <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Adicionar serviço padrão nesta etapa..."
-                        value={novaTarefaInputs[etapa.id] || ''}
-                        onChange={(e) =>
-                          setNovaTarefaInputs((prev) => ({ ...prev, [etapa.id]: e.target.value }))
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddTarefa(etapa.id);
-                          }
-                        }}
-                        style={{ fontSize: '0.88rem', padding: '8px 12px' }}
-                      />
-                      <button
-                        onClick={() => handleAddTarefa(etapa.id)}
-                        className="btn-primary"
-                        style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-                      >
-                        <Plus size={15} weight="bold" />
-                        <span>Adicionar</span>
-                      </button>
-                    </div>
-
-                    {/* Lista de Serviços */}
-                    {etapa.tarefas.length === 0 ? (
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '8px 4px' }}>
-                        Nenhum serviço cadastrado nesta etapa. Digite acima para adicionar.
-                      </p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {etapa.tarefas.map((tarefa, tIndex) => {
-                          const isEditing = editingTarefaKey === `${etapa.id}__${tarefa.id}`;
-
-                          return (
-                            <div
-                              key={tarefa.id}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                background: '#ffffff',
-                                border: '1px solid var(--border-hairline)',
-                                borderRadius: 'var(--radius-sm)',
-                                padding: '8px 12px',
-                                gap: 10,
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--primary-accent)', flexShrink: 0 }} />
-
-                                {isEditing ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                                    <input
-                                      type="text"
-                                      className="form-input"
-                                      value={tempTarefaNome}
-                                      onChange={(e) => setTempTarefaNome(e.target.value)}
-                                      style={{ padding: '4px 8px', fontSize: '0.88rem', flex: 1 }}
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSaveEditTarefa(etapa.id, tarefa.id);
-                                        if (e.key === 'Escape') setEditingTarefaKey(null);
-                                      }}
-                                    />
-                                    <button
-                                      onClick={() => handleSaveEditTarefa(etapa.id, tarefa.id)}
-                                      className="btn-icon"
-                                      title="Salvar"
-                                      style={{ padding: 4 }}
-                                    >
-                                      <Check size={16} weight="bold" color="var(--primary-accent)" />
-                                    </button>
-                                    <button
-                                      onClick={() => setEditingTarefaKey(null)}
-                                      className="btn-icon"
-                                      title="Cancelar"
-                                      style={{ padding: 4 }}
-                                    >
-                                      <X size={16} weight="bold" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span style={{ fontSize: '0.88rem', color: 'var(--text-body)', flex: 1 }}>
-                                    {tarefa.nome}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Ações da Tarefa */}
-                              {!isEditing && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                  <button
-                                    onClick={() => handleStartEditTarefa(etapa.id, tarefa)}
-                                    className="btn-icon"
-                                    title="Editar serviço"
-                                    style={{ padding: 4 }}
-                                  >
-                                    <PencilSimple size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleMoveTarefa(etapa.id, tIndex, 'up')}
-                                    disabled={tIndex === 0}
-                                    className="btn-icon"
-                                    title="Mover para cima"
-                                    style={{ padding: 4, opacity: tIndex === 0 ? 0.3 : 1 }}
-                                  >
-                                    <ArrowUp size={13} weight="bold" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleMoveTarefa(etapa.id, tIndex, 'down')}
-                                    disabled={tIndex === etapa.tarefas.length - 1}
-                                    className="btn-icon"
-                                    title="Mover para baixo"
-                                    style={{ padding: 4, opacity: tIndex === etapa.tarefas.length - 1 ? 0.3 : 1 }}
-                                  >
-                                    <ArrowDown size={13} weight="bold" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteTarefa(etapa.id, tarefa.id)}
-                                    className="btn-icon"
-                                    title="Excluir serviço"
-                                    style={{ padding: 4, color: 'var(--text-muted)' }}
-                                  >
-                                    <Trash size={14} />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {editingTemplateId === activeTemplate.id && (
+        <div className="rg-inline-edit">
+          <input
+            type="text"
+            className="form-input"
+            value={tempTemplateNome}
+            onChange={(e) => setTempTemplateNome(e.target.value)}
+            aria-label="Nome do modelo"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEditTemplate();
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setEditingTemplateId(null);
+              }
+            }}
+          />
+          <button type="button" onClick={handleSaveEditTemplate} className="btn-icon" aria-label="Salvar nome">
+            <Check size={18} weight="bold" color="var(--primary-accent)" aria-hidden="true" />
+          </button>
+          <button type="button" onClick={() => setEditingTemplateId(null)} className="btn-icon" aria-label="Cancelar">
+            <X size={18} weight="bold" aria-hidden="true" />
+          </button>
         </div>
       )}
 
-      {/* Modal: Criar Novo Modelo */}
+      <section className="section rg-model-body">
+        <p className="rg-meta">
+          {plural(activeTemplate.etapas.length, 'etapa', 'etapas')} · {plural(totalServicosModelo, 'serviço', 'serviços')}
+        </p>
+
+        {reordenandoEtapas && (
+          <div className="rg-reorder-bar" role="status">
+            <span>Reordenando etapas</span>
+            <button type="button" className="btn-quiet" onClick={() => setReordenandoEtapas(false)}>
+              Concluir
+            </button>
+          </div>
+        )}
+
+        {activeTemplate.etapas.length === 0 ? (
+          <EmptyState icon={ListChecks} className="empty-state--nested" title="Nenhuma etapa neste modelo." />
+        ) : (
+          <div className="rg-etapas">
+            {activeTemplate.etapas.map((etapa, etapaIndex) => {
+              const iconCfg = getEtapaIcon(etapa.nome, etapa.id);
+              const IconComponent = iconCfg.Icon;
+              const isOpen = !reordenandoEtapas && isAccordionOpen(etapa.id);
+              const editando = editingEtapaId === etapa.id;
+              const reordenandoServicos = reordenandoTarefasDe === etapa.id;
+
+              const menuEtapa: OverflowItem[] = [
+                {
+                  key: 'renomear',
+                  label: 'Renomear',
+                  icon: <PencilSimple size={18} aria-hidden="true" />,
+                  onSelect: () => handleStartEditEtapa(etapa),
+                },
+                {
+                  key: 'reordenar',
+                  label: 'Reordenar serviços',
+                  icon: <ArrowsDownUp size={18} aria-hidden="true" />,
+                  disabled: etapa.tarefas.length < 2,
+                  onSelect: () => {
+                    setOpenAccordions((prev) => ({ ...prev, [etapa.id]: true }));
+                    setReordenandoTarefasDe(etapa.id);
+                  },
+                },
+                {
+                  key: 'excluir',
+                  label: 'Excluir etapa',
+                  icon: <Trash size={18} aria-hidden="true" />,
+                  danger: true,
+                  onSelect: () => setDeleteTarget({ type: 'etapa', etapaId: etapa.id, name: etapa.nome }),
+                },
+              ];
+
+              return (
+                <div key={etapa.id} className="rg-etapa">
+                  <div
+                    role={reordenandoEtapas || editando ? undefined : 'button'}
+                    tabIndex={reordenandoEtapas || editando ? undefined : 0}
+                    aria-expanded={reordenandoEtapas || editando ? undefined : isOpen}
+                    className={`rg-etapa-head${reordenandoEtapas || editando ? '' : ' rg-etapa-head--toggle'}`}
+                    onClick={() => {
+                      if (!reordenandoEtapas && !editando) toggleAccordion(etapa.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleAccordion(etapa.id);
+                      }
+                    }}
+                  >
+                    <span className="rg-etapa-icon" style={{ background: iconCfg.bg, color: iconCfg.color }}>
+                      <IconComponent size={18} weight="fill" aria-hidden="true" />
+                    </span>
+
+                    <div className="rg-etapa-main">
+                      {editando ? (
+                        <div className="rg-inline-edit" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            className="form-input"
+                            value={tempEtapaNome}
+                            onChange={(e) => setTempEtapaNome(e.target.value)}
+                            aria-label="Nome da etapa"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveEditEtapa(etapa.id);
+                              if (e.key === 'Escape') {
+                                e.stopPropagation();
+                                setEditingEtapaId(null);
+                              }
+                            }}
+                          />
+                          <button type="button" onClick={() => handleSaveEditEtapa(etapa.id)} className="btn-icon" aria-label="Salvar nome">
+                            <Check size={18} weight="bold" color="var(--primary-accent)" aria-hidden="true" />
+                          </button>
+                          <button type="button" onClick={() => setEditingEtapaId(null)} className="btn-icon" aria-label="Cancelar">
+                            <X size={18} weight="bold" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="rg-etapa-title">
+                            {etapaIndex + 1}. {etapa.nome}
+                          </div>
+                          <div className="list-row-sub">{plural(etapa.tarefas.length, 'serviço', 'serviços')}</div>
+                        </>
+                      )}
+                    </div>
+
+                    {!editando &&
+                      (reordenandoEtapas ? (
+                        setoresMover(
+                          () => handleMoveEtapa(etapaIndex, 'up'),
+                          () => handleMoveEtapa(etapaIndex, 'down'),
+                          etapaIndex === 0,
+                          etapaIndex === activeTemplate.etapas.length - 1,
+                          etapa.nome
+                        )
+                      ) : (
+                        <>
+                          <OverflowMenu items={menuEtapa} label={`Ações da etapa ${etapa.nome}`} />
+                          <CaretDown size={18} weight="bold" className={`rg-caret${isOpen ? ' is-open' : ''}`} aria-hidden="true" />
+                        </>
+                      ))}
+                  </div>
+
+                  {isOpen && (
+                    <div className="rg-svc-list">
+                      {reordenandoServicos && (
+                        <div className="rg-reorder-bar" role="status">
+                          <span>Reordenando serviços</span>
+                          <button type="button" className="btn-quiet" onClick={() => setReordenandoTarefasDe(null)}>
+                            Concluir
+                          </button>
+                        </div>
+                      )}
+
+                      {etapa.tarefas.length === 0 && addingTarefaEtapaId !== etapa.id && (
+                        <EmptyState icon={ListChecks} className="empty-state--nested" title="Nenhum serviço nesta etapa." />
+                      )}
+
+                      {etapa.tarefas.map((tarefa, tIndex) => {
+                        const isEditing = editingTarefaKey === `${etapa.id}__${tarefa.id}`;
+                        return (
+                          <div key={tarefa.id} className="rg-svc">
+                            {isEditing ? (
+                              <div className="rg-inline-edit">
+                                <input
+                                  type="text"
+                                  className="form-input"
+                                  value={tempTarefaNome}
+                                  onChange={(e) => setTempTarefaNome(e.target.value)}
+                                  aria-label="Nome do serviço"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveEditTarefa(etapa.id, tarefa.id);
+                                    if (e.key === 'Escape') {
+                                      e.stopPropagation();
+                                      setEditingTarefaKey(null);
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditTarefa(etapa.id, tarefa.id)}
+                                  className="btn-icon"
+                                  aria-label="Salvar serviço"
+                                >
+                                  <Check size={18} weight="bold" color="var(--primary-accent)" aria-hidden="true" />
+                                </button>
+                                <button type="button" onClick={() => setEditingTarefaKey(null)} className="btn-icon" aria-label="Cancelar">
+                                  <X size={18} weight="bold" aria-hidden="true" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="rg-svc-name">{tarefa.nome}</span>
+                                {reordenandoServicos ? (
+                                  setoresMover(
+                                    () => handleMoveTarefa(etapa.id, tIndex, 'up'),
+                                    () => handleMoveTarefa(etapa.id, tIndex, 'down'),
+                                    tIndex === 0,
+                                    tIndex === etapa.tarefas.length - 1,
+                                    tarefa.nome
+                                  )
+                                ) : (
+                                  <OverflowMenu
+                                    label={`Ações do serviço ${tarefa.nome}`}
+                                    items={[
+                                      {
+                                        key: 'editar',
+                                        label: 'Editar',
+                                        icon: <PencilSimple size={18} aria-hidden="true" />,
+                                        onSelect: () => handleStartEditTarefa(etapa.id, tarefa),
+                                      },
+                                      {
+                                        key: 'excluir',
+                                        label: 'Excluir',
+                                        icon: <Trash size={18} aria-hidden="true" />,
+                                        danger: true,
+                                        onSelect: () => handleDeleteTarefa(etapa.id, tarefa.id),
+                                      },
+                                    ]}
+                                  />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {!reordenandoServicos &&
+                        (addingTarefaEtapaId === etapa.id ? (
+                          <div className="rg-inline-edit">
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder="Nome do serviço"
+                              value={novaTarefaTexto}
+                              onChange={(e) => setNovaTarefaTexto(e.target.value)}
+                              aria-label="Novo serviço"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddTarefa(etapa.id);
+                                }
+                                if (e.key === 'Escape') {
+                                  e.stopPropagation();
+                                  setAddingTarefaEtapaId(null);
+                                  setNovaTarefaTexto('');
+                                }
+                              }}
+                            />
+                            <button type="button" onClick={() => handleAddTarefa(etapa.id)} className="btn-icon" aria-label="Adicionar serviço">
+                              <Check size={18} weight="bold" color="var(--primary-accent)" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingTarefaEtapaId(null);
+                                setNovaTarefaTexto('');
+                              }}
+                              className="btn-icon"
+                              aria-label="Cancelar"
+                            >
+                              <X size={18} weight="bold" aria-hidden="true" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-quiet rg-add-link"
+                            onClick={() => {
+                              setAddingTarefaEtapaId(etapa.id);
+                              setNovaTarefaTexto('');
+                            }}
+                          >
+                            <Plus size={16} weight="bold" aria-hidden="true" />
+                            <span>Adicionar serviço</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!reordenandoEtapas && (
+          <button type="button" className="btn-quiet rg-add-link" onClick={() => setIsAddEtapaOpen(true)}>
+            <Plus size={16} weight="bold" aria-hidden="true" />
+            <span>Adicionar etapa</span>
+          </button>
+        )}
+      </section>
+
+      {/* Modal: Novo modelo */}
       {isAddTemplateOpen && (
         <div className="modal-backdrop" onClick={() => setIsAddTemplateOpen(false)}>
-          <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-card rg-sheet" role="dialog" aria-modal="true" aria-labelledby="novo-modelo-title" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: 'var(--dark-coffee-100)', padding: 7, borderRadius: 8 }}>
-                  <FolderSimple size={20} weight="fill" color="var(--dark-coffee-800)" />
-                </div>
-                <div>
-                  <h2 className="modal-title">Novo Modelo de Obra</h2>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Crie um novo template padrão de etapas e tarefas
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setIsAddTemplateOpen(false)} className="btn-icon">
-                <X size={18} weight="bold" />
+              <h2 className="modal-title" id="novo-modelo-title">
+                Novo modelo
+              </h2>
+              <button type="button" onClick={() => setIsAddTemplateOpen(false)} className="btn-icon" aria-label="Fechar">
+                <X size={18} weight="bold" aria-hidden="true" />
               </button>
             </div>
 
             <form onSubmit={handleCreateTemplate}>
-              <div className="modal-body" style={{ padding: '22px' }}>
-                <div className="form-group">
-                  <label className="form-label">Nome do Modelo *</label>
+              <div className="modal-body rg-sheet-body">
+                <div className="rg-field">
+                  <label className="form-label" htmlFor="novo-modelo-nome">
+                    Nome
+                  </label>
                   <input
+                    id="novo-modelo-nome"
                     type="text"
                     className="form-input"
-                    placeholder="Ex: Reforma Comercial, Fachada & Pintura..."
+                    placeholder="Ex.: Reforma comercial"
                     value={novoModeloNome}
                     onChange={(e) => setNovoModeloNome(e.target.value)}
                     autoFocus
                   />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Estrutura Inicial</label>
+                <div className="rg-field">
+                  <label className="form-label" htmlFor="novo-modelo-base">
+                    Começar com
+                  </label>
                   <select
+                    id="novo-modelo-base"
                     className="form-input"
                     value={novoModeloClonarDe}
                     onChange={(e) => setNovoModeloClonarDe(e.target.value)}
                   >
-                    <option value="blank">Em branco (sem etapas)</option>
+                    <option value="blank">Modelo em branco</option>
                     {templates.map((tpl) => (
                       <option key={tpl.id} value={tpl.id}>
-                        Copiar etapas de: {tpl.nome} ({tpl.etapas.length} etapas)
+                        Cópia de {tpl.nome} ({plural(tpl.etapas.length, 'etapa', 'etapas')})
                       </option>
                     ))}
                   </select>
@@ -998,8 +783,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary">
-                  <Plus size={16} weight="bold" />
-                  <span>Criar Modelo</span>
+                  Criar modelo
                 </button>
               </div>
             </form>
@@ -1007,42 +791,34 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
         </div>
       )}
 
-      {/* Modal: Adicionar Etapa ao Modelo */}
+      {/* Modal: Nova etapa */}
       {isAddEtapaOpen && (
         <div className="modal-backdrop" onClick={() => setIsAddEtapaOpen(false)}>
-          <div className="modal-card" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-card rg-sheet" role="dialog" aria-modal="true" aria-labelledby="nova-etapa-title" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ background: 'var(--coral-glow-100)', padding: 7, borderRadius: 8 }}>
-                  <Sparkle size={20} weight="fill" color="var(--primary-accent)" />
-                </div>
-                <div>
-                  <h2 className="modal-title">Nova Etapa Técnica</h2>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    Adicione uma etapa ao modelo "{activeTemplate.nome}"
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setIsAddEtapaOpen(false)} className="btn-icon">
-                <X size={18} weight="bold" />
+              <h2 className="modal-title" id="nova-etapa-title">
+                Nova etapa
+              </h2>
+              <button type="button" onClick={() => setIsAddEtapaOpen(false)} className="btn-icon" aria-label="Fechar">
+                <X size={18} weight="bold" aria-hidden="true" />
               </button>
             </div>
 
             <form onSubmit={handleCreateEtapa}>
-              <div className="modal-body" style={{ padding: '22px' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Nome da Etapa *</label>
+              <div className="modal-body rg-sheet-body">
+                <div className="rg-field">
+                  <label className="form-label" htmlFor="nova-etapa-nome">
+                    Nome da etapa
+                  </label>
                   <input
+                    id="nova-etapa-nome"
                     type="text"
                     className="form-input"
-                    placeholder="Ex: Marcenaria e Vidraçaria, Instalação Solar..."
+                    placeholder="Ex.: Marcenaria e vidraçaria"
                     value={novaEtapaNome}
                     onChange={(e) => setNovaEtapaNome(e.target.value)}
                     autoFocus
                   />
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                    O sistema atribuirá automaticamente um ícone temático correspondente.
-                  </span>
                 </div>
               </div>
 
@@ -1051,8 +827,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                   Cancelar
                 </button>
                 <button type="submit" className="btn-primary">
-                  <Plus size={16} weight="bold" />
-                  <span>Incluir Etapa</span>
+                  Incluir etapa
                 </button>
               </div>
             </form>
@@ -1060,17 +835,12 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
         </div>
       )}
 
-      {/* Modal de Confirmação de Exclusão */}
       {deleteTarget && (
         <ModalConfirm
           isOpen={true}
-          title={
-            deleteTarget.type === 'template'
-              ? 'Excluir Modelo de Obra'
-              : 'Excluir Etapa'
-          }
+          title={deleteTarget.type === 'template' ? 'Excluir modelo' : 'Excluir etapa'}
           message={`Tem certeza que deseja excluir "${deleteTarget.name}"? Todos os serviços vinculados serão removidos.`}
-          confirmText="Sim, excluir"
+          confirmText="Excluir"
           cancelText="Cancelar"
           variant="danger"
           onConfirm={() => {
@@ -1085,13 +855,12 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
         />
       )}
 
-      {/* Modal de Confirmação para Restaurar Padrões */}
       {isResetConfirmOpen && (
         <ModalConfirm
           isOpen={true}
-          title="Restaurar Modelos de Fábrica"
-          message="Tem certeza que deseja restaurar as etapas e serviços para os modelos originais (Construção e Reforma)? Todas as customizações feitas nos templates serão redefinidas."
-          confirmText="Sim, restaurar padrões"
+          title="Restaurar modelos de fábrica"
+          message="Tem certeza que deseja restaurar as etapas e serviços para os modelos originais (Construção e Reforma)? Todas as customizações feitas nos modelos serão redefinidas."
+          confirmText="Restaurar padrões"
           cancelText="Cancelar"
           variant="danger"
           onConfirm={handleResetToDefaults}

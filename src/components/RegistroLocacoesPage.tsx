@@ -1,34 +1,49 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
-  ArrowLeft,
   Wrench,
   Plus,
   Trash,
-  BuildingApartment,
   X,
-  ArrowsOut,
-  CalendarBlank,
   Clock,
   CheckCircle,
   Warning,
-  Storefront,
   MagnifyingGlass,
   ClockCounterClockwise,
   ArrowsClockwise,
-  FloppyDisk,
-  CircleNotch,
-  CaretLeft,
-  CaretRight,
+  ArrowUUpLeft,
+  Funnel,
   FilePdf,
-  ArrowSquareOut,
-  DownloadSimple,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { Obra, RegistroLocacao, PerfilUsuario } from '../types/obra';
 import { ModalRegistroLocacao, NovaLocacaoData } from './ModalRegistroLocacao';
 import { ModalConfirm } from './ModalConfirm';
+import { PageHeader } from './PageHeader';
+import { OverflowMenu, OverflowItem } from './OverflowMenu';
+import { EmptyState } from './EmptyState';
+import { DatePickerInput } from './DatePickerInput';
 import { generateUUID } from '../utils/uuid';
 import { locacoesApi } from '../services/api';
 import { isPdfUrl } from '../utils/fileUtils';
+import { GalleryLightbox } from './Lightbox';
+import { somarDiasData, formatarDataBR } from '../utils/data';
+import { useEscapeKey } from '../hooks/useEscapeKey';
+import { usePopoverDismiss } from '../hooks/usePopoverDismiss';
+import {
+  hojeLocal,
+  statusLocacao,
+  mapaStatusLocacoes,
+  contarKpis,
+  filtrarLocacoes,
+  sugerirNovoVencimento,
+  renovarLocacao,
+  desfazerRenovacao,
+  alternarDevolucao,
+  atualizarLocacaoNaLista,
+  resumoKpisTexto,
+  type FiltroStatusLocacao,
+} from '../utils/locacao';
+import '../styles/registros-modelos.css';
 
 interface RegistroLocacoesPageProps {
   obras: Obra[];
@@ -38,6 +53,15 @@ interface RegistroLocacoesPageProps {
   perfilAtivo?: PerfilUsuario;
 }
 
+const OPCOES_STATUS: { id: FiltroStatusLocacao; label: string }[] = [
+  { id: 'ativos', label: 'Ativos' },
+  { id: 'vencidos', label: 'Vencidos' },
+  { id: 'devolvidos', label: 'Devolvidos' },
+  { id: 'todos', label: 'Todos' },
+];
+
+const ATALHOS_PRAZO = [7, 15, 30, 60];
+
 export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
   obras,
   onUpdateObra,
@@ -45,11 +69,20 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
   showToast,
   perfilAtivo = 'construtor',
 }) => {
+  const podeEditar = perfilAtivo === 'construtor';
+
   const [filtroObraId, setFiltroObraId] = useState<string>('todas');
-  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'ativos' | 'vencidos' | 'devolvidos'>('ativos');
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatusLocacao>('ativos');
   const [termoBusca, setTermoBusca] = useState<string>('');
+  const [isBuscaOpen, setIsBuscaOpen] = useState(false);
+  const [isFiltroOpen, setIsFiltroOpen] = useState(false);
   const [isModalLocacaoOpen, setIsModalLocacaoOpen] = useState(false);
   const [selectedObraIdForModal, setSelectedObraIdForModal] = useState<string | undefined>(undefined);
+
+  const buscaRef = useRef<HTMLDivElement>(null);
+  const filtroRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(buscaRef, isBuscaOpen, () => setIsBuscaOpen(false), ['mousedown', 'touchstart']);
+  usePopoverDismiss(filtroRef, isFiltroOpen, () => setIsFiltroOpen(false), ['mousedown', 'touchstart']);
 
   // Lightbox de foto com suporte a navegação
   const [lightboxState, setLightboxState] = useState<{
@@ -57,19 +90,19 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     index: number;
     titulo?: string;
   } | null>(null);
-  const touchLightboxX = React.useRef<number | null>(null);
 
-  // Confirmação de devolução em 2 etapas
+  // Confirmação de devolução
   const [devolverTarget, setDevolverTarget] = useState<{
     obraId: string;
     locacaoId: string;
     itemLocado: string;
   } | null>(null);
 
-  // Prolongamento / Renovação inline de locação no card
-  const [prolongandoLocacaoId, setProlongandoLocacaoId] = useState<string | null>(null);
+  // Prolongamento (renovação) em folha própria
+  const [prolongarTarget, setProlongarTarget] = useState<{ obraId: string; locacao: RegistroLocacao } | null>(null);
   const [novaDataProlongada, setNovaDataProlongada] = useState<string>('');
   const [isSavingProlongamento, setIsSavingProlongamento] = useState(false);
+  useEscapeKey(() => setProlongarTarget(null), Boolean(prolongarTarget));
 
   // Confirmação de exclusão
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -78,9 +111,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     itemLocado: string;
   } | null>(null);
 
-
-
-  // Coleta todas as locações de todas as obras ou da obra filtrada
+  // Coleta todas as locações de todas as obras
   const todasLocacoes = useMemo(() => {
     const lista: { locacao: RegistroLocacao; obra: Obra }[] = [];
     obras.forEach((obra) => {
@@ -96,163 +127,65 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     });
   }, [obras]);
 
-  // Data atual de referência sem horas (YYYY-MM-DD)
-  const hojeStr = useMemo(() => {
-    return new Date().toISOString().split('T')[0];
-  }, []);
+  // Data atual de referência no calendário LOCAL (YYYY-MM-DD)
+  const hoje = useMemo(() => hojeLocal(), []);
+  const formatarData = (isoDate?: string) => formatarDataBR(isoDate, '');
 
-  // Formatação de data (YYYY-MM-DD para DD/MM/AAAA)
-  const formatarData = (isoDate?: string) => {
-    if (!isoDate) return '';
-    try {
-      const [ano, mes, dia] = isoDate.split('T')[0].split('-');
-      if (ano && mes && dia) {
-        return `${dia}/${mes}/${ano}`;
-      }
-      return isoDate;
-    } catch {
-      return isoDate;
+  // Status de domínio calculado uma única vez por locação
+  const statusPorId = useMemo(
+    () => mapaStatusLocacoes(todasLocacoes.map((i) => i.locacao), hoje),
+    [todasLocacoes, hoje]
+  );
+
+  // Apresentação (texto e tom) a partir do status de domínio
+  const apresentarStatus = (locacao: RegistroLocacao) => {
+    const s = statusPorId.get(locacao.id) ?? statusLocacao(locacao, hoje);
+    const pl = (n: number) => (n === 1 ? 'dia' : 'dias');
+    const data = formatarData(locacao.dataVencimento);
+    switch (s.tipo) {
+      case 'devolvido':
+        return { tipo: s.tipo, label: 'Devolvido', Icon: CheckCircle };
+      case 'ativo':
+        return { tipo: s.tipo, label: 'Em aberto', Icon: Clock };
+      case 'vencido':
+        return { tipo: s.tipo, label: `Vencido há ${Math.abs(s.dias)} ${pl(Math.abs(s.dias))}`, Icon: Warning };
+      case 'hoje':
+        return { tipo: s.tipo, label: 'Vence hoje', Icon: Warning };
+      case 'urgente':
+        return { tipo: s.tipo, label: `Vence em ${s.dias} ${pl(s.dias)}`, Icon: Clock };
+      default:
+        return { tipo: s.tipo, label: `Vence em ${s.dias} dias${data ? ` · ${data}` : ''}`, Icon: Clock };
     }
   };
 
-  // Cálculo do status de vencimento
-  const calcularStatusVencimento = (dataVencimento: string, status?: string) => {
-    if (status === 'devolvido') {
-      return {
-        tipo: 'devolvido' as const,
-        label: 'Devolvido',
-        badgeBg: '#f3f4f6',
-        badgeColor: '#4b5563',
-        badgeBorder: '#e5e7eb',
-        dias: 0,
-      };
-    }
+  const kpis = useMemo(() => contarKpis(statusPorId.values()), [statusPorId]);
+  const resumo = useMemo(() => resumoKpisTexto(kpis), [kpis]);
 
-    if (!dataVencimento) {
-      return {
-        tipo: 'ativo' as const,
-        label: 'Em Aberto',
-        badgeBg: '#f3f4f6',
-        badgeColor: '#374151',
-        badgeBorder: '#e5e7eb',
-        dias: 0,
-      };
-    }
+  const locacoesFiltradas = useMemo(
+    () => filtrarLocacoes(todasLocacoes, { obraId: filtroObraId, status: filtroStatus, termo: termoBusca }, statusPorId),
+    [todasLocacoes, filtroObraId, filtroStatus, termoBusca, statusPorId]
+  );
 
-    const hoje = new Date(hojeStr);
-    const venc = new Date(dataVencimento.split('T')[0]);
-    const diffMs = venc.getTime() - hoje.getTime();
-    const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const filtroAlterado = filtroStatus !== 'ativos' || filtroObraId !== 'todas';
+  const existeFiltro = filtroStatus !== 'todos' || filtroObraId !== 'todas' || termoBusca.trim() !== '';
 
-    if (diffDias < 0) {
-      return {
-        tipo: 'vencido' as const,
-        label: `Vencido há ${Math.abs(diffDias)} ${Math.abs(diffDias) === 1 ? 'dia' : 'dias'}`,
-        badgeBg: '#fef2f2',
-        badgeColor: '#b91c1c',
-        badgeBorder: '#fecaca',
-        dias: diffDias,
-      };
-    }
-
-    if (diffDias === 0) {
-      return {
-        tipo: 'hoje' as const,
-        label: 'Vence Hoje!',
-        badgeBg: '#fff7ed',
-        badgeColor: '#c2410c',
-        badgeBorder: '#ffedd5',
-        dias: diffDias,
-      };
-    }
-
-    if (diffDias <= 3) {
-      return {
-        tipo: 'urgente' as const,
-        label: `Vence em ${diffDias} ${diffDias === 1 ? 'dia' : 'dias'}`,
-        badgeBg: '#fffbeb',
-        badgeColor: '#b45309',
-        badgeBorder: '#fef3c7',
-        dias: diffDias,
-      };
-    }
-
-    return {
-      tipo: 'em_dia' as const,
-      label: `Vence em ${diffDias} dias (${formatarData(dataVencimento)})`,
-      badgeBg: '#f8fafc',
-      badgeColor: '#334155',
-      badgeBorder: '#e2e8f0',
-      dias: diffDias,
-    };
+  const limparFiltros = () => {
+    setFiltroStatus('todos');
+    setFiltroObraId('todas');
+    setTermoBusca('');
   };
 
-  // KPIs
-  const kpis = useMemo(() => {
-    let total = 0;
-    let ativos = 0;
-    let vencidos = 0;
-    let devolvidos = 0;
-
-    todasLocacoes.forEach(({ locacao }) => {
-      total++;
-      if (locacao.status === 'devolvido') {
-        devolvidos++;
-      } else {
-        ativos++;
-        const info = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
-        if (info.tipo === 'vencido' || info.tipo === 'hoje') {
-          vencidos++;
-        }
-      }
-    });
-
-    return { total, ativos, vencidos, devolvidos };
-  }, [todasLocacoes, hojeStr]);
-
-  // Filtragem
-  const locacoesFiltradas = useMemo(() => {
-    return todasLocacoes.filter(({ locacao, obra }) => {
-      // Filtro por obra
-      if (filtroObraId !== 'todas' && obra.id !== filtroObraId) {
-        return false;
-      }
-
-      // Filtro por status
-      const info = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
-      if (filtroStatus === 'ativos' && locacao.status === 'devolvido') return false;
-      if (filtroStatus === 'devolvidos' && locacao.status !== 'devolvido') return false;
-      if (filtroStatus === 'vencidos') {
-        if (locacao.status === 'devolvido') return false;
-        if (info.tipo !== 'vencido' && info.tipo !== 'hoje') return false;
-      }
-
-      // Filtro por busca textual
-      if (termoBusca.trim()) {
-        const query = termoBusca.toLowerCase().trim();
-        const noItem = locacao.itemLocado.toLowerCase().includes(query);
-        const naObra = obra.nome.toLowerCase().includes(query);
-        const noFornecedor = (locacao.fornecedor || '').toLowerCase().includes(query);
-        if (!noItem && !naObra && !noFornecedor) return false;
-      }
-
-      return true;
-    });
-  }, [todasLocacoes, filtroObraId, filtroStatus, termoBusca, hojeStr]);
-
-  // Abertura do modal para adicionar locação
   const handleOpenAdd = (obraId?: string) => {
     setSelectedObraIdForModal(obraId);
     setIsModalLocacaoOpen(true);
   };
 
-  // Salvar nova locação
   const handleSaveLocacao = (dados: NovaLocacaoData) => {
     const obraAlvo = obras.find((o) => o.id === dados.obraId);
     if (!obraAlvo) return;
 
     const novaLocacao: RegistroLocacao = {
-      id: generateUUID(),
+      id: dados.id ?? generateUUID(),
       obraId: dados.obraId,
       itemLocado: dados.itemLocado,
       quantidade: dados.quantidade,
@@ -265,96 +198,57 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       criadoEm: new Date().toISOString(),
     };
 
-    const updatedObra: Obra = {
+    onUpdateObra({
       ...obraAlvo,
       locacoes: [novaLocacao, ...(obraAlvo.locacoes || [])],
-    };
-
-    onUpdateObra(updatedObra);
+    });
     setIsModalLocacaoOpen(false);
 
-    showToast(
-      'Locação Registrada!',
-      `O equipamento "${dados.itemLocado}" foi vinculado à obra "${obraAlvo.nome}".`,
-      'success'
-    );
+    showToast('Locação registrada', `"${dados.itemLocado}" foi vinculada à obra "${obraAlvo.nome}".`, 'success');
   };
 
-  // Iniciar fluxo para prolongar o prazo no card
-  const handleIniciarProlongamento = (locacao: RegistroLocacao) => {
-    const base = locacao.dataVencimento
-      ? new Date(locacao.dataVencimento.split('T')[0])
-      : new Date();
-    base.setDate(base.getDate() + 30);
-    setNovaDataProlongada(base.toISOString().split('T')[0]);
-    setProlongandoLocacaoId(locacao.id);
+  const handleIniciarProlongamento = (obraId: string, locacao: RegistroLocacao) => {
+    setNovaDataProlongada(sugerirNovoVencimento(locacao, hojeLocal()));
+    setProlongarTarget({ obraId, locacao });
   };
 
-  // Desfazer renovação (desmarcar checkbox)
   const handleDesfazerRenovacao = (obraId: string, locacao: RegistroLocacao) => {
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
     const dataRestaurada = locacao.vencimentoOriginal || locacao.dataVencimento;
-    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-      if (l.id === locacao.id) {
-        return {
-          ...l,
-          renovado: false,
-          renovadoEm: undefined,
-          dataVencimento: dataRestaurada,
-        };
-      }
-      return l;
-    });
-
     onUpdateObra({
       ...obraAlvo,
-      locacoes: updatedLocacoes,
+      locacoes: atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacao.id, desfazerRenovacao),
     });
-    setProlongandoLocacaoId(null);
 
     showToast(
-      'Renovação Desfeita',
-      `A locação de "${locacao.itemLocado}" retornou para o vencimento original (${formatarData(dataRestaurada)}).`,
+      'Renovação desfeita',
+      `"${locacao.itemLocado}" voltou ao vencimento original (${formatarData(dataRestaurada)}).`,
       'info'
     );
   };
 
-  // Salvar novo prazo prolongado
-  const handleSalvarProlongamento = (obraId: string, locacao: RegistroLocacao) => {
-    if (!novaDataProlongada.trim()) return;
+  const handleSalvarProlongamento = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!prolongarTarget || !novaDataProlongada.trim()) return;
+    const { obraId, locacao } = prolongarTarget;
 
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
 
     setIsSavingProlongamento(true);
     try {
-      const vencimentoOriginal = locacao.vencimentoOriginal || locacao.dataVencimento;
-
-      const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-        if (l.id === locacao.id) {
-          return {
-            ...l,
-            dataVencimento: novaDataProlongada.trim(),
-            vencimentoOriginal,
-            renovado: true,
-            renovadoEm: new Date().toISOString(),
-            status: 'ativo' as const, // reativa caso estivesse devolvido
-          };
-        }
-        return l;
-      });
-
       onUpdateObra({
         ...obraAlvo,
-        locacoes: updatedLocacoes,
+        locacoes: atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacao.id, (l) =>
+          renovarLocacao(l, { novoVencimento: novaDataProlongada })
+        ),
       });
-      setProlongandoLocacaoId(null);
-
+      setProlongarTarget(null);
       showToast(
-        'Locação Prolongada!',
-        `O prazo de "${locacao.itemLocado}" foi estendido para ${formatarData(novaDataProlongada)}.`,
+        'Prazo prolongado',
+        `"${locacao.itemLocado}" agora vence em ${formatarData(novaDataProlongada)}.`,
         'success'
       );
     } finally {
@@ -362,7 +256,6 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     }
   };
 
-  // Alternar status da locação (ativo <-> devolvido)
   const handleToggleStatus = (obraId: string, locacaoId: string) => {
     const obraAlvo = obras.find((o) => o.id === obraId);
     if (!obraAlvo) return;
@@ -370,40 +263,28 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
     const locacaoExistente = (obraAlvo.locacoes || []).find((l) => l.id === locacaoId);
     if (!locacaoExistente) return;
 
-    const novoStatus: 'ativo' | 'devolvido' = locacaoExistente.status === 'devolvido' ? 'ativo' : 'devolvido';
+    const novoStatus = alternarDevolucao(locacaoExistente).status;
 
-    const updatedLocacoes = (obraAlvo.locacoes || []).map((l) => {
-      if (l.id === locacaoId) {
-        return { ...l, status: novoStatus };
-      }
-      return l;
+    onUpdateObra({
+      ...obraAlvo,
+      locacoes: atualizarLocacaoNaLista(obraAlvo.locacoes || [], locacaoId, alternarDevolucao),
     });
 
-    const updatedObra: Obra = {
-      ...obraAlvo,
-      locacoes: updatedLocacoes,
-    };
-
-    onUpdateObra(updatedObra);
-
     showToast(
-      novoStatus === 'devolvido' ? 'Equipamento Devolvido' : 'Locação Reativada',
+      novoStatus === 'devolvido' ? 'Equipamento devolvido' : 'Locação reativada',
       novoStatus === 'devolvido'
         ? `"${locacaoExistente.itemLocado}" foi marcado como devolvido.`
-        : `"${locacaoExistente.itemLocado}" retornou para locações ativas.`,
+        : `"${locacaoExistente.itemLocado}" voltou para as locações ativas.`,
       'info'
     );
   };
 
-  // Confirmar devolução em 2 etapas
   const handleConfirmDevolver = () => {
     if (!devolverTarget) return;
-    const { obraId, locacaoId } = devolverTarget;
-    handleToggleStatus(obraId, locacaoId);
+    handleToggleStatus(devolverTarget.obraId, devolverTarget.locacaoId);
     setDevolverTarget(null);
   };
 
-  // Confirmar exclusão
   const handleConfirmDelete = () => {
     if (!deleteTarget) return;
     const { obraId, locacaoId, itemLocado } = deleteTarget;
@@ -412,975 +293,287 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
 
     const locacaoAlvo = (obraAlvo.locacoes || []).find((l) => l.id === locacaoId);
 
-    const updatedObra: Obra = {
+    onUpdateObra({
       ...obraAlvo,
       locacoes: (obraAlvo.locacoes || []).filter((l) => l.id !== locacaoId),
-    };
-
-    onUpdateObra(updatedObra);
+    });
     setDeleteTarget(null);
 
     // Remove do Supabase no servidor e do Storage
     locacoesApi.delete(locacaoId, locacaoAlvo?.fotos);
 
-    showToast('Locação Removida', `"${itemLocado}" foi excluído com sucesso.`, 'info');
+    showToast('Locação removida', `"${itemLocado}" foi excluída.`, 'info');
   };
 
+  const pedirDevolucao = (obraId: string, locacao: RegistroLocacao) => {
+    if (locacao.status === 'devolvido') {
+      handleToggleStatus(obraId, locacao.id);
+    } else {
+      setDevolverTarget({ obraId, locacaoId: locacao.id, itemLocado: locacao.itemLocado });
+    }
+  };
+
+  const menuItens = (obra: Obra, locacao: RegistroLocacao): OverflowItem[] => {
+    const devolvido = locacao.status === 'devolvido';
+    const itens: OverflowItem[] = [
+      {
+        key: 'devolver',
+        label: devolvido ? 'Reativar' : 'Devolver',
+        icon: devolvido ? <ClockCounterClockwise size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" />,
+        onSelect: () => pedirDevolucao(obra.id, locacao),
+      },
+      {
+        key: 'prolongar',
+        label: 'Prolongar',
+        icon: <ArrowsClockwise size={18} aria-hidden="true" />,
+        onSelect: () => handleIniciarProlongamento(obra.id, locacao),
+      },
+    ];
+    if (locacao.renovado) {
+      itens.push({
+        key: 'desfazer',
+        label: 'Desfazer renovação',
+        icon: <ArrowUUpLeft size={18} aria-hidden="true" />,
+        onSelect: () => handleDesfazerRenovacao(obra.id, locacao),
+      });
+    }
+    itens.push({
+      key: 'excluir',
+      label: 'Excluir',
+      icon: <Trash size={18} aria-hidden="true" />,
+      danger: true,
+      onSelect: () => setDeleteTarget({ obraId: obra.id, locacaoId: locacao.id, itemLocado: locacao.itemLocado }),
+    });
+    return itens;
+  };
+
+  const baseAtalhos = prolongarTarget?.locacao.dataVencimento
+    ? prolongarTarget.locacao.dataVencimento.split('T')[0]
+    : hojeLocal();
+
   return (
-    <div
-      style={{
-        maxWidth: 1140,
-        margin: '0 auto',
-        padding: '24px 20px 80px',
-        width: '100%',
-      }}
-    >
-      {/* 1. Barra de Ações Superior (Voltar e Nova Locação em cima) */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <button
-          type="button"
-          onClick={onBack}
-          className="btn-secondary"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 14px',
-            minHeight: 40,
-            fontSize: '0.88rem',
-            borderRadius: '6px',
-            fontWeight: 600,
-          }}
-          title="Voltar para a página anterior"
-        >
-          <ArrowLeft size={16} weight="bold" />
-          <span>Voltar</span>
-        </button>
-
-        {perfilAtivo === 'construtor' && (
-          <button
-            type="button"
-            onClick={() => handleOpenAdd(filtroObraId !== 'todas' ? filtroObraId : undefined)}
-            className="btn-primary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '9px 16px',
-              minHeight: 40,
-              fontSize: '0.88rem',
-              borderRadius: '6px',
-              fontWeight: 600,
-            }}
-          >
-            <Plus size={18} weight="bold" />
-            <span>Nova Locação</span>
-          </button>
-        )}
-      </div>
-
-      {/* 2. Título de Texto do Registro */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: '8px',
-              background: 'var(--pitch-black-50, #f6f3eb)',
-              color: 'var(--coral-glow-500, #e05a47)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Wrench size={22} weight="bold" />
-          </div>
-          <div>
-            <h1
-              style={{
-                fontSize: '1.42rem',
-                fontWeight: 700,
-                color: 'var(--text-main)',
-                margin: 0,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.2,
-              }}
-            >
-              Registro de Locação
-            </h1>
-            <p
-              style={{
-                fontSize: '0.82rem',
-                color: 'var(--text-muted)',
-                margin: '3px 0 0 0',
-              }}
-            >
-              Rastreamento de maquinários, ferramentas e prazos de devolução por obra
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Contadores Rápidos (2 por Linha Alinhados) */}
-      <div className="locacoes-kpis-grid">
-        <div
-          style={{
-            padding: '12px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid var(--border-hairline)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-            Total de Locações
-          </span>
-          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-main)' }}>
-            {kpis.total}
-          </span>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid var(--border-hairline)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-            Ativos no Canteiro
-          </span>
-          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--coral-glow-500, #e05a47)' }}>
-            {kpis.ativos}
-          </span>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid var(--border-hairline)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-            Vencidos / Atenção
-          </span>
-          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: kpis.vencidos > 0 ? '#b91c1c' : 'var(--text-main)' }}>
-            {kpis.vencidos}
-          </span>
-        </div>
-
-        <div
-          style={{
-            padding: '12px 14px',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid var(--border-hairline)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-            Devolvidos
-          </span>
-          <span style={{ fontSize: '1.35rem', fontWeight: 700, color: '#15803d' }}>
-            {kpis.devolvidos}
-          </span>
-        </div>
-      </div>
-
-      {/* 4. Card Organizado: Seleção de Obra, Busca e Filtros de Status */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          backgroundColor: '#ffffff',
-          padding: '14px 16px',
-          borderRadius: '10px',
-          border: '1px solid var(--border-hairline)',
-          marginBottom: 20,
-          boxShadow: 'var(--shadow-subtle)',
-        }}
-      >
-        {/* Linha 1: Seleção de Obra e Busca */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 10,
-          }}
-        >
-          {/* Seletor de Obra */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              border: '1px solid var(--border-hairline)',
-              borderRadius: '7px',
-              padding: '0 10px',
-              backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-              height: 40,
-            }}
-          >
-            <BuildingApartment size={18} color="var(--coral-glow-500, #e05a47)" style={{ flexShrink: 0 }} />
-            <select
-              value={filtroObraId}
-              onChange={(e) => setFiltroObraId(e.target.value)}
-              className="form-select"
-              style={{
-                width: '100%',
-                border: 'none',
-                backgroundColor: 'transparent',
-                fontSize: '0.86rem',
-                color: 'var(--text-main)',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="todas">Todas as Obras ({obras.length})</option>
-              {obras.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Campo de Busca */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              border: '1px solid var(--border-hairline)',
-              borderRadius: '7px',
-              padding: '0 10px',
-              backgroundColor: '#ffffff',
-              height: 40,
-            }}
-          >
-            <MagnifyingGlass size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-            <input
-              type="text"
-              value={termoBusca}
-              onChange={(e) => setTermoBusca(e.target.value)}
-              placeholder="Buscar equipamento, locadora..."
-              style={{
-                border: 'none',
-                outline: 'none',
-                fontSize: '0.86rem',
-                width: '100%',
-                backgroundColor: 'transparent',
-                color: 'var(--text-main)',
-              }}
-            />
-            {termoBusca && (
-              <button
-                type="button"
-                onClick={() => setTermoBusca('')}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  padding: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title="Limpar busca"
-              >
-                <X size={14} weight="bold" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Linha 2: Chips de Status com Rolagem Suave */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            overflowX: 'auto',
-            paddingTop: 8,
-            borderTop: '1px solid var(--border-hairline)',
-            scrollbarWidth: 'none',
-          }}
-        >
-          {(
-            [
-              { id: 'todos', label: 'Todos', count: kpis.total },
-              { id: 'ativos', label: 'Ativos', count: kpis.ativos },
-              { id: 'vencidos', label: 'Vencidos / Atenção', count: kpis.vencidos },
-              { id: 'devolvidos', label: 'Devolvidos', count: kpis.devolvidos },
-            ] as const
-          ).map((tab) => {
-            const isActive = filtroStatus === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFiltroStatus(tab.id)}
-                style={{
-                  padding: '5px 10px',
-                  borderRadius: '20px',
-                  border: isActive ? '1px solid var(--coral-glow-500, #e05a47)' : '1px solid var(--border-hairline)',
-                  backgroundColor: isActive ? 'var(--dark-coffee-50, #fcfaf8)' : '#ffffff',
-                  color: isActive ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-muted)',
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  flexShrink: 0,
-                }}
-              >
-                <span>{tab.label}</span>
-                <span
-                  style={{
-                    fontSize: '0.70rem',
-                    padding: '1px 5px',
-                    borderRadius: '10px',
-                    backgroundColor: isActive ? 'var(--coral-glow-500, #e05a47)' : 'var(--dark-coffee-100, #f1e7da)',
-                    color: isActive ? '#ffffff' : 'var(--text-muted)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Lista de Registros */}
-      {locacoesFiltradas.length === 0 ? (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '60px 20px',
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid var(--border-hairline)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 14,
-          }}
-        >
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
-            }}
-          >
-            <Wrench size={28} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-main)', margin: '0 0 4px 0' }}>
-              Nenhuma locação encontrada
-            </h3>
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', margin: 0, maxWidth: 360 }}>
-              {termoBusca || filtroStatus !== 'todos' || filtroObraId !== 'todas'
-                ? 'Nenhum equipamento corresponde aos filtros aplicados.'
-                : 'Você ainda não registrou nenhum maquinário ou equipamento locado.'}
-            </p>
-          </div>
-          {perfilAtivo === 'construtor' && (
+    <div className="page rg-page">
+      <PageHeader
+        backLabel="Voltar"
+        onBack={onBack}
+        title={<><span className="rg-title-long">Registro de locação</span><span className="rg-title-short">Locações</span></>}
+        actions={
+          podeEditar ? (
             <button
               type="button"
+              className="btn-primary rg-cta"
               onClick={() => handleOpenAdd(filtroObraId !== 'todas' ? filtroObraId : undefined)}
-              className="btn-primary"
-              style={{
-                marginTop: 6,
-                padding: '9px 16px',
-                fontSize: '0.88rem',
-                borderRadius: '6px',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
+              aria-label="Nova locação"
+            >
+              <Plus size={18} weight="bold" aria-hidden="true" />
+              <span>
+                Nova<span className="rg-hide-xs"> locação</span>
+              </span>
+            </button>
+          ) : null
+        }
+      />
+
+      {todasLocacoes.length > 0 && (
+        <div className="toolbar rg-toolbar">
+          <p className="toolbar-lead rg-summary" aria-live="polite">
+            {resumo.map((parte, i) => (
+              <React.Fragment key={parte.chave}>
+                {i > 0 && <span aria-hidden="true"> · </span>}
+                <span className={parte.alerta ? 'rg-summary-alert' : undefined}>{parte.texto}</span>
+              </React.Fragment>
+            ))}
+          </p>
+
+          <div ref={buscaRef}>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Buscar locação"
+              aria-expanded={isBuscaOpen}
+              onClick={() => {
+                setIsBuscaOpen((v) => !v);
+                setIsFiltroOpen(false);
               }}
             >
-              <Plus size={16} weight="bold" />
-              <span>Cadastrar Primeira Locação</span>
+              <MagnifyingGlass size={18} aria-hidden="true" />
+              {termoBusca && <span className="dot" />}
             </button>
-          )}
-        </div>
-      ) : (
-        <div className="locacoes-cards-grid" style={{ alignItems: 'start' }}>
-          {locacoesFiltradas.map(({ locacao, obra }) => {
-            const statusInfo = calcularStatusVencimento(locacao.dataVencimento, locacao.status);
-            const primeiraFoto = (locacao.fotos && locacao.fotos.length > 0) ? locacao.fotos[0] : null;
-
-            return (
-              <div
-                key={locacao.id}
-                className="locacao-card"
-                style={{
-                  alignSelf: 'start',
-                  height: 'fit-content',
-                  opacity: locacao.status === 'devolvido' ? 0.78 : 1,
-                  borderLeft: statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje'
-                    ? '3px solid #b91c1c'
-                    : locacao.status === 'devolvido'
-                    ? '3px solid #15803d'
-                    : '1px solid var(--border-hairline)',
-                }}
-              >
-                {/* 1. Mídia / Imagem no Topo (sem passar fotos do lado de fora do card) */}
-                <div
-                  className="locacao-card-media"
-                  onClick={() => {
-                    if (locacao.fotos && locacao.fotos.length > 0) {
-                      setLightboxState({
-                        fotos: locacao.fotos,
-                        index: 0,
-                        titulo: locacao.itemLocado,
-                      });
-                    }
-                  }}
-                  title={primeiraFoto ? 'Clique para ampliar foto' : undefined}
-                  style={{ cursor: primeiraFoto ? 'pointer' : 'default', userSelect: 'none' }}
-                >
-                  {primeiraFoto ? (
-                    <>
-                      {isPdfUrl(primeiraFoto) ? (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#fff5f5',
-                            gap: 6,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: 8,
-                              backgroundColor: '#fee2e2',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#dc2626',
-                            }}
-                          >
-                            <FilePdf size={26} weight="fill" />
-                          </div>
-                          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#991b1b' }}>
-                            Documento PDF
-                          </span>
-                        </div>
-                      ) : (
-                        <img
-                          src={primeiraFoto}
-                          alt={locacao.itemLocado}
-                          className="locacao-card-img"
-                        />
-                      )}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: 6,
-                          right: 6,
-                          backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                          borderRadius: '4px',
-                          padding: '2px 5px',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          fontSize: '0.68rem',
-                          zIndex: 2,
-                        }}
-                      >
-                        <ArrowsOut size={11} weight="bold" />
-                      </div>
-                    </>
-                  ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 4,
-                        background: 'linear-gradient(135deg, var(--pitch-black-50, #f6f3eb) 0%, var(--dark-coffee-50, #f8f3ed) 100%)',
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <Wrench size={26} weight="duotone" />
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                        Sem foto
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Indicador discreto caso haja mais de 1 foto */}
-                  {locacao.fotos && locacao.fotos.length > 1 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: 6,
-                        left: 6,
-                        background: 'rgba(26, 19, 10, 0.82)',
-                        color: '#ffffff',
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        padding: '2px 7px',
-                        borderRadius: 100,
-                        backdropFilter: 'blur(3px)',
-                        zIndex: 2,
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      +{locacao.fotos.length - 1} foto{locacao.fotos.length - 1 > 1 ? 's' : ''}
-                    </div>
-                  )}
-
-                  {/* Badge de Status de Vencimento Sobreposto */}
-                  <div className="locacao-card-badge-status">
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 3,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontSize: '0.68rem',
-                        fontWeight: 700,
-                        backgroundColor: statusInfo.badgeBg,
-                        color: statusInfo.badgeColor,
-                        border: `1px solid ${statusInfo.badgeBorder}`,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-                      }}
-                    >
-                      {statusInfo.tipo === 'vencido' || statusInfo.tipo === 'hoje' ? (
-                        <Warning size={11} weight="fill" />
-                      ) : statusInfo.tipo === 'devolvido' ? (
-                        <CheckCircle size={11} weight="fill" />
-                      ) : (
-                        <Clock size={11} />
-                      )}
-                      <span>{statusInfo.label}</span>
-                    </span>
-                  </div>
-
-                  {/* Badge de Período Sobreposto */}
-                  {locacao.periodo && (
-                    <div className="locacao-card-badge-periodo">
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 3,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          color: 'var(--text-main)',
-                          border: '1px solid var(--border-hairline)',
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-                        }}
-                      >
-                        <span>
-                          {locacao.periodo === 'diaria'
-                            ? 'Diária'
-                            : locacao.periodo === 'semanal'
-                            ? 'Semanal'
-                            : locacao.periodo === 'quinzenal'
-                            ? 'Quinzenal'
-                            : 'Mensal'}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Conteúdo e Metadados do Card */}
-                <div className="locacao-card-content">
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-                    <h4
-                      className="locacao-card-title"
-                      style={{
-                        textDecoration: locacao.status === 'devolvido' ? 'line-through' : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        flexWrap: 'wrap',
-                      }}
-                      title={locacao.itemLocado}
-                    >
-                      {locacao.quantidade && locacao.quantidade > 0 && (
-                        <span
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: '22px',
-                            height: '19px',
-                            padding: '0 5px',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--coral-glow-50)',
-                            color: 'var(--primary-accent)',
-                            border: '1px solid var(--coral-glow-200)',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            lineHeight: 1,
-                          }}
-                          title={`Quantidade: ${locacao.quantidade}`}
-                        >
-                          {locacao.quantidade}x
-                        </span>
-                      )}
-                      <span>{locacao.itemLocado}</span>
-                    </h4>
-
-                    {locacao.renovado && (
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 3,
-                          padding: '2px 5px',
-                          borderRadius: '4px',
-                          fontSize: '0.66rem',
-                          fontWeight: 700,
-                          backgroundColor: '#eff6ff',
-                          color: '#1d4ed8',
-                          border: '1px solid #bfdbfe',
-                          flexShrink: 0,
-                        }}
-                        title={
-                          locacao.vencimentoOriginal
-                            ? `Vencimento inicial: ${formatarData(locacao.vencimentoOriginal)}`
-                            : 'Locação renovada'
-                        }
-                      >
-                        <ArrowsClockwise size={11} weight="bold" />
-                        <span>Renovado</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Informações de Obra e Fornecedor */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
-                    <div className="locacao-card-meta">
-                      <BuildingApartment size={13} color="var(--coral-glow-500, #e05a47)" style={{ flexShrink: 0 }} />
-                      <span style={{ fontWeight: 600 }}>{obra.nome}</span>
-                    </div>
-                    {locacao.fornecedor && (
-                      <div className="locacao-card-meta">
-                        <Storefront size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                        <span>{locacao.fornecedor}</span>
-                      </div>
-                    )}
-                    {locacao.vencimentoOriginal && (
-                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 1 }}>
-                        Início: {formatarData(locacao.vencimentoOriginal)}
-                      </span>
-                    )}
-                  </div>
-
-
-                </div>
-
-                {/* 3. Ações Rápidas (Devolver / Excluir) */}
-                {perfilAtivo === 'construtor' && (
-                  <div className="locacao-card-footer">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (locacao.status === 'devolvido') {
-                          handleToggleStatus(obra.id, locacao.id);
-                        } else {
-                          setDevolverTarget({
-                            obraId: obra.id,
-                            locacaoId: locacao.id,
-                            itemLocado: locacao.itemLocado,
-                          });
-                        }
-                      }}
-                      className="btn-secondary"
-                      style={{
-                        padding: '5px 8px',
-                        minHeight: 30,
-                        fontSize: '0.74rem',
-                        borderRadius: '5px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontWeight: 600,
-                        color: locacao.status === 'devolvido' ? 'var(--text-muted)' : '#15803d',
-                        flex: 1,
-                        justifyContent: 'center',
-                      }}
-                      title={locacao.status === 'devolvido' ? 'Reativar locação para a lista de ativos' : 'Confirmar devolução do equipamento'}
-                    >
-                      {locacao.status === 'devolvido' ? (
-                        <>
-                          <ClockCounterClockwise size={13} />
-                          <span>Reativar</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle size={13} weight="bold" />
-                          <span>Devolver</span>
-                        </>
-                      )}
+            {isBuscaOpen && (
+              <div className="toolbar-popover rg-popover">
+                <div className="rg-search">
+                  <MagnifyingGlass size={18} aria-hidden="true" />
+                  <input
+                    type="text"
+                    enterKeyHint="search"
+                    autoFocus
+                    value={termoBusca}
+                    onChange={(e) => setTermoBusca(e.target.value)}
+                    placeholder="Equipamento, obra ou locadora"
+                    aria-label="Buscar locação"
+                  />
+                  {termoBusca && (
+                    <button type="button" className="rg-search-clear" onClick={() => setTermoBusca('')} aria-label="Limpar busca">
+                      <X size={16} weight="bold" aria-hidden="true" />
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDeleteTarget({
-                          obraId: obra.id,
-                          locacaoId: locacao.id,
-                          itemLocado: locacao.itemLocado,
-                        })
-                      }
-                      className="btn-icon"
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: '5px',
-                        border: '1px solid var(--border-hairline)',
-                        background: '#ffffff',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                      title="Excluir locação"
-                      aria-label="Excluir locação"
-                    >
-                      <Trash size={14} />
-                    </button>
-                  </div>
-                )}
-
-                {/* 4. Bloco de Prolongamento no Card (sem input checkbox Renovar) */}
-                  <div
-                    style={{
-                      padding: '8px 10px',
-                      borderTop: '1px solid var(--border-hairline)',
-                      backgroundColor: locacao.renovado ? 'var(--dark-coffee-50, #fcfaf8)' : '#fafafa',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: locacao.renovado ? 'space-between' : 'flex-end',
-                        gap: 6,
-                      }}
-                    >
-                      {locacao.renovado && perfilAtivo === 'construtor' && (
-                        <button
-                          type="button"
-                          onClick={() => handleDesfazerRenovacao(obra.id, locacao)}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-muted)',
-                            fontSize: '0.70rem',
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            padding: 0,
-                          }}
-                          title="Restaurar prazo original da locação"
-                        >
-                          Desfazer renovação
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (prolongandoLocacaoId === locacao.id) {
-                            setProlongandoLocacaoId(null);
-                          } else {
-                            handleIniciarProlongamento(locacao);
-                          }
-                        }}
-                        className="btn-secondary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '4px 9px',
-                          minHeight: 28,
-                          fontSize: '0.74rem',
-                          borderRadius: '5px',
-                          fontWeight: 600,
-                          color: locacao.renovado ? 'var(--coral-glow-500, #e05a47)' : 'var(--text-main)',
-                          flexShrink: 0,
-                          marginLeft: locacao.renovado ? undefined : 'auto',
-                        }}
-                      >
-                        <ArrowsClockwise size={13} weight="bold" />
-                        <span>{prolongandoLocacaoId === locacao.id ? 'Fechar' : 'Prolongar'}</span>
-                      </button>
-                    </div>
-
-                  {/* Painel Inline de Prolongamento */}
-                  {prolongandoLocacaoId === locacao.id && perfilAtivo === 'construtor' && (
-                    <div
-                      style={{
-                        borderTop: '1px solid var(--border-hairline)',
-                        paddingTop: 8,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                        backgroundColor: '#ffffff',
-                        padding: '8px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--border-hairline)',
-                      }}
-                    >
-                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                        Nova data de vencimento:
-                      </span>
-
-                      <input
-                        type="date"
-                        value={novaDataProlongada}
-                        onChange={(e) => setNovaDataProlongada(e.target.value)}
-                        className="form-input"
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          borderRadius: '5px',
-                          border: '1px solid var(--border-hairline)',
-                          fontSize: '0.78rem',
-                          outline: 'none',
-                        }}
-                        required
-                      />
-
-                      {/* Atalhos Rápidos por Período */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
-                        {[
-                          { dias: 1, label: '+1d (Diária)' },
-                          { dias: 7, label: '+7d (Semanal)' },
-                          { dias: 15, label: '+15d (Quinzenal)' },
-                          { dias: 30, label: '+30d (Mensal)' },
-                        ].map((btn) => (
-                          <button
-                            key={btn.dias}
-                            type="button"
-                            onClick={() => {
-                              const base = locacao.dataVencimento
-                                ? new Date(locacao.dataVencimento.split('T')[0])
-                                : new Date();
-                              base.setDate(base.getDate() + btn.dias);
-                              setNovaDataProlongada(base.toISOString().split('T')[0]);
-                            }}
-                            style={{
-                              padding: '4px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--border-hairline)',
-                              backgroundColor: 'var(--pitch-black-50, #f6f3eb)',
-                              color: 'var(--text-main)',
-                              fontSize: '0.68rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {btn.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Botão de Salvar */}
-                      <button
-                        type="button"
-                        onClick={() => handleSalvarProlongamento(obra.id, locacao)}
-                        disabled={isSavingProlongamento}
-                        className="btn-primary"
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 5,
-                          padding: '6px 10px',
-                          fontSize: '0.74rem',
-                          borderRadius: '5px',
-                          minHeight: 28,
-                          fontWeight: 600,
-                          marginTop: 2,
-                          opacity: isSavingProlongamento ? 0.75 : 1,
-                        }}
-                      >
-                        {isSavingProlongamento ? (
-                          <>
-                            <CircleNotch size={13} className="spin-animate" weight="bold" />
-                            <span>Salvando...</span>
-                          </>
-                        ) : (
-                          <>
-                            <FloppyDisk size={13} weight="bold" />
-                            <span>Salvar Prazo</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
                   )}
                 </div>
               </div>
-            );
-          })}
+            )}
+          </div>
+
+          <div ref={filtroRef}>
+            <button
+              type="button"
+              className="btn-icon"
+              aria-label="Filtrar locações"
+              aria-expanded={isFiltroOpen}
+              onClick={() => {
+                setIsFiltroOpen((v) => !v);
+                setIsBuscaOpen(false);
+              }}
+            >
+              <Funnel size={18} aria-hidden="true" />
+              {filtroAlterado && <span className="dot" />}
+            </button>
+            {isFiltroOpen && (
+              <div className="toolbar-popover rg-popover" role="menu">
+                <div className="rg-pop-group">Situação</div>
+                {OPCOES_STATUS.map((op) => (
+                  <button
+                    key={op.id}
+                    type="button"
+                    role="menuitemradio"
+                    className="option"
+                    aria-checked={filtroStatus === op.id}
+                    onClick={() => {
+                      setFiltroStatus(op.id);
+                      setIsFiltroOpen(false);
+                    }}
+                  >
+                    {op.label}
+                  </button>
+                ))}
+                {obras.length > 1 && (
+                  <>
+                    <div className="rg-pop-group">Obra</div>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      className="option"
+                      aria-checked={filtroObraId === 'todas'}
+                      onClick={() => {
+                        setFiltroObraId('todas');
+                        setIsFiltroOpen(false);
+                      }}
+                    >
+                      Todas as obras
+                    </button>
+                    {obras.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        role="menuitemradio"
+                        className="option"
+                        aria-checked={filtroObraId === o.id}
+                        onClick={() => {
+                          setFiltroObraId(o.id);
+                          setIsFiltroOpen(false);
+                        }}
+                      >
+                        <span className="rg-option-text">{o.nome}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Modal de Criação de Locação */}
+      {todasLocacoes.length === 0 ? (
+        <EmptyState icon={Wrench} title="Nenhuma locação registrada." />
+      ) : locacoesFiltradas.length === 0 ? (
+        <EmptyState
+          icon={Wrench}
+          variant="filtered"
+          title="Nenhuma locação neste filtro."
+          action={existeFiltro ? { label: 'Limpar filtros', onClick: limparFiltros } : undefined}
+        />
+      ) : (
+        <ul className="rg-list">
+          {locacoesFiltradas.map(({ locacao, obra }) => {
+            const st = apresentarStatus(locacao);
+            const primeiraFoto = locacao.fotos && locacao.fotos.length > 0 ? locacao.fotos[0] : null;
+            const StIcon = st.Icon;
+            const devolvido = locacao.status === 'devolvido';
+            const detalhe = [obra.nome, locacao.fornecedor].filter(Boolean).join(' · ');
+
+            return (
+              <li key={locacao.id} className={`list-row rg-row${devolvido ? ' rg-row--done' : ''}`}>
+                {primeiraFoto ? (
+                  <button
+                    type="button"
+                    className="rg-thumb"
+                    onClick={() => setLightboxState({ fotos: locacao.fotos, index: 0, titulo: locacao.itemLocado })}
+                    aria-label={`Ampliar foto de ${locacao.itemLocado}`}
+                  >
+                    {isPdfUrl(primeiraFoto) ? (
+                      <FilePdf size={26} weight="fill" aria-hidden="true" />
+                    ) : (
+                      <img src={primeiraFoto} alt="" loading="lazy" />
+                    )}
+                    {locacao.fotos.length > 1 && <span className="rg-thumb-count">+{locacao.fotos.length - 1}</span>}
+                  </button>
+                ) : (
+                  <div className="rg-thumb" aria-hidden="true">
+                    <Wrench size={24} weight="duotone" />
+                  </div>
+                )}
+
+                <div className="list-row-main">
+                  <div className="rg-row-title">
+                    <span className="rg-row-name" title={locacao.itemLocado}>
+                      {locacao.itemLocado}
+                    </span>
+                    {locacao.quantidade && locacao.quantidade > 0 ? (
+                      <span className="badge badge--accent" title={`Quantidade: ${locacao.quantidade}`}>
+                        {locacao.quantidade}×
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="list-row-sub rg-row-sub">{detalhe}</div>
+                  <div className={`rg-status rg-status--${st.tipo}`}>
+                    <StIcon size={14} weight={st.tipo === 'vencido' || st.tipo === 'hoje' ? 'fill' : 'regular'} aria-hidden="true" />
+                    <span>
+                      {st.label}
+                      {locacao.renovado ? ' · Renovado' : ''}
+                    </span>
+                  </div>
+                </div>
+
+                {podeEditar && (
+                  <div className="list-row-end">
+                    <button
+                      type="button"
+                      className="btn-secondary btn--sm rg-desktop-only"
+                      onClick={() => pedirDevolucao(obra.id, locacao)}
+                    >
+                      {devolvido ? 'Reativar' : 'Devolver'}
+                    </button>
+                    <OverflowMenu
+                      items={menuItens(obra, locacao)}
+                      label={`Ações da locação ${locacao.itemLocado}`}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <ModalRegistroLocacao
         isOpen={isModalLocacaoOpen}
         onClose={() => setIsModalLocacaoOpen(false)}
@@ -1389,471 +582,102 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         onSave={handleSaveLocacao}
       />
 
+      {/* Prolongar: folha com atalhos de prazo e o seletor de data do app */}
+      {prolongarTarget && (
+        <div className="modal-backdrop" onClick={() => setProlongarTarget(null)}>
+          <div
+            className="modal-card rg-sheet rg-sheet--calendar"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="prolongar-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 className="modal-title" id="prolongar-title">
+                Prolongar locação
+              </h2>
+              <button type="button" className="btn-icon" onClick={() => setProlongarTarget(null)} aria-label="Fechar">
+                <X size={20} weight="bold" aria-hidden="true" />
+              </button>
+            </div>
+            <form onSubmit={handleSalvarProlongamento}>
+              <div className="modal-body rg-sheet-body">
+                <p className="rg-sheet-lead">{prolongarTarget.locacao.itemLocado}</p>
+                <div className="rg-chips" role="group" aria-label="Prolongar por">
+                  {ATALHOS_PRAZO.map((dias) => {
+                    const alvo = somarDiasData(baseAtalhos, dias);
+                    return (
+                      <button
+                        key={dias}
+                        type="button"
+                        className="rg-chip"
+                        aria-pressed={novaDataProlongada === alvo}
+                        onClick={() => setNovaDataProlongada(alvo)}
+                      >
+                        +{dias} dias
+                      </button>
+                    );
+                  })}
+                </div>
+                <DatePickerInput
+                  value={novaDataProlongada}
+                  onChange={setNovaDataProlongada}
+                  label="Novo vencimento"
+                  helperText=""
+                  required
+                />
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-secondary" onClick={() => setProlongarTarget(null)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={isSavingProlongamento || !novaDataProlongada}>
+                  {isSavingProlongamento ? (
+                    <>
+                      <CircleNotch size={16} className="spin-animate" weight="bold" aria-hidden="true" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Salvar prazo</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-
-      {/* Modal de Confirmação de Devolução em 2 Etapas */}
       <ModalConfirm
         isOpen={Boolean(devolverTarget)}
-        title="Confirmar Devolução do Equipamento"
-        message={`Deseja confirmar a devolução de "${devolverTarget?.itemLocado}"? O equipamento sairá da lista principal de ativos e será movido para o Histórico de Devolvidos.`}
-        confirmText="Sim, Devolver"
+        title="Confirmar devolução"
+        message={`Deseja confirmar a devolução de "${devolverTarget?.itemLocado}"? O equipamento sai da lista de ativos e vai para os devolvidos.`}
+        confirmText="Devolver"
         cancelText="Cancelar"
         variant="warning"
         onConfirm={handleConfirmDevolver}
         onCancel={() => setDevolverTarget(null)}
       />
 
-      {/* Modal de Confirmação de Exclusão */}
       <ModalConfirm
         isOpen={Boolean(deleteTarget)}
-        title="Excluir Registro de Locação?"
+        title="Excluir locação?"
         message={`Tem certeza que deseja remover o registro "${deleteTarget?.itemLocado}"? Esta ação não pode ser desfeita.`}
-        confirmText="Sim, Excluir"
+        confirmText="Excluir"
         cancelText="Cancelar"
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Lightbox em Tela Cheia com Navegação Completa e Suporte a Mobile */}
       {lightboxState && (
-        <div
-          onClick={() => setLightboxState(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.94)',
-            zIndex: 10000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '12px 14px',
-            touchAction: 'pan-y',
-            userSelect: 'none',
-          }}
-        >
-          {/* Cabeçalho do Lightbox */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 960,
-              color: '#ffffff',
-              padding: '6px 4px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <span
-                style={{
-                  fontSize: '0.92rem',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: '#ffffff',
-                }}
-              >
-                {lightboxState.titulo || 'Visualização do Equipamento'}
-              </span>
-              {lightboxState.fotos.length > 1 && (
-                <span
-                  style={{
-                    fontSize: '0.76rem',
-                    background: 'rgba(255, 255, 255, 0.22)',
-                    padding: '2px 9px',
-                    borderRadius: 100,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    color: '#ffffff',
-                  }}
-                >
-                  {lightboxState.index + 1} / {lightboxState.fotos.length}
-                </span>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setLightboxState(null)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                color: '#ffffff',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-              title="Fechar (Escape)"
-            >
-              <X size={20} weight="bold" />
-            </button>
-          </div>
-
-          {/* Área Central: Imagem com Setas e Swipe Touch Nativo */}
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              maxWidth: 960,
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: 0,
-              touchAction: 'pan-y',
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              touchLightboxX.current = e.touches[0].clientX;
-            }}
-            onTouchEnd={(e) => {
-              if (touchLightboxX.current === null || !lightboxState || lightboxState.fotos.length <= 1) return;
-              const diff = touchLightboxX.current - e.changedTouches[0].clientX;
-              touchLightboxX.current = null;
-              if (diff > 35) {
-                // Arrasto para a esquerda -> próxima foto
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                );
-              } else if (diff < -35) {
-                // Arrasto para a direita -> foto anterior
-                setLightboxState((prev) =>
-                  prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                );
-              }
-            }}
-          >
-            {/* Seta Lateral Esquerda */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  left: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Foto anterior"
-                aria-label="Foto anterior"
-              >
-                <CaretLeft size={24} weight="bold" />
-              </button>
-            )}
-
-            {isPdfUrl(lightboxState.fotos[lightboxState.index]) ? (
-              <div
-                style={{
-                  width: '92vw',
-                  maxWidth: 860,
-                  height: '75vh',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  style={{
-                    padding: '10px 16px',
-                    backgroundColor: 'var(--dark-coffee-50, #fcfaf8)',
-                    borderBottom: '1px solid var(--border-hairline)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <FilePdf size={22} weight="fill" color="#dc2626" />
-                    <span
-                      style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 600,
-                        color: 'var(--text-main)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {lightboxState.titulo || 'Documento PDF'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: '#ffffff',
-                        border: '1px solid var(--border-hairline)',
-                        color: 'var(--text-main)',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <ArrowSquareOut size={14} weight="bold" />
-                      <span>Abrir</span>
-                    </a>
-                    <a
-                      href={lightboxState.fotos[lightboxState.index]}
-                      download
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '6px 12px',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        borderRadius: 6,
-                        background: 'var(--primary-accent)',
-                        color: '#ffffff',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <DownloadSimple size={14} weight="bold" />
-                      <span>Baixar</span>
-                    </a>
-                  </div>
-                </div>
-
-                <iframe
-                  src={lightboxState.fotos[lightboxState.index]}
-                  title="Documento PDF"
-                  style={{
-                    width: '100%',
-                    flex: 1,
-                    border: 'none',
-                    backgroundColor: '#525659',
-                  }}
-                />
-              </div>
-            ) : (
-              <img
-                src={lightboxState.fotos[lightboxState.index]}
-                alt=""
-                draggable={false}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '100%',
-                  objectFit: 'contain',
-                  borderRadius: '6px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                  userSelect: 'none',
-                }}
-              />
-            )}
-
-            {/* Seta Lateral Direita */}
-            {lightboxState.fotos.length > 1 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLightboxState((prev) =>
-                    prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                  );
-                }}
-                style={{
-                  position: 'absolute',
-                  right: 6,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(26, 19, 10, 0.85)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
-                }}
-                title="Próxima foto"
-                aria-label="Próxima foto"
-              >
-                <CaretRight size={24} weight="bold" />
-              </button>
-            )}
-          </div>
-
-          {/* Rodapé do Lightbox: Controles de toque e miniaturas interativas */}
-          {lightboxState.fotos.length > 1 && (
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                maxWidth: 960,
-                padding: '6px 0',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Botões táteis Anterior / Próxima para toque direto no mobile */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : prev.fotos.length - 1 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <CaretLeft size={16} weight="bold" />
-                  <span>Anterior</span>
-                </button>
-
-                <span style={{ color: '#ffffff', fontSize: '0.80rem', fontWeight: 600 }}>
-                  {lightboxState.index + 1} de {lightboxState.fotos.length}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLightboxState((prev) =>
-                      prev ? { ...prev, index: prev.index < prev.fotos.length - 1 ? prev.index + 1 : 0 } : null
-                    )
-                  }
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.16)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: 20,
-                    padding: '5px 14px',
-                    fontSize: '0.80rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <span>Próxima</span>
-                  <CaretRight size={16} weight="bold" />
-                </button>
-              </div>
-
-              {/* Faixa de Miniaturas */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  overflowX: 'auto',
-                  maxWidth: '100%',
-                  padding: '4px',
-                  scrollbarWidth: 'none',
-                }}
-              >
-                {lightboxState.fotos.map((fUrl, fIdx) => (
-                  isPdfUrl(fUrl) ? (
-                    <div
-                      key={fIdx}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        backgroundColor: '#fff5f5',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.65,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        color: '#dc2626',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                      title="Documento PDF"
-                    >
-                      <FilePdf size={20} weight="fill" />
-                      <span style={{ fontSize: '0.55rem', fontWeight: 700, color: '#991b1b', lineHeight: 1 }}>PDF</span>
-                    </div>
-                  ) : (
-                    <img
-                      key={fIdx}
-                      src={fUrl}
-                      alt=""
-                      draggable={false}
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        objectFit: 'cover',
-                        cursor: 'pointer',
-                        border: fIdx === lightboxState.index ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.3)',
-                        opacity: fIdx === lightboxState.index ? 1 : 0.55,
-                        flexShrink: 0,
-                        transform: fIdx === lightboxState.index ? 'scale(1.08)' : 'scale(1)',
-                        transition: 'transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease',
-                      }}
-                      onClick={() => setLightboxState((prev) => (prev ? { ...prev, index: fIdx } : null))}
-                    />
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <GalleryLightbox
+          fotos={lightboxState.fotos}
+          index={lightboxState.index}
+          titulo={lightboxState.titulo}
+          tituloPadrao="Visualização do equipamento"
+          onIndexChange={(i) => setLightboxState((prev) => (prev ? { ...prev, index: i } : null))}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );

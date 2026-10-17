@@ -1,0 +1,6 @@
+/** true quando o usuário pediu movimento reduzido no sistema operacional. */
+export function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+}
