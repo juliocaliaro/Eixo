@@ -1,12 +1,32 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { HardHat, User, WarningCircle, CheckCircle, X, CircleNotch } from '@phosphor-icons/react';
 import { authApi } from '../services/api';
 import { avaliarSenha } from '../utils/senha';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import { useKeyboardOpen } from '../hooks/useKeyboardOpen';
 import { PasswordField, PasswordHelp } from './AuthFields';
+import { SlidingSegmented } from './SlidingSegmented';
+import { Reveal } from './Reveal';
 
 export type UserRole = 'Construtor' | 'Cliente';
+
+type Modo = 'login' | 'cadastro';
+
+const OPCOES_MODO: Array<{ valor: Modo; texto: string }> = [
+  { valor: 'login', texto: 'Entrar' },
+  { valor: 'cadastro', texto: 'Criar conta' },
+];
+const OPCOES_PAPEL: Array<{ valor: UserRole; texto: string; icone: React.ReactNode }> = [
+  { valor: 'Construtor', texto: 'Construtor', icone: <HardHat size={18} weight="bold" /> },
+  { valor: 'Cliente', texto: 'Cliente', icone: <User size={18} weight="bold" /> },
+];
+
+/** Último valor não vazio: mantém o texto de um alerta enquanto o bloco anima o fechamento. */
+function useRetido(valor: string): string {
+  const ref = useRef(valor);
+  if (valor) ref.current = valor;
+  return valor || ref.current;
+}
 
 interface LoginPageProps {
   initialRole?: UserRole;
@@ -56,7 +76,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   useEscapeKey(fecharForgot, isForgotModalOpen);
 
   // Limpa mensagens ao alternar abas
-  const handleAlternarModo = (novoModo: 'login' | 'cadastro') => {
+  const handleAlternarModo = (novoModo: Modo) => {
     setModo(novoModo);
     setErro('');
     setAviso('');
@@ -121,12 +141,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    if (!emailCadastro.trim()) {
+    if (!email.trim()) {
       setErro('Por favor, informe um e-mail válido para sua conta.');
       return;
     }
 
-    if (!emailCadastro.includes('@') || !emailCadastro.includes('.')) {
+    if (!email.includes('@') || !email.includes('.')) {
       setErro('O formato de e-mail informado é inválido.');
       return;
     }
@@ -154,7 +174,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setIsLoading(true);
     try {
       const res = await authApi.signUp({
-        email: emailCadastro.trim(),
+        email: email.trim(),
         password: passwordCadastro,
         nome: nomeCadastro.trim(),
         role: selectedRole,
@@ -175,7 +195,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       if (!res.session) {
         setAviso('Conta criada. Confirme seu e-mail para acessar o Eixo e depois faça login.');
         setModo('login');
-        setEmail(emailCadastro.trim());
+        setEmail(email.trim());
       }
     } catch (err: any) {
       setErro(err?.message || 'Erro ao registrar conta no servidor.');
@@ -206,22 +226,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const mensagens = (
-    <>
-      {erro && (
-        <div className="auth-alert" role="alert">
-          <WarningCircle size={16} weight="fill" />
-          <span>{erro}</span>
-        </div>
-      )}
-      {aviso && (
-        <div className="auth-alert auth-alert--ok" role="status">
-          <CheckCircle size={16} weight="fill" />
-          <span>{aviso}</span>
-        </div>
-      )}
-    </>
-  );
+  const cadastro = modo === 'cadastro';
+  // Mantém o texto da mensagem enquanto o bloco fecha (sem esvaziar no meio da animação)
+  const erroVisivel = useRetido(erro);
+  const avisoVisivel = useRetido(aviso);
 
   return (
     <div className="auth-screen">
@@ -235,104 +243,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {/* Entrar vs Criar conta */}
-          <div className="auth-tabs" role="tablist" aria-label="Acesso">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={modo === 'login'}
-              className="auth-tab"
-              onClick={() => handleAlternarModo('login')}
-            >
-              Entrar
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={modo === 'cadastro'}
-              className="auth-tab"
-              onClick={() => handleAlternarModo('cadastro')}
-            >
-              Criar conta
-            </button>
-          </div>
+          <SlidingSegmented
+            variante="tabs"
+            className="auth-tabs"
+            ariaLabel="Acesso"
+            idBase="auth-tab"
+            painelId="auth-painel"
+            valor={modo}
+            opcoes={OPCOES_MODO}
+            onChange={handleAlternarModo}
+          />
 
-          <div className="auth-body">
-            {modo === 'login' ? (
-              <form onSubmit={handleLoginSubmit} className="auth-form" noValidate>
-                <div className="auth-fields">
-                  <div className="auth-field">
-                    <label className="form-label" htmlFor="login-email">
-                      E-mail
-                    </label>
-                    <input
-                      id="login-email"
-                      type="email"
-                      inputMode="email"
-                      autoCapitalize="none"
-                      className="form-input"
-                      placeholder="exemplo@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      autoComplete="email"
-                    />
-                  </div>
-
-                  <PasswordField
-                    id="login-senha"
-                    label="Senha"
-                    value={password}
-                    onChange={setPassword}
-                    autoComplete="current-password"
-                  />
-
-                  <button type="button" className="auth-link" onClick={() => setIsForgotModalOpen(true)}>
-                    Esqueci minha senha
-                  </button>
-                </div>
-
-                <div className="auth-actions">
-                  {mensagens}
-                  <button type="submit" className="btn-primary btn--block auth-submit" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <CircleNotch size={18} className="spin-animate" weight="bold" />
-                        <span>Entrando...</span>
-                      </>
-                    ) : (
-                      <span>Entrar</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleCadastroSubmit} className="auth-form" noValidate>
-                <div className="auth-fields">
+          <div className="auth-body" role="tabpanel" id="auth-painel" aria-labelledby={`auth-tab-${modo}`}>
+            <form onSubmit={cadastro ? handleCadastroSubmit : handleLoginSubmit} className="auth-form" noValidate>
+              <div className="auth-fields">
+                <Reveal aberto={cadastro} indice={0}>
                   <div className="auth-field">
                     <span className="form-label" id="cadastro-tipo-label">
                       Eu sou
                     </span>
-                    <div className="auth-seg" role="radiogroup" aria-labelledby="cadastro-tipo-label">
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={selectedRole === 'Construtor'}
-                        onClick={() => setSelectedRole('Construtor')}
-                      >
-                        <HardHat size={18} weight={selectedRole === 'Construtor' ? 'fill' : 'bold'} />
-                        <span>Construtor</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={selectedRole === 'Cliente'}
-                        onClick={() => setSelectedRole('Cliente')}
-                      >
-                        <User size={18} weight={selectedRole === 'Cliente' ? 'fill' : 'bold'} />
-                        <span>Cliente</span>
-                      </button>
-                    </div>
+                    <SlidingSegmented
+                      variante="radio"
+                      className="auth-seg"
+                      labelledBy="cadastro-tipo-label"
+                      idBase="auth-role"
+                      valor={selectedRole}
+                      opcoes={OPCOES_PAPEL}
+                      onChange={setSelectedRole}
+                    />
                   </div>
+                </Reveal>
 
+                <Reveal aberto={cadastro} indice={1}>
                   <div className="auth-field">
                     <label className="form-label" htmlFor="cadastro-nome">
                       Nome completo
@@ -346,55 +288,63 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       autoComplete="name"
                     />
                   </div>
+                </Reveal>
 
+                <div className="auth-row">
                   <div className="auth-field">
-                    <label className="form-label" htmlFor="cadastro-email">
+                    <label className="form-label" htmlFor="auth-email">
                       E-mail
                     </label>
                     <input
-                      id="cadastro-email"
+                      id="auth-email"
                       type="email"
                       inputMode="email"
                       autoCapitalize="none"
                       className="form-input"
-                      placeholder="seu@email.com"
-                      value={emailCadastro}
-                      onChange={(e) => setEmailCadastro(e.target.value)}
+                      placeholder={cadastro ? 'seu@email.com' : 'exemplo@email.com'}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       autoComplete="email"
                     />
                   </div>
+                </div>
 
-                  {selectedRole === 'Construtor' && (
-                    <div className="auth-field">
-                      <div className="auth-field-head">
-                        <label className="form-label" htmlFor="cadastro-empresa">
-                          Empresa ou construtora
-                        </label>
-                        <span className="auth-optional">Opcional</span>
-                      </div>
-                      <input
-                        id="cadastro-empresa"
-                        type="text"
-                        className="form-input"
-                        value={empresaCadastro}
-                        onChange={(e) => setEmpresaCadastro(e.target.value)}
-                        autoComplete="organization"
-                      />
+                <Reveal aberto={cadastro && selectedRole === 'Construtor'} indice={2}>
+                  <div className="auth-field">
+                    <div className="auth-field-head">
+                      <label className="form-label" htmlFor="cadastro-empresa">
+                        Empresa ou construtora
+                      </label>
+                      <span className="auth-optional">Opcional</span>
                     </div>
-                  )}
+                    <input
+                      id="cadastro-empresa"
+                      type="text"
+                      className="form-input"
+                      value={empresaCadastro}
+                      onChange={(e) => setEmpresaCadastro(e.target.value)}
+                      autoComplete="organization"
+                    />
+                  </div>
+                </Reveal>
 
+                <div className="auth-row">
                   <PasswordField
-                    id="cadastro-senha"
-                    label="Criar senha"
-                    value={passwordCadastro}
-                    onChange={setPasswordCadastro}
-                    autoComplete="new-password"
+                    id="auth-senha"
+                    label={cadastro ? 'Criar senha' : 'Senha'}
+                    value={cadastro ? passwordCadastro : password}
+                    onChange={cadastro ? setPasswordCadastro : setPassword}
+                    autoComplete={cadastro ? 'new-password' : 'current-password'}
                     onFocus={() => setSenhaFocada(true)}
                     onBlur={() => setSenhaFocada(false)}
                   >
-                    {(senhaFocada || passwordCadastro) && <PasswordHelp senha={passwordCadastro} />}
+                    <Reveal aberto={cadastro && (senhaFocada || !!passwordCadastro)} respiro="junto">
+                      <PasswordHelp senha={passwordCadastro} />
+                    </Reveal>
                   </PasswordField>
+                </div>
 
+                <Reveal aberto={cadastro} indice={3}>
                   <PasswordField
                     id="cadastro-confirmar"
                     label="Confirmar senha"
@@ -402,7 +352,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     onChange={setConfirmPassword}
                     autoComplete="new-password"
                   />
+                </Reveal>
 
+                <Reveal aberto={cadastro} indice={4}>
                   <label className="auth-check">
                     <input
                       type="checkbox"
@@ -411,23 +363,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     />
                     <span>Li e aceito os Termos de Uso e a Política de Privacidade.</span>
                   </label>
-                </div>
+                </Reveal>
 
-                <div className="auth-actions">
-                  {mensagens}
-                  <button type="submit" className="btn-primary btn--block auth-submit" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <CircleNotch size={18} className="spin-animate" weight="bold" />
-                        <span>Criando conta...</span>
-                      </>
-                    ) : (
-                      <span>Criar conta</span>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
+                <Reveal aberto={!cadastro} indice={1} respiro="junto">
+                  <div className="auth-forgot">
+                    <button type="button" className="auth-link" onClick={() => setIsForgotModalOpen(true)}>
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                </Reveal>
+              </div>
+
+              <div className="auth-actions">
+                <Reveal aberto={!!erro} respiro="abaixo">
+                  <div className="auth-alert" role="alert">
+                    <WarningCircle size={16} weight="fill" />
+                    <span>{erroVisivel}</span>
+                  </div>
+                </Reveal>
+                <Reveal aberto={!!aviso} respiro="abaixo">
+                  <div className="auth-alert auth-alert--ok" role="status">
+                    <CheckCircle size={16} weight="fill" />
+                    <span>{avisoVisivel}</span>
+                  </div>
+                </Reveal>
+                <button type="submit" className="btn-primary btn--block auth-submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <CircleNotch size={18} className="spin-animate" weight="bold" />
+                      <span>{cadastro ? 'Criando conta...' : 'Entrando...'}</span>
+                    </>
+                  ) : (
+                    <span>{cadastro ? 'Criar conta' : 'Entrar'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>

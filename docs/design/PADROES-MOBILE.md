@@ -21,6 +21,21 @@ Referência da fundação. Código: `src/styles/foundation.css` (carregado depoi
 - `<OverflowMenu label items />`: ÚNICO menu "⋯" (obra, arquivos, notas, locações, modelos). Painel `position: fixed` calculado a partir do botão, sempre dentro da viewport, vira para cima quando não cabe; itens `{ key, label, icon?, onSelect | href, danger?, disabled?, hidden? }`. Botão 36px no desktop e 44px no mobile. Não crie outro menu de linha.
 - `.loading-line`: barra fina indeterminada.
 
+## Seletor segmentado deslizante (SlidingSegmented)
+`src/components/SlidingSegmented.tsx` + `.sseg*` em `home-auth.css`; matemática pura em `src/utils/segmented.ts` (`indiceSelecionado`, `proximoIndice`, testada em `src/test/segmented.test.ts`). Usado no login (abas "Entrar | Criar conta" e "Eu sou: Construtor | Cliente"); reutilizável em qualquer escolha única de 2 a 3 opções de **largura igual**.
+- Props: `variante: 'tabs' | 'radio'`, `valor`, `opcoes: { valor, texto, icone? }[]`, `onChange`, `idBase` (ids `${idBase}-${valor}`), `painelId` (tabs: `aria-controls`), `ariaLabel` ou `labelledBy`, `className`.
+- Indicador: um único `<span class="sseg-indicator">` com a largura de uma coluna e `transform: translateX(calc(var(--sseg-i) * (100% + gap)))`; `--sseg-i` e `--sseg-n` vêm do componente. Só `transform` anima: 280ms, `cubic-bezier(0.16, 1, 0.3, 1)` (ease-out-expo). A cor do rótulo faz fade em 200ms. Sem `transition: all`.
+- A11y: `tabs` = `role=tablist/tab` com `aria-selected` e `aria-controls` (o painel é `role=tabpanel` com `aria-labelledby` na aba ativa); `radio` = `role=radiogroup/radio` com `aria-checked`. Roving tabindex (só o selecionado entra na ordem de Tab); setas (circulam), Home e End movem foco e seleção; no radio cima/baixo também. `:focus-visible` com anel de 2px; botões de 44px.
+
+## Revelação com altura animada (Reveal)
+`src/components/Reveal.tsx` + `.reveal*` em `home-auth.css`. Resolve "campo aparece/some" sem salto de layout e sem JS de medição: `display: grid` com `grid-template-rows: 0fr -> 1fr` (300ms, mesmo easing).
+- Props: `aberto`, `indice` (escalonamento de 30ms por posição, máximo 4, só na entrada), `respiro` (`acima` padrão, `abaixo` para alertas, `junto` para ajudas coladas ao campo). O espaçamento entre campos vive dentro do bloco (padding de `.reveal-pad`), nunca em `gap`, para um bloco fechado ocupar 0px.
+- Conteúdo: fade (180ms) + `translateY(-6px)` -> 0 (200ms); na saída 120/160ms sem atraso. Total da entrada <= 320ms.
+- Fechado: `inert` + `aria-hidden` e `visibility: hidden` aplicado ao fim da transição (`transition: visibility 0s linear 300ms`), logo não há tab stop nem leitura por leitor de tela, e o campo continua montado (o texto digitado não se perde ao alternar abas).
+- Alertas: mantenha o último texto (`useRetido` em `LoginPage`) para não esvaziar durante o fechamento.
+- Âncora: o cartão do login fica ancorado no topo (`.auth-page { align-items: flex-start }`); o formulário cresce para baixo e a marca nunca se move. No mobile o corpo rola por dentro (`.auth-fields`, scrollbar oculta) e a página não rola.
+- `prefers-reduced-motion: reduce`: todas as transições do indicador e do Reveal são desligadas (estado final imediato).
+
 ## Estados vazios (EmptyState)
 Bloco centrado, sem cartão nem borda: ícone Phosphor 48px (peso regular, tom neutro), título 15px/600 (máx. 280px), dica opcional 13px, no máximo UMA ação. Mesmo respiro em toda tela (`padding-top: --space-8`; dentro de uma seção que já tem título, como vistoria, notas por obra e modelos, use `className="empty-state--nested"`).
 - `first-use`: ícone + uma frase. Só leva botão quando a tela NÃO mostra essa ação no cabeçalho e o perfil pode executá-la. Como todas as telas de obra, Notas, Locação, Modelos e a Home têm a ação primária no cabeçalho, hoje nenhuma tem botão. O cliente lê uma frase de acompanhamento ("Ainda não há etapas nesta obra.").

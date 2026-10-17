@@ -245,7 +245,7 @@
 }
 
 /* ---------- Compartilhar ---------- */
-.obra-screen .share-tab { max-width: 640px; margin: 0; display: flex; flex-direction: column; gap: var(--space-5); }
+.obra-screen .share-tab { width: 100%; display: flex; flex-direction: column; gap: var(--space-5); }
 .obra-screen .share-tab .tab-title { margin: 0; }
 .obra-screen .share-help { margin: var(--space-2) 0 0; font-size: var(--fs-base); color: var(--text-muted); line-height: 1.5; }
 .obra-screen .share-add { display: flex; gap: var(--space-2); align-items: stretch; }
@@ -254,7 +254,7 @@
 .obra-screen .share-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-hairline); }
 .obra-screen .share-list li { display: flex; align-items: center; gap: var(--space-2); min-height: 52px; border-bottom: 1px solid var(--border-hairline); }
 .obra-screen .share-list li span { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--text-main); overflow-wrap: anywhere; }
-.obra-screen .share-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.obra-screen .share-head-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 
 /* ---------- Modais destas telas ---------- */
 .obra-screen .modal-sub { display: block; font-size: 0.8125rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }

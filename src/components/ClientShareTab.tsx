@@ -72,6 +72,25 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({ obra, perfilAtiv
       <div>
         <div className="tab-head" style={{ marginBottom: 0 }}>
           <h2 className="tab-title">Compartilhar</h2>
+          {ehConstrutor && (
+            <div className="share-head-actions">
+              {onSwitchToClient && (
+                <button
+                  type="button"
+                  className="btn-secondary tab-cta share-testar-cliente-btn"
+                  onClick={onSwitchToClient}
+                  title="Alternar para a visualização que o cliente vê"
+                >
+                  <ArrowSquareOut size={16} weight="bold" />
+                  <span>Testar visão do cliente</span>
+                </button>
+              )}
+              <button type="button" className="btn-primary tab-cta" onClick={copiar}>
+                {copied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
+                <span>{copied ? 'Link copiado' : 'Copiar link'}</span>
+              </button>
+            </div>
+          )}
         </div>
         <p className="share-help" style={{ marginTop: 0 }}>
           {ehConstrutor
@@ -139,24 +158,6 @@ export const ClientShareTab: React.FC<ClientShareTabProps> = ({ obra, perfilAtiv
           ) : (
             <EmptyState icon={ShareNetwork} className="empty-state--nested" title="Nenhum e-mail com acesso ainda." hint="Adicione o e-mail do cliente para ele acompanhar a obra." />
           )}
-
-          <div className="share-actions">
-            <button type="button" className="btn-primary" onClick={copiar}>
-              {copied ? <Check size={16} weight="bold" /> : <Copy size={16} weight="bold" />}
-              <span>{copied ? 'Link copiado' : 'Copiar link da obra'}</span>
-            </button>
-            {onSwitchToClient && (
-              <button
-                type="button"
-                className="btn-secondary share-testar-cliente-btn"
-                onClick={onSwitchToClient}
-                title="Alternar para a visualização que o cliente vê"
-              >
-                <ArrowSquareOut size={16} weight="bold" />
-                <span>Testar visão do cliente</span>
-              </button>
-            )}
-          </div>
         </>
       )}
 
