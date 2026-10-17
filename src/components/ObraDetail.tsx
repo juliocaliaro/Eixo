@@ -13,7 +13,7 @@ import { ModalEditObra } from './ModalEditObra';
 import { ModalCreateEtapaWizard } from './ModalCreateEtapaWizard';
 import { ModalAddMedia } from './ModalAddMedia';
 import { ModalRelatorioObra } from './ModalRelatorioObra';
-import { projetosApi, storageApi } from '../services/api';
+import { obrasApi, projetosApi, storageApi } from '../services/api';
 
 const ModalPreviewRelatorio = React.lazy(() =>
   import('./ModalPreviewRelatorio').then((m) => ({ default: m.ModalPreviewRelatorio }))
@@ -145,6 +145,9 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleDeleteEtapa = (etapaId: string) => {
+    // 1. Exclui imediatamente do Supabase e registra no tombstone
+    obrasApi.deleteEtapa(etapaId).catch((err) => console.warn('Erro ao excluir etapa na nuvem:', err));
+
     const updatedEtapas = obra.etapas.filter((e) => e.id !== etapaId);
     onUpdateObra({
       ...obra,
@@ -232,6 +235,9 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
   };
 
   const handleDeleteTask = (etapaId: string, tarefaId: string) => {
+    // 1. Exclui imediatamente do Supabase e registra no tombstone
+    obrasApi.deleteTask(tarefaId).catch((err) => console.warn('Erro ao excluir tarefa na nuvem:', err));
+
     const updatedEtapas = obra.etapas.map((e) => {
       if (e.id !== etapaId) return e;
       return {
@@ -253,6 +259,38 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
         tarefas: e.tarefas.map((t) => (t.id === tarefaId ? { ...t, nome: novoNome } : t)),
       };
     });
+    onUpdateObra({
+      ...obra,
+      etapas: updatedEtapas,
+    });
+  };
+
+  const handleEditTask = (
+    etapaId: string,
+    tarefaId: string,
+    novoNome: string,
+    novoAmbiente?: string
+  ) => {
+    const ambTrim = novoAmbiente && novoAmbiente.trim() ? novoAmbiente.trim() : undefined;
+    const nomeTrim = novoNome.trim();
+
+    const updatedEtapas = obra.etapas.map((e) => {
+      if (e.id !== etapaId) return e;
+      const tarefasAtualizadas = e.tarefas.map((t) => {
+        if (t.id !== tarefaId) return t;
+        return {
+          ...t,
+          nome: nomeTrim || t.nome,
+          ambiente: ambTrim,
+        };
+      });
+      let ambientes = e.ambientes ? [...e.ambientes] : [];
+      if (ambTrim && !ambientes.includes(ambTrim)) {
+        ambientes.push(ambTrim);
+      }
+      return { ...e, ambientes, tarefas: tarefasAtualizadas };
+    });
+
     onUpdateObra({
       ...obra,
       etapas: updatedEtapas,
@@ -325,7 +363,11 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
     if (!novoTrim || novoTrim === nomeAntigo) return;
     const updatedEtapas = obra.etapas.map((e) => {
       if (e.id !== etapaId) return e;
-      const ambientesAtuais = (e.ambientes || []).map((a) => (a === nomeAntigo ? novoTrim : a));
+      let ambientesAtuais = (e.ambientes || []).map((a) => (a === nomeAntigo ? novoTrim : a));
+      if (!ambientesAtuais.includes(novoTrim)) {
+        ambientesAtuais.push(novoTrim);
+      }
+      ambientesAtuais = Array.from(new Set(ambientesAtuais.filter((a) => a !== nomeAntigo)));
       const tarefasAtualizadas = e.tarefas.map((t) =>
         t.ambiente === nomeAntigo ? { ...t, ambiente: novoTrim } : t
       );
@@ -762,6 +804,7 @@ export const ObraDetail: React.FC<ObraDetailProps> = ({
             onReorderEtapas={handleReorderEtapas}
             onDeleteTask={handleDeleteTask}
             onEditTaskNome={handleEditTaskNome}
+            onEditTask={handleEditTask}
             onReorderTasks={handleReorderTasks}
             onAddTaskToEtapa={handleAddTaskToEtapa}
             onCreateAgrupamento={handleCreateAgrupamento}

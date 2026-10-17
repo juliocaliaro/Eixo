@@ -16,6 +16,9 @@ import {
   saveObrasToStorage,
   loadTemplatesFromStorage,
   saveTemplatesToStorage,
+  getDeletedEntityIds,
+  markEntityAsDeleted,
+  unmarkEntityAsDeleted,
 } from '../utils/storage';
 import {
   ensureUUID,
@@ -146,6 +149,7 @@ export const obrasApi = {
           }
         }
 
+        const deletedIds = getDeletedEntityIds();
         const obrasCompletas: Obra[] = await Promise.all(
           obrasData.map(async (row: ObraRow) => {
             // 1. Carrega todas as coleções diretas em paralelo
@@ -224,9 +228,10 @@ export const obrasApi = {
               evidenciasByTarefa.set(ev.tarefa_id, arr);
             }
 
-            // Agrupa tarefas mapeadas por etapa_id
+            // Agrupa tarefas mapeadas por etapa_id (ignorando entidades excluídas no tombstone)
             const tarefasByEtapa = new Map<string, Tarefa[]>();
             for (const t of tarefasData) {
+              if (deletedIds.has(t.id)) continue;
               const evList = evidenciasByTarefa.get(t.id) || [];
               const mappedT = mapTarefaFromDb(t, evList);
               const arr = tarefasByEtapa.get(t.etapa_id) || [];
@@ -234,10 +239,12 @@ export const obrasApi = {
               tarefasByEtapa.set(t.etapa_id, arr);
             }
 
-            const etapasMapeadas = etapasData.map((e) => {
-              const tList = tarefasByEtapa.get(e.id) || [];
-              return mapEtapaFromDb(e, tList);
-            });
+            const etapasMapeadas = etapasData
+              .filter((e) => !deletedIds.has(e.id))
+              .map((e) => {
+                const tList = tarefasByEtapa.get(e.id) || [];
+                return mapEtapaFromDb(e, tList);
+              });
 
             // 3. Otimização em lote: busca assinaturas de todas as decisões em apenas 1 query
             const decisoesData = (decisoesRes.data || []) as DecisaoRow[];
@@ -290,33 +297,37 @@ export const obrasApi = {
           const localObra = localObras.find((lo) => lo.id === cloudObra.id);
           if (!localObra) return cloudObra;
 
-          const etapasMerged = cloudObra.etapas.map((cloudEtapa) => {
-            const localEtapa = localObra.etapas.find((le) => le.id === cloudEtapa.id);
-            if (!localEtapa) return cloudEtapa;
+          const etapasMerged = cloudObra.etapas
+            .filter((ce) => !deletedIds.has(ce.id))
+            .map((cloudEtapa) => {
+              const localEtapa = localObra.etapas.find((le) => le.id === cloudEtapa.id);
+              if (!localEtapa) return cloudEtapa;
 
-            const ambientesSet = new Set<string>(cloudEtapa.ambientes || []);
-            (localEtapa.ambientes || []).forEach((amb) => {
-              if (typeof amb === 'string' && amb.trim().length > 0) {
-                ambientesSet.add(amb.trim());
-              }
-            });
+              const ambientesSet = new Set<string>(cloudEtapa.ambientes || []);
+              (localEtapa.ambientes || []).forEach((amb) => {
+                if (typeof amb === 'string' && amb.trim().length > 0) {
+                  ambientesSet.add(amb.trim());
+                }
+              });
 
-            const tarefasMerged = cloudEtapa.tarefas.map((cloudTarefa) => {
-              const localTarefa = localEtapa.tarefas.find((lt) => lt.id === cloudTarefa.id);
-              const amb = cloudTarefa.ambiente || localTarefa?.ambiente;
-              if (amb && amb.trim().length > 0) ambientesSet.add(amb.trim());
+              const tarefasMerged = cloudEtapa.tarefas
+                .filter((ct) => !deletedIds.has(ct.id))
+                .map((cloudTarefa) => {
+                  const localTarefa = localEtapa.tarefas.find((lt) => lt.id === cloudTarefa.id);
+                  const amb = cloudTarefa.ambiente || localTarefa?.ambiente;
+                  if (amb && amb.trim().length > 0) ambientesSet.add(amb.trim());
+                  return {
+                    ...cloudTarefa,
+                    ambiente: amb,
+                  };
+                });
+
               return {
-                ...cloudTarefa,
-                ambiente: amb,
+                ...cloudEtapa,
+                ambientes: ambientesSet.size > 0 ? Array.from(ambientesSet) : undefined,
+                tarefas: tarefasMerged,
               };
             });
-
-            return {
-              ...cloudEtapa,
-              ambientes: ambientesSet.size > 0 ? Array.from(ambientesSet) : undefined,
-              tarefas: tarefasMerged,
-            };
-          });
 
           return {
             ...cloudObra,
@@ -563,6 +574,47 @@ export const obrasApi = {
                 console.warn('Exceção ao sincronizar tarefa_evidencias:', err);
               }
             }
+
+            // Reconciliação de Exclusão de Etapas no Supabase
+            const currentEtapaIds = etapasRows.map((e) => e.id);
+            try {
+              const { data: dbEtapas } = await supabase!
+                .from('etapas')
+                .select('id')
+                .eq('obra_id', obra.id);
+              const etapasToDelete = (dbEtapas || [])
+                .map((e: { id: string }) => e.id)
+                .filter((id) => !currentEtapaIds.includes(id));
+              if (etapasToDelete.length > 0) {
+                await supabase!.from('etapas').delete().in('id', etapasToDelete);
+              }
+            } catch (err) {
+              console.warn('Erro ao reconciliar etapas excluídas:', err);
+            }
+
+            // Reconciliação de Exclusão de Tarefas no Supabase
+            const currentTarefaIds = tarefasRows.map((t) => t.id);
+            if (currentEtapaIds.length > 0) {
+              try {
+                const { data: dbTarefas } = await supabase!
+                  .from('tarefas')
+                  .select('id')
+                  .in('etapa_id', currentEtapaIds);
+                const tarefasToDelete = (dbTarefas || [])
+                  .map((t: { id: string }) => t.id)
+                  .filter((id) => !currentTarefaIds.includes(id));
+                if (tarefasToDelete.length > 0) {
+                  await supabase!.from('tarefas').delete().in('id', tarefasToDelete);
+                }
+              } catch (err) {
+                console.warn('Erro ao reconciliar tarefas excluídas:', err);
+              }
+            }
+          } else {
+            // Se a obra não tem etapas, limpa etapas órfãs no Supabase
+            try {
+              await supabase!.from('etapas').delete().eq('obra_id', obra.id);
+            } catch {}
           }
 
           // 5. Punch List (Batch Upsert)
@@ -716,6 +768,32 @@ export const obrasApi = {
         console.error('Falha ao excluir obra:', err);
       }
     }, 'Excluindo obra...');
+  },
+
+  async deleteTask(tarefaId: string): Promise<void> {
+    markEntityAsDeleted(tarefaId);
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      const { error } = await supabase.from('tarefas').delete().eq('id', tarefaId);
+      if (error) {
+        console.warn('Erro ao excluir tarefa no Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Falha ao excluir tarefa:', err);
+    }
+  },
+
+  async deleteEtapa(etapaId: string): Promise<void> {
+    markEntityAsDeleted(etapaId);
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      const { error } = await supabase.from('etapas').delete().eq('id', etapaId);
+      if (error) {
+        console.warn('Erro ao excluir etapa no Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Falha ao excluir etapa:', err);
+    }
   },
 };
 

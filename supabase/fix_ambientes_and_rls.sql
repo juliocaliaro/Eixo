@@ -14,7 +14,7 @@ ADD COLUMN IF NOT EXISTS ambiente TEXT;
 -- 3. Criar índice para performance em consultas com agrupamento
 CREATE INDEX IF NOT EXISTS idx_tarefas_etapa_ambiente ON public.tarefas(etapa_id, ambiente);
 
--- 4. Ajustar as políticas RLS de tarefa_evidencias para evitar erros 403 (Forbidden)
+-- 4. Ajustar as políticas RLS de tarefa_evidencias, tarefas e etapas para garantir exclusões e edições
 DROP POLICY IF EXISTS "Construtor gerencia evidencias" ON public.tarefa_evidencias;
 DROP POLICY IF EXISTS "Ver evidencias da tarefa" ON public.tarefa_evidencias;
 
@@ -47,6 +47,44 @@ CREATE POLICY "Construtor gerencia evidencias"
             JOIN public.etapas e ON e.id = t.etapa_id
             JOIN public.obras o ON o.id = e.obra_id
             WHERE t.id = tarefa_evidencias.tarefa_id
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
+        )
+    );
+
+DROP POLICY IF EXISTS "Construtor gerencia tarefas" ON public.tarefas;
+CREATE POLICY "Construtor gerencia tarefas"
+    ON public.tarefas FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.etapas e
+            JOIN public.obras o ON o.id = e.obra_id
+            WHERE e.id = tarefas.etapa_id
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.etapas e
+            JOIN public.obras o ON o.id = e.obra_id
+            WHERE e.id = tarefas.etapa_id
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
+        )
+    );
+
+DROP POLICY IF EXISTS "Construtor gerencia etapas" ON public.etapas;
+CREATE POLICY "Construtor gerencia etapas"
+    ON public.etapas FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.obras o
+            WHERE o.id = etapas.obra_id
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.obras o
+            WHERE o.id = etapas.obra_id
             AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
         )
     );

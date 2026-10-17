@@ -462,7 +462,7 @@ export const App: React.FC = () => {
     if (obras && obras.length > 0 && userId) {
       const timer = setTimeout(() => {
         obrasApi.saveAll(obras, userId);
-      }, 1000);
+      }, 400);
 
       return () => clearTimeout(timer);
     }

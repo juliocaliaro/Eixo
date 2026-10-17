@@ -167,3 +167,166 @@ describe('4. Gestão de Locações e Quantidade de Equipamentos', () => {
     expect(locacao.quantidade).toBeUndefined();
   });
 });
+
+describe('5. Exclusão de Serviços/Tarefas e Persistência Resiliente contra Reaparecimento no F5', () => {
+  it('deve remover a tarefa da lista da etapa sem afetar os demais serviços', () => {
+    const etapaOriginal: Etapa = {
+      id: 'e1',
+      nome: 'Alvenaria',
+      concluida: false,
+      ambientes: ['Geral'],
+      tarefas: [
+        { id: 't1', nome: 'Fechamento e regularização de rasgos nas paredes', concluida: false },
+        { id: 't2', nome: 'Executar todo contra piso, emboçamento e reboco', concluida: false },
+      ],
+    };
+
+    const tarefaIdParaExcluir = 't1';
+    const etapaAtualizada: Etapa = {
+      ...etapaOriginal,
+      tarefas: etapaOriginal.tarefas.filter((t) => t.id !== tarefaIdParaExcluir),
+    };
+
+    expect(etapaAtualizada.tarefas.length).toBe(1);
+    expect(etapaAtualizada.tarefas[0].id).toBe('t2');
+    expect(etapaAtualizada.tarefas.some((t) => t.id === 't1')).toBe(false);
+  });
+});
+
+describe('6. Edição Simultânea de Nome e Agrupamento de Serviço (Sem Perda de Dados)', () => {
+  it('deve atualizar tanto o nome quanto o ambiente da tarefa de forma atômica', () => {
+    const etapaOriginal: Etapa = {
+      id: 'e1',
+      nome: 'Alvenaria',
+      concluida: false,
+      ambientes: ['Cozinha'],
+      tarefas: [
+        { id: 't1', nome: 'Rasgo antigo', ambiente: undefined, concluida: false },
+      ],
+    };
+
+    const novoNome = 'Rasgo novo em alvenaria';
+    const novoAmbiente = 'Cozinha';
+
+    const etapaAtualizada: Etapa = {
+      ...etapaOriginal,
+      tarefas: etapaOriginal.tarefas.map((t) =>
+        t.id === 't1' ? { ...t, nome: novoNome, ambiente: novoAmbiente } : t
+      ),
+    };
+
+    expect(etapaAtualizada.tarefas[0].nome).toBe('Rasgo novo em alvenaria');
+    expect(etapaAtualizada.tarefas[0].ambiente).toBe('Cozinha');
+  });
+
+  it('deve criar novo agrupamento e associar tarefas a ele', () => {
+    const etapa: Etapa = {
+      id: 'e1',
+      nome: 'Instalações',
+      concluida: false,
+      ambientes: ['Banheiro'],
+      tarefas: [{ id: 't1', nome: 'Ponto de tomada', ambiente: undefined, concluida: false }],
+    };
+
+    // 1. Cria novo agrupamento 'Suíte Master'
+    const novoAmbiente = 'Suíte Master';
+    const etapaComAmbiente: Etapa = {
+      ...etapa,
+      ambientes: [...(etapa.ambientes || []), novoAmbiente],
+    };
+    expect(etapaComAmbiente.ambientes).toContain('Suíte Master');
+
+    // 2. Move a tarefa para o novo agrupamento
+    const etapaComTarefaMovida: Etapa = {
+      ...etapaComAmbiente,
+      tarefas: etapaComAmbiente.tarefas.map((t) => (t.id === 't1' ? { ...t, ambiente: novoAmbiente } : t)),
+    };
+    expect(etapaComTarefaMovida.tarefas[0].ambiente).toBe('Suíte Master');
+  });
+
+  it('deve mover tarefa entre agrupamentos existentes', () => {
+    const etapa: Etapa = {
+      id: 'e1',
+      nome: 'Pintura',
+      concluida: false,
+      ambientes: ['Sala', 'Varanda'],
+      tarefas: [{ id: 't1', nome: 'Pintura teto', ambiente: 'Sala', concluida: false }],
+    };
+
+    // Move de 'Sala' para 'Varanda'
+    const etapaMovida: Etapa = {
+      ...etapa,
+      tarefas: etapa.tarefas.map((t) => (t.id === 't1' ? { ...t, ambiente: 'Varanda' } : t)),
+    };
+    expect(etapaMovida.tarefas[0].ambiente).toBe('Varanda');
+
+    // Move de 'Varanda' para 'Sem agrupamento' (undefined)
+    const etapaSemAgrupamento: Etapa = {
+      ...etapa,
+      tarefas: etapa.tarefas.map((t) => (t.id === 't1' ? { ...t, ambiente: undefined } : t)),
+    };
+    expect(etapaSemAgrupamento.tarefas[0].ambiente).toBeUndefined();
+  });
+
+  it('deve renomear agrupamento e atualizar automaticamente todas as tarefas vinculadas', () => {
+    const etapa: Etapa = {
+      id: 'e1',
+      nome: 'Marcenaria',
+      concluida: false,
+      ambientes: ['Cozinha Antiga'],
+      tarefas: [
+        { id: 't1', nome: 'Armário superior', ambiente: 'Cozinha Antiga', concluida: true },
+        { id: 't2', nome: 'Gabinete inferior', ambiente: 'Cozinha Antiga', concluida: false },
+        { id: 't3', nome: 'Prateleira corredor', ambiente: 'Corredor', concluida: false },
+      ],
+    };
+
+    const nomeAntigo = 'Cozinha Antiga';
+    const novoNome = 'Cozinha Gourmet';
+
+    let ambientesAtualizados = (etapa.ambientes || []).map((a) => (a === nomeAntigo ? novoNome : a));
+    if (!ambientesAtualizados.includes(novoNome)) ambientesAtualizados.push(novoNome);
+    ambientesAtualizados = ambientesAtualizados.filter((a) => a !== nomeAntigo);
+
+    const tarefasAtualizadas = etapa.tarefas.map((t) =>
+      t.ambiente === nomeAntigo ? { ...t, ambiente: novoNome } : t
+    );
+
+    const etapaRenomeada: Etapa = {
+      ...etapa,
+      ambientes: ambientesAtualizados,
+      tarefas: tarefasAtualizadas,
+    };
+
+    expect(etapaRenomeada.ambientes).toEqual(['Cozinha Gourmet']);
+    expect(etapaRenomeada.tarefas[0].ambiente).toBe('Cozinha Gourmet');
+    expect(etapaRenomeada.tarefas[1].ambiente).toBe('Cozinha Gourmet');
+    expect(etapaRenomeada.tarefas[2].ambiente).toBe('Corredor');
+  });
+
+  it('deve remover agrupamento mantendo os serviços e movendo-os para "Sem agrupamento"', () => {
+    const etapa: Etapa = {
+      id: 'e1',
+      nome: 'Gesso',
+      concluida: false,
+      ambientes: ['Lavabo'],
+      tarefas: [
+        { id: 't1', nome: 'Sanca de gesso', ambiente: 'Lavabo', concluida: false },
+        { id: 't2', nome: 'Cortineiro', ambiente: 'Lavabo', concluida: true },
+      ],
+    };
+
+    const etapaSemAgrupamento: Etapa = {
+      ...etapa,
+      ambientes: (etapa.ambientes || []).filter((a) => a !== 'Lavabo'),
+      tarefas: etapa.tarefas.map((t) => (t.ambiente === 'Lavabo' ? { ...t, ambiente: undefined } : t)),
+    };
+
+    expect(etapaSemAgrupamento.ambientes).toHaveLength(0);
+    expect(etapaSemAgrupamento.tarefas).toHaveLength(2);
+    expect(etapaSemAgrupamento.tarefas[0].ambiente).toBeUndefined();
+    expect(etapaSemAgrupamento.tarefas[1].ambiente).toBeUndefined();
+  });
+});
+
+

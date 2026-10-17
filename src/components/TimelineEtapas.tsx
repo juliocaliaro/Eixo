@@ -34,6 +34,7 @@ interface TimelineEtapasProps {
   onReorderEtapas: (draggedIndex: number, targetIndex: number) => void;
   onDeleteTask: (etapaId: string, tarefaId: string) => void;
   onEditTaskNome: (etapaId: string, tarefaId: string, novoNome: string) => void;
+  onEditTask?: (etapaId: string, tarefaId: string, novoNome: string, novoAmbiente?: string) => void;
   onReorderTasks: (etapaId: string, draggedIndex: number, targetIndex: number) => void;
   onAddTaskToEtapa: (etapaId: string, taskNome: string, insertAtIndex?: number, ambiente?: string) => void;
   onCreateAgrupamento?: (etapaId: string, nomeAgrupamento: string) => void;
@@ -54,6 +55,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   onReorderEtapas,
   onDeleteTask,
   onEditTaskNome,
+  onEditTask,
   onReorderTasks,
   onAddTaskToEtapa,
   onCreateAgrupamento,
@@ -1237,9 +1239,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
               setMovingTaskTarget(null);
             }}
             onCreateNovoAmbiente={(novoNome) => {
-              if (onCreateAgrupamento) {
-                onCreateAgrupamento(movingTaskTarget.etapaId, novoNome);
-              }
               if (onMoveTaskAgrupamento) {
                 onMoveTaskAgrupamento(movingTaskTarget.etapaId, movingTaskTarget.tarefa.id, novoNome);
               }
@@ -1278,11 +1277,15 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             ambientesDisponiveis={etapaAmbientes}
             onClose={() => setEditingTask(null)}
             onSave={(novoNome, novoAmbiente) => {
-              if (novoNome !== editingTask.nome) {
-                onEditTaskNome(editingTask.etapaId, editingTask.id, novoNome);
-              }
-              if (novoAmbiente !== editingTask.ambiente && onMoveTaskAgrupamento) {
-                onMoveTaskAgrupamento(editingTask.etapaId, editingTask.id, novoAmbiente);
+              if (onEditTask) {
+                onEditTask(editingTask.etapaId, editingTask.id, novoNome, novoAmbiente);
+              } else {
+                if (novoNome !== editingTask.nome) {
+                  onEditTaskNome(editingTask.etapaId, editingTask.id, novoNome);
+                }
+                if (novoAmbiente !== editingTask.ambiente && onMoveTaskAgrupamento) {
+                  onMoveTaskAgrupamento(editingTask.etapaId, editingTask.id, novoAmbiente);
+                }
               }
               setEditingTask(null);
             }}

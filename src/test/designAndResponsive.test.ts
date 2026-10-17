@@ -66,7 +66,7 @@ describe('2. Validação de Responsividade: Web (Desktop > 768px) vs Mobile (<= 
 describe('3. Diretrizes de UX/UI e Conformidade de Código', () => {
   it('não deve conter window.alert ou window.confirm no código de componentes', () => {
     const componentsDir = path.resolve(__dirname, '../components');
-    const files = fs.readdirSync(componentsDir).filter(f => f.endsWith('.tsx'));
+    const files = fs.readdirSync(componentsDir).filter((f: string) => f.endsWith('.tsx'));
 
     for (const file of files) {
       const code = fs.readFileSync(path.join(componentsDir, file), 'utf-8');

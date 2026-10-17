@@ -117,3 +117,39 @@ export const resetTemplatesToDefault = (): PresetTipoObra[] => {
   }
   return PRESET_TIPOS_OBRA;
 };
+
+// ==============================================================================
+// GESTÃO DE ENTIDADES EXCLUÍDAS (TOMBSTONE PARA RESILIÊNCIA NO REFRESH/F5)
+// ==============================================================================
+const DELETED_IDS_STORAGE_KEY = 'eixo_deleted_entities_tombstone_v1';
+
+export const getDeletedEntityIds = (): Set<string> => {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(DELETED_IDS_STORAGE_KEY) : null;
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const markEntityAsDeleted = (id: string): void => {
+  try {
+    const set = getDeletedEntityIds();
+    set.add(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DELETED_IDS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch {}
+};
+
+export const unmarkEntityAsDeleted = (id: string): void => {
+  try {
+    const set = getDeletedEntityIds();
+    set.delete(id);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DELETED_IDS_STORAGE_KEY, JSON.stringify(Array.from(set)));
+    }
+  } catch {}
+};

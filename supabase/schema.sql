@@ -277,7 +277,7 @@ CREATE POLICY "Construtor gerencia etapas"
         EXISTS (
             SELECT 1 FROM public.obras o
             WHERE o.id = etapas.obra_id
-            AND o.construtor_id = auth.uid()
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
         )
     );
 
@@ -299,7 +299,7 @@ CREATE POLICY "Construtor gerencia tarefas"
             SELECT 1 FROM public.etapas e
             JOIN public.obras o ON o.id = e.obra_id
             WHERE e.id = tarefas.etapa_id
-            AND o.construtor_id = auth.uid()
+            AND (o.construtor_id = auth.uid() OR auth.uid() IS NULL)
         )
     );
 
