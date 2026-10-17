@@ -293,6 +293,12 @@
   .auth-fields { padding-top: 0; }
 }
 @media (min-width: 769px) {
+  /* Sem pulo horizontal ao alternar Construtor/Cliente ou Entrar/Criar conta: quando o cadastro e mais alto que a janela,
+     a barra de rolagem da PAGINA aparecia/sumia no meio da animacao de altura e a largura util mudava (6px): o card
+     inteiro andava de lado. A rolagem da tela de login fica no proprio .auth-screen, com gutter reservado.
+     Nao usar scrollbar-gutter no html: bodyScrollLock compensaria a barra de novo (padding-right duplicado) ao abrir um sheet. */
+  .auth-screen { height: 100dvh; overflow-y: auto; scrollbar-gutter: stable; }
+  .auth-page { flex: 1 0 auto; }
   .auth-card--notice { max-width: 520px; }
   .auth-card--notice .auth-body { gap: var(--space-4); padding-top: var(--space-5); }
 }

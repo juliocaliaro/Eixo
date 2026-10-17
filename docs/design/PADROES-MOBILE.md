@@ -35,6 +35,7 @@ Referência da fundação. Código: `src/styles/foundation.css` (carregado depoi
 - Alertas: mantenha o último texto (`useRetido` em `LoginPage`) para não esvaziar durante o fechamento.
 - Âncora: o cartão do login fica ancorado no topo (`.auth-page { align-items: flex-start }`); o formulário cresce para baixo e a marca nunca se move. No mobile o corpo rola por dentro (`.auth-fields`, scrollbar oculta) e a página não rola.
 - `prefers-reduced-motion: reduce`: todas as transições do indicador e do Reveal são desligadas (estado final imediato).
+- Barra de rolagem: no desktop a rolagem da tela de login vive em `.auth-screen` com `scrollbar-gutter: stable` (não na página). Com a barra na página, ela aparecia/sumia no meio da animação de altura (cadastro mais alto que a janela) e todo o card andava 3px de lado. Não usar `scrollbar-gutter` no `html`: `bodyScrollLock` compensaria de novo ao abrir um sheet.
 
 ## Estados vazios (EmptyState)
 Bloco centrado, sem cartão nem borda: ícone Phosphor 48px (peso regular, tom neutro), título 15px/600 (máx. 280px), dica opcional 13px, no máximo UMA ação. Mesmo respiro em toda tela (`padding-top: --space-8`; dentro de uma seção que já tem título, como vistoria, notas por obra e modelos, use `className="empty-state--nested"`).
