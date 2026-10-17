@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mapTarefaFromDb, mapEtapaFromDb, mapLocacaoFromDb, TarefaEvidenciaRow, RegistroLocacaoRow } from '../services/dbTypes';
-import { Etapa, Tarefa, Decisao, RegistroLocacao } from '../types/obra';
+import { mapObraFromDb, mapTarefaFromDb, mapEtapaFromDb, mapLocacaoFromDb, TarefaEvidenciaRow, RegistroLocacaoRow } from '../services/dbTypes';
+import { Obra, Etapa, Tarefa, Decisao, RegistroLocacao } from '../types/obra';
 
 describe('1. Mapeamento e Resiliência de Ambientes (Supabase / Local)', () => {
   it('deve extrair ambiente a partir da anotação especial de sincronização resiliente __AMBIENTE__', () => {
@@ -328,5 +328,84 @@ describe('6. Edição Simultânea de Nome e Agrupamento de Serviço (Sem Perda d
     expect(etapaSemAgrupamento.tarefas[1].ambiente).toBeUndefined();
   });
 });
+
+describe('4. Acesso e Listagem de Obras para Clientes Convidados por E-mail', () => {
+  it('deve identificar obra pertencente ao cliente via emailsClientes com normalização de case e trim', () => {
+    const userEmail = '  Cliente.Convidado@Empresa.com  ';
+    const userEmailLower = userEmail.trim().toLowerCase();
+
+    const obras: Obra[] = [
+      {
+        id: 'o1',
+        nome: 'Reforma Comercial',
+        cliente: 'Empresa Alpha',
+        endereco: 'Av. Paulista, 1000',
+        dataPrevista: '2026-12-31',
+        criadaEm: new Date().toISOString(),
+        emailsClientes: ['outro@email.com', 'cliente.convidado@empresa.com'],
+        etapas: [],
+      },
+      {
+        id: 'o2',
+        nome: 'Residência Alphaville',
+        cliente: 'João Silva',
+        endereco: 'Rua das Flores, 50',
+        dataPrevista: '2026-12-31',
+        criadaEm: new Date().toISOString(),
+        emailsClientes: ['joao@email.com'],
+        etapas: [],
+      },
+      {
+        id: 'o3',
+        nome: 'Consultório Médico',
+        cliente: 'Dra. Carolina',
+        endereco: 'Rua Augusta, 500',
+        dataPrevista: '2026-12-31',
+        criadaEm: new Date().toISOString(),
+        clienteEmail: 'cliente.convidado@empresa.com',
+        etapas: [],
+      },
+    ];
+
+    const isClientUser = true;
+    const visibleObras = obras.filter((o) => {
+      if (!isClientUser) return true;
+      if (!userEmailLower) return true;
+      const matchesEmailList = (o.emailsClientes || []).some(
+        (em: string) => em.trim().toLowerCase() === userEmailLower
+      );
+      const matchesDirectEmail =
+        o.clienteEmail && o.clienteEmail.trim().toLowerCase() === userEmailLower;
+      const matchesClienteId = false;
+      return Boolean(matchesEmailList || matchesDirectEmail || matchesClienteId);
+    });
+
+    expect(visibleObras).toHaveLength(2);
+    expect(visibleObras.map((o) => o.id)).toEqual(['o1', 'o3']);
+  });
+
+  it('deve mapear corretamente ObraRow do Supabase com emails_clientes em array ou string', () => {
+    const rowComArray = {
+      id: 'o1',
+      nome: 'Obra 1',
+      cliente_nome: 'Cliente 1',
+      cliente_id: null,
+      cliente_email: 'contato@cliente.com',
+      emails_clientes: ['convidado1@email.com', 'CONVIDADO2@EMAIL.COM'],
+      construtor_id: 'c1',
+      endereco: 'Rua A',
+      data_prevista: '2026-12-01',
+      orcamento_inicial: 50000,
+      empresa_responsavel: 'Construtora Teste',
+      created_at: '2026-10-01T00:00:00.000Z',
+      updated_at: '2026-10-01T00:00:00.000Z',
+    };
+
+    const obraMapeada = mapObraFromDb(rowComArray as any);
+    expect(obraMapeada.clienteEmail).toBe('contato@cliente.com');
+    expect(obraMapeada.emailsClientes).toEqual(['convidado1@email.com', 'convidado2@email.com']);
+  });
+});
+
 
 

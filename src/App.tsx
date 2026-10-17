@@ -36,7 +36,8 @@ export const App: React.FC = () => {
   const [obras, setObras] = useState<Obra[]>(() => {
     try {
       const storedId = localStorage.getItem('eixo_auth_userId') || undefined;
-      return loadObrasFromStorage(storedId);
+      const storedEmail = localStorage.getItem('eixo_auth_userEmail') || undefined;
+      return loadObrasFromStorage(storedId, storedEmail);
     } catch {
       return loadObrasFromStorage();
     }
@@ -320,12 +321,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const syncUserObras = async (uid: string) => {
+    const syncUserObras = async (uid: string, targetRole?: string, targetEmail?: string) => {
       if (initialSyncDoneRef.current) return;
       initialSyncDoneRef.current = true;
       try {
-        const cloudObras = await obrasApi.list(uid);
-        if (isMounted && cloudObras && cloudObras.length > 0) {
+        const cloudObras = await obrasApi.list(uid, targetRole, targetEmail);
+        if (isMounted && cloudObras) {
           skipNextCloudSaveRef.current = true;
           setObras(cloudObras);
         }
@@ -340,9 +341,10 @@ export const App: React.FC = () => {
       if (session?.user) {
         const u = session.user;
         const meta = u.user_metadata || {};
+        const activeUserEmail = (u.email || '').trim().toLowerCase();
         setUserId(u.id);
         setIsLogged(true);
-        if (u.email) setUserEmail(u.email);
+        if (activeUserEmail) setUserEmail(activeUserEmail);
         if (meta.nome) setUserName(meta.nome);
         if (meta.empresa) setUserEmpresa(meta.empresa);
         if (meta.role === 'cliente') setRole('Cliente');
@@ -351,9 +353,10 @@ export const App: React.FC = () => {
         try {
           localStorage.setItem('eixo_auth_userId', u.id);
           localStorage.setItem('eixo_auth_isLogged', 'true');
+          if (activeUserEmail) localStorage.setItem('eixo_auth_userEmail', activeUserEmail);
         } catch {}
 
-        syncUserObras(u.id);
+        syncUserObras(u.id, meta.role || (perfilAtivo === 'cliente' ? 'cliente' : 'construtor'), activeUserEmail);
       }
     }).catch(() => {});
 
@@ -364,9 +367,10 @@ export const App: React.FC = () => {
         if (session?.user) {
           const u = session.user;
           const meta = u.user_metadata || {};
+          const activeUserEmail = (u.email || '').trim().toLowerCase();
           setUserId(u.id);
           setIsLogged(true);
-          if (u.email) setUserEmail(u.email);
+          if (activeUserEmail) setUserEmail(activeUserEmail);
           if (meta.nome) setUserName(meta.nome);
           if (meta.empresa) setUserEmpresa(meta.empresa);
           if (meta.role === 'cliente') setRole('Cliente');
@@ -375,12 +379,12 @@ export const App: React.FC = () => {
           try {
             localStorage.setItem('eixo_auth_userId', u.id);
             localStorage.setItem('eixo_auth_isLogged', 'true');
-            if (u.email) localStorage.setItem('eixo_auth_userEmail', u.email);
+            if (activeUserEmail) localStorage.setItem('eixo_auth_userEmail', activeUserEmail);
             if (meta.nome) localStorage.setItem('eixo_auth_userName', meta.nome);
           } catch {}
 
           if (!initialSyncDoneRef.current) {
-            syncUserObras(u.id);
+            syncUserObras(u.id, meta.role || (perfilAtivo === 'cliente' ? 'cliente' : 'construtor'), activeUserEmail);
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -425,8 +429,8 @@ export const App: React.FC = () => {
       lastSyncTime = now;
       isSyncing = true;
       try {
-        const cloudObras = await obrasApi.list(userId);
-        if (cloudObras && cloudObras.length > 0) {
+        const cloudObras = await obrasApi.list(userId, perfilAtivo, userEmail);
+        if (cloudObras) {
           skipNextCloudSaveRef.current = true;
           setObras(cloudObras);
         }
@@ -681,8 +685,8 @@ export const App: React.FC = () => {
 
     // Carrega dados da nuvem imediatamente para o usuário conectado com flag para evitar regravação
     if (userIdDigitado) {
-      obrasApi.list(userIdDigitado).then((cloudObras) => {
-        if (cloudObras && cloudObras.length > 0) {
+      obrasApi.list(userIdDigitado, selectedRole, emailToSet).then((cloudObras) => {
+        if (cloudObras) {
           skipNextCloudSaveRef.current = true;
           setObras(cloudObras);
         }
@@ -976,6 +980,21 @@ export const App: React.FC = () => {
   // Obra atualmente aberta
   const currentObra = obras.find((o) => o.id === currentObraId) || null;
 
+  // Filtragem inteligente de obras para o cliente
+  const isClientUser = perfilAtivo === 'cliente' || Role === 'Cliente';
+  const userEmailLower = (userEmail || '').trim().toLowerCase();
+  const visibleObras = obras.filter((o) => {
+    if (!isClientUser) return true;
+    if (!userEmailLower) return true; // se logou como cliente sem e-mail informado
+    const matchesEmailList = (o.emailsClientes || []).some(
+      (em) => em.trim().toLowerCase() === userEmailLower
+    );
+    const matchesDirectEmail =
+      o.clienteEmail && o.clienteEmail.trim().toLowerCase() === userEmailLower;
+    const matchesClienteId = userId && o.clienteId === userId;
+    return Boolean(matchesEmailList || matchesDirectEmail || matchesClienteId);
+  });
+
   return (
     <div className="app-container">
       {/* Barra de Navegação Superior com Perfis e Notificações */}
@@ -999,7 +1018,7 @@ export const App: React.FC = () => {
             'info'
           );
         }}
-        obras={obras}
+        obras={visibleObras}
         onNavigateToDecisao={(obraId) => {
           setIsConfigOpen(false);
           handleSelectObra(obraId);
@@ -1045,7 +1064,7 @@ export const App: React.FC = () => {
         ) : isRegistroNotasPageOpen ? (
           <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de notas...</div>}>
             <RegistroNotasPage
-              obras={obras}
+              obras={visibleObras}
               onUpdateObra={handleUpdateObra}
               onBack={() => setIsRegistroNotasPageOpen(false)}
               showToast={showToast}
@@ -1055,7 +1074,7 @@ export const App: React.FC = () => {
         ) : isRegistroLocacoesPageOpen ? (
           <React.Suspense fallback={<div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>Carregando registro de locação...</div>}>
             <RegistroLocacoesPage
-              obras={obras}
+              obras={visibleObras}
               onUpdateObra={handleUpdateObra}
               onBack={() => setIsRegistroLocacoesPageOpen(false)}
               showToast={showToast}
@@ -1065,7 +1084,7 @@ export const App: React.FC = () => {
         ) : !currentObra ? (
           /* Visão Externa: Empty State ou Lista de Obras */
           <ObraList
-            obras={obras}
+            obras={visibleObras}
             onSelectObra={handleSelectObra}
             onOpenCreateModal={() => setIsCreateObraOpen(true)}
             onDeleteObra={handleDeleteObra}

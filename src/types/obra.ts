@@ -146,6 +146,8 @@ export interface Obra {
   locacoes?: RegistroLocacao[];
   construtorId?: string;
   clienteId?: string;
+  clienteEmail?: string;
+  emailsClientes?: string[];
 }
 
 export interface AnexoItem {

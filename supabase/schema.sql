@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS public.obras (
     nome VARCHAR(255) NOT NULL,
     cliente_nome VARCHAR(255) NOT NULL,
     cliente_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    cliente_email VARCHAR(255),
+    emails_clientes TEXT[] DEFAULT '{}',
     construtor_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     endereco TEXT NOT NULL,
     data_prevista DATE NOT NULL,
@@ -61,8 +63,13 @@ CREATE TABLE IF NOT EXISTS public.obras (
     updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+ALTER TABLE public.obras ADD COLUMN IF NOT EXISTS cliente_email VARCHAR(255);
+ALTER TABLE public.obras ADD COLUMN IF NOT EXISTS emails_clientes TEXT[] DEFAULT '{}';
+
 CREATE INDEX IF NOT EXISTS idx_obras_construtor ON public.obras(construtor_id);
 CREATE INDEX IF NOT EXISTS idx_obras_cliente ON public.obras(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_obras_cliente_email ON public.obras(cliente_email);
+CREATE INDEX IF NOT EXISTS idx_obras_emails_clientes ON public.obras USING GIN(emails_clientes);
 
 -- 4. Tabela de Etapas do Cronograma
 CREATE TABLE IF NOT EXISTS public.etapas (
@@ -258,7 +265,13 @@ CREATE POLICY "Construtores podem gerenciar suas próprias obras"
 
 CREATE POLICY "Clientes podem visualizar obras atribuídas a eles"
     ON public.obras FOR SELECT
-    USING (auth.uid() = cliente_id);
+    USING (
+        auth.uid() = cliente_id
+        OR LOWER(auth.jwt() ->> 'email') = LOWER(cliente_email)
+        OR LOWER(auth.jwt() ->> 'email') = ANY(
+            SELECT LOWER(unnest(emails_clientes))
+        )
+    );
 
 -- Políticas de Etapas e Tarefas (Read-only para Cliente, CRUD para Construtor)
 CREATE POLICY "Ver etapas da obra"

@@ -10,7 +10,7 @@ const getUserStorageKey = (userId?: string): string => {
   return userId ? `eixo_obras_${userId}` : LEGACY_STORAGE_KEY;
 };
 
-export const loadObrasFromStorage = (userId?: string): Obra[] => {
+export const loadObrasFromStorage = (userId?: string, userEmail?: string): Obra[] => {
   try {
     const key = getUserStorageKey(userId);
     let raw = localStorage.getItem(key);
@@ -20,8 +20,55 @@ export const loadObrasFromStorage = (userId?: string): Obra[] => {
       raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     }
 
-    if (!raw) return [];
-    const parsed: Obra[] = JSON.parse(raw);
+    let parsed: Obra[] = [];
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = [];
+      }
+    }
+
+    // Se o resultado estiver vazio e tivermos um e-mail de cliente, varre o localStorage local
+    // para encontrar obras salvas que pertençam a esse cliente (ex: convidadas localmente ou em outra chave)
+    if ((!parsed || parsed.length === 0) && userEmail && typeof window !== 'undefined') {
+      const emailLower = userEmail.trim().toLowerCase();
+      const allFoundObras = new Map<string, Obra>();
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (storageKey && (storageKey.startsWith('eixo_obras_') || storageKey === LEGACY_STORAGE_KEY)) {
+          try {
+            const candidateRaw = localStorage.getItem(storageKey);
+            if (candidateRaw) {
+              const candidateParsed = JSON.parse(candidateRaw);
+              if (Array.isArray(candidateParsed)) {
+                candidateParsed.forEach((o: Obra) => {
+                  const matchesEmailsList = (o.emailsClientes || []).some(
+                    (em) => typeof em === 'string' && em.trim().toLowerCase() === emailLower
+                  );
+                  const matchesDirectEmail =
+                    typeof o.clienteEmail === 'string' &&
+                    o.clienteEmail.trim().toLowerCase() === emailLower;
+                  const matchesClienteId = userId && o.clienteId === userId;
+
+                  if (matchesEmailsList || matchesDirectEmail || matchesClienteId) {
+                    allFoundObras.set(o.id, o);
+                  }
+                });
+              }
+            }
+          } catch {}
+        }
+      }
+
+      if (allFoundObras.size > 0) {
+        parsed = Array.from(allFoundObras.values());
+      }
+    }
+
+    if (!parsed || parsed.length === 0) return [];
+
     let modified = false;
     parsed.forEach((obra) => {
       if (obra.punchList && obra.punchList.length > 0) {
@@ -36,7 +83,7 @@ export const loadObrasFromStorage = (userId?: string): Obra[] => {
         }
       }
     });
-    if (modified) {
+    if (modified && key) {
       localStorage.setItem(key, JSON.stringify(parsed));
     }
     return parsed;

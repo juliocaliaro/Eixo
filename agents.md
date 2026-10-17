@@ -10,6 +10,9 @@ Este documento consolida todas as decisões arquiteturais, de experiência do us
 - **Diretriz primordial**: **"Menos é mais"** (usabilidade extrema, estratégias de wizard passo a passo, ausência de poluição visual, remoção de labels repetitivas e de banners informativos desnecessários).
 - **Sem Alerts Nativos**: Todas as confirmações de exclusão e alertas do sistema usam modais desenhados no design system (`ModalConfirm`), banindo `window.alert()` e `window.confirm()`.
 - **Supressão Estrita de Notificações em Mobile Durante Preenchimento/Registro**: Durante qualquer fluxo de cadastro, preenchimento de campos, foco em formulários ou modais/assistentes abertos no dispositivo móvel, nenhuma notificação (toast) pode subir ou ser exibida, impedindo a sobreposição de botões de ação ("Avançar", "Salvar"), obstrução do teclado virtual ou cliques residuais acidentais.
+- **Proteção Contra Fechamento Acidental de Modais (`modalBackdropGuard.ts`)**: Caso um clique ou arraste comece dentro de um modal (como seleção de texto em inputs, rolagem interna ou arraste de cursor) e o botão do mouse seja solto fora no backdrop, o modal **NÃO** é fechado. Apenas cliques intencionais que comecem e terminem diretamente na área do backdrop fecham o diálogo.
+- **ARQUITETURA 100% BASEADA EM BANCO DE DADOS E API (PROIBIÇÃO DE MENTALIDADE LOCAL/STORAGE APENAS)**: Nenhuma solicitação futura deve ser pensada ou desenvolvida visando apenas funcionamento local ou mockado em localStorage. Toda funcionalidade, modelo, persistência, controle de acesso e fluxo de dados deve ser arquitetado e implementado com o Banco de Dados (Supabase/PostgreSQL) e suas APIs correspondentes como fonte de verdade definitiva, com DDLs/migrações oficiais quando houver alteração de esquema.
+- **UTILIZAÇÃO OBRIGATÓRIA DE SUBAGENTES EM GIT WORKTREES**: A partir desta diretriz, sempre utilize subagentes com workspaces compartilhados/isolados (`git worktree` / `Workspace: 'share'` ou `'branch'`) para implementar ajustes solicitados pelo usuário. Ao finalizar a tarefa no subagente, faça o merge com a `main`, garanta a compilação, testes e solução de quaisquer eventuais conflitos.
 - **PROIBIÇÃO ESTRITA DE GIT COMMIT E GIT PUSH SEM SOLICITAÇÃO EXPRESSA DO USUÁRIO**: É TERMINANTEMENTE PROIBIDO EXECUTAR `git commit` OU `git push` DE FORMA AUTÔNOMA. COMMIT E PUSH SÓ PODEM SER EXECUTADOS QUANDO O USUÁRIO PEDIR OU AUTORIZAR EXPLICITAMENTE.
 
 ---
@@ -69,9 +72,14 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
   - A decisão fica em estado `pendente` (com selo e ícone `<Clock />`) até a contraparte analisar.
   - A contraparte possui ações imediatas de **Concordar e Assinar** ou **Recusar**.
   - Uma vez assinada pela contraparte, a decisão torna-se `aprovada` e exibe carimbo digital auditável com nome, perfil e data/hora exatos de ambas as assinaturas.
-- **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) com exclusão mútua estrita (apenas um dos campos pode ser preenchido por decisão, impedindo preenchimento simultâneo) e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
+- **Modal de Criação Minimalista**: Apenas título, descrição, campos financeiros dedicados de **Aditivo (R$)** (+ Acréscimo) e **Supressivo (R$)** (- Redução Contratual) com exclusão mútua estrita (apenas um dos campos pode ser preenchido por decisão, impedindo preenchimento simultâneo), campos dedicados de **Acréscimo de Prazo (+ Dias)** e **Redução de Prazo (- Dias)** com exclusão mútua e cálculo dinâmico da nova data prevista, e upload opcional de fotos de amostra, sem textos redundantes nem campo de categoria.
+- **Ajuste Automático do Prazo Final da Obra (`obra.dataPrevista`)**: Quando uma proposta com acréscimo ou redução de prazo é registrada, a data de término prevista da obra é recalculada e atualizada instantaneamente no sistema (`somarDiasData`). Caso a proposta seja recusada pela contraparte, o impacto no prazo é revertido automaticamente retornando à data original.
 - **Remoção de Categorias**: O seletor de categorias foi removido da criação para desburocratizar o registro de decisões pelo usuário.
 - **Central de Notificações**: Sininho com contador em tempo real no topo informando decisões pendentes da assinatura do perfil logado, com dropdown para navegação direta.
+- **Exibição Enxuta de Badges nos Cards de Decisão**:
+  - Exibe estritamente o item que foi adicionado (se foi Aditivo, exibe apenas o badge de Aditivo; se foi Supressivo, exibe apenas o de Supressivo; se ambos foram preenchidos, exibe os dois).
+  - Valores zerados (`R$ 0,00`) e o badge de "Saldo" foram **definitivamente banidos** de dentro dos cards de proposta.
+  - O prazo é exibido com clareza: se foi alterado (`Prazo: +X dias` ou `Prazo: -X dias (antecipação)`), ou se não foi alterado (`Sem alteração no prazo previsto`), permitindo conferência imediata da alteração de cronograma.
 - **Card de Decisões Responsivo (Accordion Exclusivo no Mobile)**:
   - **Versão Web / Desktop (> 768px)**: Permanece 100% inalterada, sempre exibindo o card completo com cabeçalho, autor, data, tags, valor, descrição, amostras e bloco de assinatura digital aberto.
   - **Versão Mobile (<= 768px)**: Opera como componente expansível (Accordion/Collapse). No **Estado Minimizado**, exibe exclusivamente o título da decisão, a tag de status, o valor (aditivo/supressivo) e o ícone de seta (Chevron) no canto direito indicando expansão. No **Estado Expandido** (revelado ao clicar), exibe autor, data, descrição completa, fotos de referência, botão de notificação via WhatsApp e todo o bloco de Assinatura Digital com as ações finais (`Recusar` e `Concordar e Assinar Decisão`).
@@ -111,10 +119,13 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ---
 
-## 7. Persistência de Dados
+## 7. Persistência de Dados & Arquitetura de Backend
 
-- Armazenamento em `localStorage` através do utilitário `src/utils/storage.ts`.
-- Suporte a carga de obra de demonstração completa com histórico realista de etapas, fotos e decisões pré-assinadas.
+- **Fonte da Verdade Definitiva: Banco de Dados PostgreSQL / Supabase & APIs**:
+  - Toda entidade (Obras, Etapas, Tarefas, Evidências, Decisões, Arquivos, Locações, Perfis de Usuário) é estruturada em tabelas relacionais com chaves estrangeiras, índices e políticas de segurança RLS (Row Level Security).
+  - Toda comunicação e sincronização é realizada através de serviços de API tipados (`src/services/api.ts`).
+  - Scripts DDL versionados em `supabase/*.sql` para qualquer alteração estrutural no banco de dados.
+  - O `localStorage` atua exclusivamente como cache offline temporário de leitura rápida para resiliência de rede, e nunca como arquitetura principal ou substituto de banco de dados.
 
 ---
 
@@ -477,7 +488,7 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Substituição de Materiais**: O módulo antigo de materiais foi transformado em **"Registro de Notas"** (`ModalRegistroNota.tsx` e `RegistroNotasPage.tsx`).
 - **Navegação via Menu Lateral (`SandwichMenu.tsx`)**: O item "Registro de notas" navega diretamente para a **página dedicada `RegistroNotasPage`** (`?view=notas`), com sincronização de histórico e botão superior `[ ← Voltar para Obras ]`.
 - **Visão por Cards de Obra (`RegistroNotasPage.tsx`)**:
-  - Exibe um card individual para cada obra cadastrada, contendo identificação da obra, cliente, localização, badge de quantidade de notas e botão de ação rápida `+ Anexar Nota`.
+  - Exibe um card individual para cada obra cadastrada, contendo identificação da obra, cliente, localização e badge de quantidade de notas (com o registro de notas centralizado no botão do topo `Registrar Nota`).
   - Galeria de notas anexadas por obra: visualização em grid das imagens de notas fiscais e recibos, títulos, datas de emissão e observações.
   - Lightbox integrado para visualização de fotos em tela cheia com zoom, e exclusão de notas via `ModalConfirm`.
 - **Desacoplamento do Diário de Obra**: As notas cadastradas **não emitem nenhum lançamento no Diário de Canteiro**, mantendo o extrato diário 100% focado no avanço físico e técnico dos serviços.

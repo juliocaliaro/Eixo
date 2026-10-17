@@ -89,5 +89,26 @@ CREATE POLICY "Construtor gerencia etapas"
         )
     );
 
--- 5. Forçar a atualização imediata do cache de schema do PostgREST
+-- 5. Adicionar colunas de e-mail de cliente para controle de acesso resiliente
+ALTER TABLE public.obras 
+ADD COLUMN IF NOT EXISTS cliente_email VARCHAR(255);
+
+ALTER TABLE public.obras 
+ADD COLUMN IF NOT EXISTS emails_clientes TEXT[] DEFAULT '{}';
+
+CREATE INDEX IF NOT EXISTS idx_obras_cliente_email ON public.obras(cliente_email);
+CREATE INDEX IF NOT EXISTS idx_obras_emails_clientes ON public.obras USING GIN(emails_clientes);
+
+DROP POLICY IF EXISTS "Clientes podem visualizar obras atribuídas a eles" ON public.obras;
+CREATE POLICY "Clientes podem visualizar obras atribuídas a eles"
+    ON public.obras FOR SELECT
+    USING (
+        auth.uid() = cliente_id
+        OR LOWER(auth.jwt() ->> 'email') = LOWER(cliente_email)
+        OR LOWER(auth.jwt() ->> 'email') = ANY(
+            SELECT LOWER(unnest(emails_clientes))
+        )
+    );
+
+-- 6. Forçar a atualização imediata do cache de schema do PostgREST
 NOTIFY pgrst, 'reload schema';

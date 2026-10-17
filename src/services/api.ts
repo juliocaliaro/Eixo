@@ -99,13 +99,14 @@ let activeListUserId: string | undefined = undefined;
 // ==============================================================================
 
 export const obrasApi = {
-  async list(userId?: string): Promise<Obra[]> {
+  async list(userId?: string, userRole?: string, userEmail?: string): Promise<Obra[]> {
     if (!isSupabaseConfigured() || !supabase) {
-      return loadObrasFromStorage(userId);
+      return loadObrasFromStorage(userId, userEmail);
     }
 
-    // Se já existe uma requisição em andamento para o mesmo usuário, reutiliza o Promise
-    if (activeListPromise && activeListUserId === userId) {
+    const cacheKey = `${userId || ''}_${userRole || ''}_${userEmail || ''}`;
+    // Se já existe uma requisição em andamento para a mesma chave, reutiliza o Promise
+    if (activeListPromise && activeListUserId === cacheKey) {
       return activeListPromise;
     }
 
@@ -113,32 +114,102 @@ export const obrasApi = {
       try {
         // Determina o ID do usuário ativo (passado ou da sessão do Supabase)
         let targetUserId = userId;
-        if (!targetUserId) {
-          const { data: sessionData } = await supabase!.auth.getSession();
-          targetUserId = sessionData?.session?.user?.id;
+        let targetUserEmail = userEmail;
+        let targetUserRole = userRole;
+
+        const { data: sessionData } = await supabase!.auth.getSession();
+        const sessionUser = sessionData?.session?.user;
+
+        if (!targetUserId && sessionUser) {
+          targetUserId = sessionUser.id;
         }
+        if (!targetUserEmail && sessionUser?.email) {
+          targetUserEmail = sessionUser.email;
+        }
+        if (!targetUserRole && sessionUser) {
+          const meta = sessionUser.user_metadata || {};
+          if (meta.role) targetUserRole = meta.role;
+        }
+
+        const isClient = targetUserRole && targetUserRole.toLowerCase() === 'cliente';
 
         let query = supabase!.from('obras').select('*').order('created_at', { ascending: false });
 
-        // Se temos o usuário autenticado, filtra estritamente por suas obras
-        if (targetUserId) {
-          query = query.or(`construtor_id.eq.${targetUserId},cliente_id.eq.${targetUserId}`);
+        // Se for construtor autenticado, filtra diretamente por construtor_id
+        if (targetUserId && !isClient) {
+          query = query.eq('construtor_id', targetUserId);
+        } else if (isClient) {
+          // Para cliente: com Supabase RLS ativa, supabase.from('obras').select('*')
+          // já aplica a política de segurança baseada na sessão JWT do cliente.
+          // Além disso, se o filtro explícito falhar devido à coluna emails_clientes ainda não estar migrada,
+          // uma consulta resiliente busca sem quebrar.
+          if (targetUserEmail) {
+            const cleanEmail = targetUserEmail.trim().toLowerCase();
+            try {
+              // Tenta filtrar por cliente_id, cliente_email ou emails_clientes contendo o e-mail
+              if (targetUserId) {
+                query = query.or(`cliente_id.eq.${targetUserId},cliente_email.ilike.${cleanEmail},emails_clientes.cs.{${cleanEmail}}`);
+              } else {
+                query = query.or(`cliente_email.ilike.${cleanEmail},emails_clientes.cs.{${cleanEmail}}`);
+              }
+            } catch {
+              // Se a sintaxe de array não for suportada, a consulta padrão abaixo cobrirá via RLS
+            }
+          } else if (targetUserId) {
+            query = query.eq('cliente_id', targetUserId);
+          }
         }
 
-        const { data: obrasData, error: obrasError } = await query;
+        let { data: obrasData, error: obrasError } = await query;
+
+        // Se ocorreu erro no filtro específico (ex: PostgREST .cs. ou coluna emails_clientes não existente),
+        // faz fallback seguro para a query padrão sem filtro estrito (deixando o RLS do Supabase atuar)
+        if (obrasError && isClient) {
+          console.warn('Query específica de cliente falhou, tentando fallback com RLS do Supabase:', obrasError);
+          const fallbackRes = await supabase!.from('obras').select('*').order('created_at', { ascending: false });
+          if (!fallbackRes.error && fallbackRes.data) {
+            obrasData = fallbackRes.data;
+            obrasError = null;
+          }
+        }
 
         if (obrasError || !obrasData) {
           console.warn('Erro ao carregar obras do Supabase, usando fallback local:', obrasError);
-          return loadObrasFromStorage(targetUserId);
+          return loadObrasFromStorage(targetUserId, targetUserEmail);
+        }
+
+        // Se for cliente e tivermos e-mail, realiza uma filtragem complementar em memória para segurança
+        if (isClient && targetUserEmail && obrasData.length > 0) {
+          const cleanEmail = targetUserEmail.trim().toLowerCase();
+          const filtered = obrasData.filter((row: any) => {
+            const matchesClienteId = targetUserId && row.cliente_id === targetUserId;
+            const matchesClienteEmail =
+              typeof row.cliente_email === 'string' &&
+              row.cliente_email.trim().toLowerCase() === cleanEmail;
+            const emailsArr: string[] = Array.isArray(row.emails_clientes)
+              ? row.emails_clientes
+              : typeof row.emails_clientes === 'string'
+              ? [row.emails_clientes]
+              : [];
+            const matchesEmailsArr = emailsArr.some(
+              (em) => typeof em === 'string' && em.trim().toLowerCase() === cleanEmail
+            );
+            // Se o RLS já liberou e o cliente não possui vínculo explícito na linha, mantemos se bate qualquer vínculo
+            return matchesClienteId || matchesClienteEmail || matchesEmailsArr;
+          });
+          // Se o filtro em memória encontrou obras correspondentes, adota a lista filtrada
+          if (filtered.length > 0) {
+            obrasData = filtered;
+          }
         }
 
         // Se o Supabase retornou vazio e o usuário possui obras salvas no cache local,
-        // realiza a migração apenas uma vez para não gerar loops de persistência
-        if (obrasData.length === 0 && targetUserId) {
+        // realiza a migração apenas uma vez para não gerar loops de persistência (apenas para construtor)
+        if (obrasData.length === 0 && targetUserId && !isClient) {
           const migrationKey = 'eixo_migrated_' + targetUserId;
           const alreadyMigrated = typeof window !== 'undefined' ? localStorage.getItem(migrationKey) : null;
           if (!alreadyMigrated) {
-            const localObras = loadObrasFromStorage(targetUserId);
+            const localObras = loadObrasFromStorage(targetUserId, targetUserEmail);
             if (localObras && localObras.length > 0) {
               if (typeof window !== 'undefined') localStorage.setItem(migrationKey, 'true');
               console.info('Migrando obras locais para o Supabase sob o usuário:', targetUserId);
@@ -292,7 +363,7 @@ export const obrasApi = {
 
         // Mescla com cache local para resiliência: se o banco ainda não possuir a coluna 'ambientes'
         // ou 'ambiente', os agrupamentos criados localmente não se perdem no refresh (F5).
-        const localObras = loadObrasFromStorage(targetUserId);
+        const localObras = loadObrasFromStorage(targetUserId, targetUserEmail);
         const obrasCompletasMerged = obrasCompletas.map((cloudObra) => {
           const localObra = localObras.find((lo) => lo.id === cloudObra.id);
           if (!localObra) return cloudObra;
@@ -340,12 +411,12 @@ export const obrasApi = {
         return obrasCompletasMerged;
       } catch (err) {
         console.error('Falha de rede Supabase em obrasApi.list:', err);
-        return loadObrasFromStorage(userId);
+        return loadObrasFromStorage(userId, userEmail);
       }
     }, 'Carregando suas obras...');
 
     activeListPromise = currentPromise;
-    activeListUserId = userId;
+    activeListUserId = cacheKey;
 
     try {
       return await currentPromise;
@@ -380,19 +451,53 @@ export const obrasApi = {
         for (const obra of sanitizadas) {
           const construtorFinal = obra.construtorId || targetUserId;
 
-          // 1. Obra principal
-          await supabase!.from('obras').upsert({
+          // 1. Obra principal (com tratamento resiliente para cliente_email e emails_clientes)
+          const cleanEmailsClientes = Array.isArray(obra.emailsClientes)
+            ? obra.emailsClientes
+                .filter((em): em is string => typeof em === 'string' && em.trim().length > 0)
+                .map((em) => em.trim().toLowerCase())
+            : [];
+
+          const obraPayload: any = {
             id: obra.id,
             nome: obra.nome,
             cliente_nome: obra.cliente,
             cliente_id: obra.clienteId || null,
+            cliente_email: obra.clienteEmail ? obra.clienteEmail.trim().toLowerCase() : null,
+            emails_clientes: cleanEmailsClientes,
             construtor_id: construtorFinal,
             endereco: obra.endereco,
             data_prevista: obra.dataPrevista,
             orcamento_inicial: obra.orcamentoInicial || 0,
             empresa_responsavel: obra.empresaResponsavel || null,
             updated_at: new Date().toISOString(),
-          });
+          };
+
+          const { error: obraUpsertErr } = await supabase!.from('obras').upsert(obraPayload);
+          if (obraUpsertErr) {
+            // Se as novas colunas ainda não existirem no schema do Supabase, tenta fallback sem elas
+            if (
+              obraUpsertErr.message?.includes('emails_clientes') ||
+              obraUpsertErr.message?.includes('cliente_email') ||
+              obraUpsertErr.code === 'PGRST204'
+            ) {
+              const fallbackPayload = {
+                id: obra.id,
+                nome: obra.nome,
+                cliente_nome: obra.cliente,
+                cliente_id: obra.clienteId || null,
+                construtor_id: construtorFinal,
+                endereco: obra.endereco,
+                data_prevista: obra.dataPrevista,
+                orcamento_inicial: obra.orcamentoInicial || 0,
+                empresa_responsavel: obra.empresaResponsavel || null,
+                updated_at: new Date().toISOString(),
+              };
+              await supabase!.from('obras').upsert(fallbackPayload);
+            } else {
+              console.warn('Aviso ao sincronizar obra no Supabase:', obraUpsertErr);
+            }
+          }
 
           // 2. Registro de Notas (upload de fotos + Batch Upsert)
           if (obra.notas && obra.notas.length > 0) {

@@ -22,6 +22,8 @@ export interface ObraRow {
   nome: string;
   cliente_nome: string;
   cliente_id?: string | null;
+  cliente_email?: string | null;
+  emails_clientes?: string[] | null;
   construtor_id?: string | null;
   endereco: string;
   data_prevista: string;
@@ -174,6 +176,12 @@ export const mapObraFromDb = (
     orcamentoInicial: Number(row.orcamento_inicial) || 0,
     construtorId: row.construtor_id || undefined,
     clienteId: row.cliente_id || undefined,
+    clienteEmail: row.cliente_email || undefined,
+    emailsClientes: Array.isArray(row.emails_clientes)
+      ? row.emails_clientes.filter((em): em is string => typeof em === 'string' && em.trim().length > 0).map((em) => em.trim().toLowerCase())
+      : (row as any).emails_clientes && typeof (row as any).emails_clientes === 'string'
+      ? [(row as any).emails_clientes.trim().toLowerCase()]
+      : undefined,
     etapas,
     decisoes,
     projetos,
