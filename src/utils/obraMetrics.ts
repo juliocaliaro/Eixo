@@ -21,7 +21,6 @@
  */
 import { Decisao, Etapa, Obra } from '../types/obra';
 import { getTarefaStatus, contarTarefasConcluidas } from './cronogramaStatus';
-import { formatarMoeda } from './moeda';
 
 // ---------------------------------------------------------------------------
 // Progresso
@@ -168,35 +167,16 @@ export function montarUrlDecisao(base: string, obraId: string, criadaPor: Decisa
   return `${base}?obra=${obraId}&perfil=${perfilDestino}&tab=decisoes`;
 }
 
-/** Texto da mensagem de cobrança de assinatura de uma decisão pendente. */
 export function montarMensagemWhatsApp(params: {
   obraNome: string;
-  decisao: Decisao;
+  decisao?: Decisao;
   urlObra?: string;
 }): string {
-  const { obraNome, decisao, urlObra } = params;
+  const { obraNome, urlObra } = params;
   let msg = `*Eixo - Decisão de Obra Pendente*\n\n`;
   msg += `Olá! Há uma decisão aguardando validação e assinatura digital na obra *${obraNome}*:\n\n`;
-  msg += `📌 *${decisao.titulo}*\n`;
-  if (decisao.descricao) {
-    const resumo = decisao.descricao.length > 140 ? decisao.descricao.substring(0, 137) + '...' : decisao.descricao;
-    msg += `📝 _"${resumo}"_\n`;
-  }
-
-  const impacto = impactoDaDecisao(decisao);
-  if (impacto.temAditivo) {
-    msg += `💰 Impacto Financeiro: *+${formatarMoeda(impacto.aditivo)} (Aditivo)*\n`;
-  } else if (impacto.temSupressivo) {
-    msg += `💰 Impacto Financeiro: *-${formatarMoeda(impacto.supressivo)} (Supressivo / Redução)*\n`;
-  }
-
-  const dias = impactoPrazoDaDecisao(decisao);
-  if (dias > 0) {
-    msg += `⏱️ Impacto no Prazo: *+${dias} dias*\n`;
-  }
-  if (urlObra) {
-    msg += `\nPara analisar os detalhes e assinar formalmente, acesse:\n👉 ${urlObra}`;
-  }
+  msg += `Para analisar os detalhes e assinar formalmente, acesse:\n`;
+  msg += `👉 ${urlObra || ''}`;
   return msg;
 }
 

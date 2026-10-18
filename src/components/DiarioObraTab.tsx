@@ -468,7 +468,7 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                   if (entry.tipo === 'servico_concluido') {
                     iconBg = '#dcfce7';
                     iconColor = '#15803d';
-                    tagLabel = 'SERVIÇO CUMPRIDO';
+                    tagLabel = 'SERVIÇO CONCLUÍDO';
                     tagBg = '#dcfce7';
                     tagColor = '#15803d';
                     IconComponent = CheckCircle;
@@ -829,13 +829,13 @@ export const DiarioObraTab: React.FC<DiarioObraTabProps> = ({
                                     onClick={() => onNavigateToTask(entry.etapaId!, entry.tarefaId!)}
                                     className="btn-quiet"
                                   >
-                                    <span>Ver no cronograma</span>
+                                    <span>Cronograma</span>
                                     <ArrowRight size={14} weight="bold" />
                                   </button>
                                 )}
                                 {entry.decisaoId && onNavigateToDecisoes && (
                                   <button type="button" onClick={onNavigateToDecisoes} className="btn-quiet">
-                                    <span>Ver em decisões</span>
+                                    <span>Decisões</span>
                                     <ArrowRight size={14} weight="bold" />
                                   </button>
                                 )}

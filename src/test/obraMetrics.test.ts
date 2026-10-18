@@ -123,30 +123,23 @@ describe('obraMetrics - progresso', () => {
 });
 
 describe('obraMetrics - WhatsApp', () => {
-  it('monta mensagem com aditivo, prazo e link', () => {
+  it('monta mensagem simplificada no formato estrito', () => {
     const msg = montarMensagemWhatsApp({
       obraNome: 'Casa Azul',
       decisao: decisao({ titulo: 'Piso', descricao: 'Trocar piso', valorAditivo: 1250, impactoPrazoDias: 3 }),
-      urlObra: 'https://eixo.app/?obra=1',
+      urlObra: 'https://eixo.app/?obra=1&perfil=cliente&tab=decisoes',
     });
-    expect(msg).toContain('*Casa Azul*');
-    expect(msg).toContain('*Piso*');
-    expect(msg).toMatch(/\+R\$\s1\.250,00 \(Aditivo\)/);
-    expect(msg).toContain('+3 dias');
-    expect(msg).toContain('https://eixo.app/?obra=1');
-  });
+    const esperado =
+      `*Eixo - Decisão de Obra Pendente*\n\n` +
+      `Olá! Há uma decisão aguardando validação e assinatura digital na obra *Casa Azul*:\n\n` +
+      `Para analisar os detalhes e assinar formalmente, acesse:\n` +
+      `👉 https://eixo.app/?obra=1&perfil=cliente&tab=decisoes`;
 
-  it('rotula supressivo, trunca descrição longa e omite valor zero', () => {
-    const longa = 'x'.repeat(200);
-    const msg = montarMensagemWhatsApp({
-      obraNome: 'O',
-      decisao: decisao({ descricao: longa, impactoFinanceiro: -50 }),
-    });
-    expect(msg).toContain('(Supressivo / Redução)');
-    expect(msg).toContain('x'.repeat(137) + '...');
+    expect(msg).toBe(esperado);
+    expect(msg).not.toContain('Piso');
+    expect(msg).not.toContain('Trocar piso');
+    expect(msg).not.toContain('Impacto Financeiro');
     expect(msg).not.toContain('Impacto no Prazo');
-    const zero = montarMensagemWhatsApp({ obraNome: 'O', decisao: decisao({ valorAditivo: 0 }) });
-    expect(zero).not.toContain('Impacto Financeiro');
   });
 
   it('url aponta para a contraparte e o link é codificado', () => {

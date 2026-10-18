@@ -144,11 +144,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
       [etapaId]: true,
     }));
 
-    // 2. Localiza etapa e tarefa para abrir o modal de detalhes
-    const etapa = obra.etapas.find((e) => e.id === etapaId);
-    const tarefa = etapa?.tarefas.find((t) => t.id === tarefaId);
-
-    // 3. Scroll suave, destaque visual da linha e abertura do modal
+    // 2. Scroll suave e destaque visual temporário da linha (pulse)
     const timer = setTimeout(() => {
       const el = document.getElementById(`task-row-${tarefaId}`);
       if (el) {
@@ -157,14 +153,6 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
         setTimeout(() => {
           el.classList.remove('task-highlight-pulse');
         }, 2600);
-      }
-
-      if (tarefa && etapa) {
-        setViewingTaskDetails({
-          tarefa,
-          etapaNome: etapa.nome,
-          etapaId: etapa.id,
-        });
       }
     }, 180);
 
