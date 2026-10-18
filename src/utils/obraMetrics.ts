@@ -173,11 +173,8 @@ export function montarMensagemWhatsApp(params: {
   urlObra?: string;
 }): string {
   const { obraNome, urlObra } = params;
-  let msg = `*Eixo - Decisão de Obra Pendente*\n\n`;
-  msg += `Olá! Há uma decisão aguardando validação e assinatura digital na obra *${obraNome}*:\n\n`;
-  msg += `Para analisar os detalhes e assinar formalmente, acesse:\n`;
-  msg += `👉 ${urlObra || ''}`;
-  return msg;
+  const link = urlObra || '';
+  return `Eixo - Decisão de Obra Pendente\nOlá! Há uma decisão aguardando validação e assinatura digital na obra ${obraNome}\nPara analisar os detalhes e assinar formalmente, acesse: ${link}`;
 }
 
 export function linkWhatsApp(mensagem: string): string {

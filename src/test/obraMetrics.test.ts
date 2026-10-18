@@ -130,12 +130,13 @@ describe('obraMetrics - WhatsApp', () => {
       urlObra: 'https://eixo.app/?obra=1&perfil=cliente&tab=decisoes',
     });
     const esperado =
-      `*Eixo - Decisão de Obra Pendente*\n\n` +
-      `Olá! Há uma decisão aguardando validação e assinatura digital na obra *Casa Azul*:\n\n` +
-      `Para analisar os detalhes e assinar formalmente, acesse:\n` +
-      `👉 https://eixo.app/?obra=1&perfil=cliente&tab=decisoes`;
+      `Eixo - Decisão de Obra Pendente\n` +
+      `Olá! Há uma decisão aguardando validação e assinatura digital na obra Casa Azul\n` +
+      `Para analisar os detalhes e assinar formalmente, acesse: https://eixo.app/?obra=1&perfil=cliente&tab=decisoes`;
 
     expect(msg).toBe(esperado);
+    expect(msg).not.toContain('*');
+    expect(msg).not.toContain('👉');
     expect(msg).not.toContain('Piso');
     expect(msg).not.toContain('Trocar piso');
     expect(msg).not.toContain('Impacto Financeiro');
