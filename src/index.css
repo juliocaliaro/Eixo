@@ -2195,12 +2195,26 @@ input, textarea, select {
   .no-print,
   .navbar,
   .app-container > header,
-  .app-container > main,
   .toast-container,
   .modal-backdrop,
   .relatorio-top-bar {
     display: none !important;
     visibility: hidden !important;
+  }
+
+  .app-container,
+  .app-container > main,
+  .main-content,
+  .obra-detail-container {
+    visibility: visible !important;
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
   }
 
   /* Exibe o documento do relatório de ponta a ponta com fundo 100% branco e sem transparência */
