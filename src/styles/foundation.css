@@ -58,7 +58,7 @@
 /* Página que usa a BottomTabBar: o conteúdo nunca fica escondido atrás dela */
 @media (max-width: 768px) {
   .has-bottom-bar {
-    padding-bottom: calc(var(--bottom-bar-h) + env(safe-area-inset-bottom, 0px) + var(--space-4));
+    padding-bottom: calc(var(--bottom-bar-h) + max(env(safe-area-inset-bottom, 0px), 8px) + var(--space-4));
   }
 }
 
@@ -226,7 +226,7 @@ button.list-row, a.list-row { width: 100%; text-align: left; }
     z-index: var(--z-bottom-bar);
     background: var(--bg-surface);
     border-top: 1px solid var(--border-hairline);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
     transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .bottom-tab-bar[data-hidden="true"] { transform: translateY(110%); pointer-events: none; }

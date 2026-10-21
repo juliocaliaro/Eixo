@@ -2218,6 +2218,10 @@ input, textarea, select {
   }
 
   /* Exibe o documento do relatório de ponta a ponta com fundo 100% branco e sem transparência */
+  .obra-screen > *:not(:has(#relatorio-print-container)) {
+    display: none !important;
+  }
+
   .relatorio-modal-overlay {
     position: static !important;
     inset: auto !important;
