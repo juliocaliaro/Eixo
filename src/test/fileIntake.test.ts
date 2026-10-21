@@ -3,16 +3,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const uploadBlob = vi.fn();
 vi.mock('../services/api', () => ({ storageApi: { uploadBlob: (...a: any[]) => uploadBlob(...a) } }));
 
+const mockHeic2any = vi.fn();
+vi.mock('heic2any', () => ({
+  default: (...args: any[]) => mockHeic2any(...args),
+}));
+
 import {
   INTAKE_POLICY,
   fitWithin,
   normalizeFile,
+  convertHeicToJpeg,
   storeNormalized,
   UploadError,
   ImageProcessingError,
   extensionForMime,
   buildStoragePath,
 } from '../utils/fileIntake';
+import { isHeicFile } from '../utils/fileUtils';
 
 function installCanvas(opts: { w: number; h: number; ctx?: boolean; blob?: boolean; imgError?: boolean }) {
   const drawn: any = { stepCanvasCount: 0 };
@@ -56,6 +63,53 @@ function installCanvas(opts: { w: number; h: number; ctx?: boolean; blob?: boole
   return drawn;
 }
 
+describe('isHeicFile', () => {
+  it('detecta arquivos HEIC/HEIF por tipo MIME ou extensao', () => {
+    expect(isHeicFile(new File(['x'], 'foto.heic', { type: '' }))).toBe(true);
+    expect(isHeicFile(new File(['x'], 'foto.HEIF', { type: '' }))).toBe(true);
+    expect(isHeicFile(new File(['x'], 'foto.jpg', { type: 'image/heic' }))).toBe(true);
+    expect(isHeicFile(new File(['x'], 'foto.jpg', { type: 'image/heif' }))).toBe(true);
+    expect(isHeicFile(new File(['x'], 'foto.jpg', { type: 'image/jpeg' }))).toBe(false);
+    expect(isHeicFile(new File(['x'], 'documento.pdf', { type: 'application/pdf' }))).toBe(false);
+    expect(isHeicFile(null)).toBe(false);
+  });
+});
+
+describe('convertHeicToJpeg', () => {
+  beforeEach(() => {
+    mockHeic2any.mockReset();
+  });
+
+  it('converte arquivo HEIC chamando heic2any e renomeia extensao para .jpg', async () => {
+    const fakeConvertedBlob = new Blob(['converted-jpeg'], { type: 'image/jpeg' });
+    mockHeic2any.mockResolvedValue(fakeConvertedBlob);
+
+    const heicFile = new File(['raw-heic'], 'obra_iphone.heic', { type: 'image/heic' });
+    const result = await convertHeicToJpeg(heicFile);
+
+    expect(mockHeic2any).toHaveBeenCalledWith({
+      blob: heicFile,
+      toType: INTAKE_POLICY.imageMime,
+      quality: INTAKE_POLICY.quality,
+    });
+    expect(result).toBeInstanceOf(File);
+    expect((result as File).name).toBe('obra_iphone.jpg');
+    expect(result.type).toBe('image/jpeg');
+  });
+
+  it('lanca ImageProcessingError com mensagem clara se a conversao HEIC falhar', async () => {
+    mockHeic2any.mockRejectedValue(new Error('HEIC decoding failed'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const heicFile = new File(['corrupted'], 'danificado.heic', { type: 'image/heic' });
+    await expect(convertHeicToJpeg(heicFile)).rejects.toThrow(ImageProcessingError);
+    await expect(convertHeicToJpeg(heicFile)).rejects.toThrow(/HEIC\/HEIF do iPhone/);
+
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
 describe('fitWithin', () => {
   it('reduz pelo maior lado mantendo proporcao', () => {
     expect(fitWithin(2800, 1400)).toEqual({ width: 1400, height: 700 });
@@ -68,6 +122,10 @@ describe('fitWithin', () => {
 });
 
 describe('normalizeFile', () => {
+  beforeEach(() => {
+    mockHeic2any.mockReset();
+  });
+
   afterEach(() => {
     delete (globalThis as any).Image;
     delete (globalThis as any).document;
@@ -87,6 +145,20 @@ describe('normalizeFile', () => {
     const r = await normalizeFile(new File(['abc'], 'a.png', { type: 'image/png' }));
     expect(drawn).toMatchObject({ w: 1400, h: 700, mime: INTAKE_POLICY.imageMime, q: INTAKE_POLICY.quality });
     expect(r.blob.type).toBe('image/jpeg');
+    expect(r.mimeType).toBe('image/jpeg');
+    expect(r.isPdf).toBe(false);
+  });
+
+  it('processa e normaliza foto HEIC convertendo-a para JPEG', async () => {
+    const fakeConvertedBlob = new Blob(['converted-jpeg'], { type: 'image/jpeg' });
+    mockHeic2any.mockResolvedValue(fakeConvertedBlob);
+    installCanvas({ w: 1200, h: 800 });
+
+    const heicFile = new File(['heic-content'], 'foto_obra.heic', { type: 'image/heic' });
+    const r = await normalizeFile(heicFile);
+
+    expect(mockHeic2any).toHaveBeenCalled();
+    expect(r.name).toBe('foto_obra.jpg');
     expect(r.mimeType).toBe('image/jpeg');
     expect(r.isPdf).toBe(false);
   });
