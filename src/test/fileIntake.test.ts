@@ -9,12 +9,13 @@ import {
   normalizeFile,
   storeNormalized,
   UploadError,
+  ImageProcessingError,
   extensionForMime,
   buildStoragePath,
 } from '../utils/fileIntake';
 
 function installCanvas(opts: { w: number; h: number; ctx?: boolean; blob?: boolean; imgError?: boolean }) {
-  const drawn: any = {};
+  const drawn: any = { stepCanvasCount: 0 };
   (globalThis as any).Image = class {
     width = opts.w;
     height = opts.h;
@@ -25,22 +26,32 @@ function installCanvas(opts: { w: number; h: number; ctx?: boolean; blob?: boole
     }
   };
   (globalThis as any).document = {
-    createElement: () => ({
-      width: 0,
-      height: 0,
-      getContext: () =>
-        opts.ctx === false
-          ? null
-          : {
-              fillStyle: '',
-              fillRect: () => {},
-              drawImage: (_i: any, _x: number, _y: number, w: number, h: number) => Object.assign(drawn, { w, h }),
-            },
-      toBlob(cb: (b: Blob | null) => void, mime: string, q: number) {
-        Object.assign(drawn, { mime, q });
-        cb(opts.blob === false ? null : new Blob(['x'], { type: mime }));
-      },
-    }),
+    createElement: (tag: string) => {
+      if (tag === 'canvas') {
+        return {
+          width: 0,
+          height: 0,
+          getContext: () =>
+            opts.ctx === false
+              ? null
+              : {
+                  fillStyle: '',
+                  imageSmoothingEnabled: false,
+                  imageSmoothingQuality: 'low',
+                  fillRect: () => {},
+                  drawImage: (_i: any, _x: number, _y: number, w: number, h: number) => {
+                    drawn.stepCanvasCount++;
+                    Object.assign(drawn, { w, h });
+                  },
+                },
+          toBlob(cb: (b: Blob | null) => void, mime: string, q: number) {
+            Object.assign(drawn, { mime, q });
+            cb(opts.blob === false ? null : new Blob(['x'], { type: mime }));
+          },
+        };
+      }
+      return {};
+    },
   };
   return drawn;
 }
@@ -60,6 +71,7 @@ describe('normalizeFile', () => {
   afterEach(() => {
     delete (globalThis as any).Image;
     delete (globalThis as any).document;
+    delete (globalThis as any).createImageBitmap;
   });
 
   it('PDF passa intacto, sem tocar em canvas', async () => {
@@ -79,18 +91,69 @@ describe('normalizeFile', () => {
     expect(r.isPdf).toBe(false);
   });
 
+  it('usa stepping (downscale em etapas) para imagens gigantes evitando estouro e degradação', async () => {
+    // 6000 x 4000 reduzido para 1400 x 933 (> 2x redução) deve disparar passos intermediários
+    const drawn = installCanvas({ w: 6000, h: 4000 });
+    await normalizeFile(new File(['huge'], 'huge.jpg', { type: 'image/jpeg' }));
+    expect(drawn.stepCanvasCount).toBeGreaterThan(1);
+    expect(drawn.w).toBe(1400);
+    expect(drawn.h).toBe(933);
+  });
+
+  it('prioriza createImageBitmap com resizeOptions quando suportado', async () => {
+    const drawn = installCanvas({ w: 4000, h: 3000 });
+    let usedBitmapOptions: any = null;
+    (globalThis as any).createImageBitmap = vi.fn().mockImplementation(async (_f: any, opts?: any) => {
+      if (opts) {
+        usedBitmapOptions = opts;
+        return {
+          width: opts.resizeWidth,
+          height: opts.resizeHeight,
+          close: vi.fn(),
+        };
+      }
+      return {
+        width: 4000,
+        height: 3000,
+        close: vi.fn(),
+      };
+    });
+
+    const r = await normalizeFile(new File(['data'], 'foto.jpg', { type: 'image/jpeg' }));
+    expect((globalThis as any).createImageBitmap).toHaveBeenCalled();
+    expect(usedBitmapOptions).toEqual({
+      resizeWidth: 1400,
+      resizeHeight: 1050,
+      resizeQuality: 'high',
+    });
+    expect(r.blob.type).toBe('image/jpeg');
+  });
+
   it.each([
     ['sem contexto 2d', { w: 10, h: 10, ctx: false }],
     ['toBlob nulo', { w: 10, h: 10, blob: false }],
     ['erro ao decodificar', { w: 10, h: 10, imgError: true }],
-  ])('falha de canvas (%s) devolve o original', async (_n, o) => {
+  ])('falha de compressão em arquivo pequeno (<= 1.5MB) (%s) devolve o original com aviso', async (_n, o) => {
     installCanvas(o);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const file = new File(['abc'], 'a.png', { type: 'image/png' });
     const r = await normalizeFile(file);
     expect(r.blob).toBe(file);
     expect(r.mimeType).toBe('image/png');
+    expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it('recusa e lança ImageProcessingError se compressão falhar e arquivo for gigante (> 1.5MB)', async () => {
+    installCanvas({ w: 10, h: 10, ctx: false });
+    const errLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Simula arquivo de 2MB
+    const bigArray = new Uint8Array(2 * 1024 * 1024);
+    const bigFile = new File([bigArray], 'foto_gigante.jpg', { type: 'image/jpeg' });
+
+    await expect(normalizeFile(bigFile)).rejects.toThrow(ImageProcessingError);
+    expect(errLog).toHaveBeenCalled();
+    errLog.mockRestore();
   });
 
   it('tipo nao imagem passa direto', async () => {

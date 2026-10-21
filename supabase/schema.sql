@@ -765,7 +765,8 @@ CREATE POLICY eixo_obras_select ON public.obras FOR SELECT TO authenticated
 CREATE POLICY eixo_obras_insert ON public.obras FOR INSERT TO authenticated
     WITH CHECK (construtor_id = (SELECT auth.uid()) AND (SELECT private.is_construtor()));
 CREATE POLICY eixo_obras_update ON public.obras FOR UPDATE TO authenticated
-    USING ((SELECT private.can_write_obra(id))) WITH CHECK (construtor_id = (SELECT auth.uid()));
+    USING ((SELECT private.can_write_obra(id)) OR (construtor_id = (SELECT auth.uid()) AND (SELECT private.is_construtor())))
+    WITH CHECK (construtor_id = (SELECT auth.uid()) AND (SELECT private.is_construtor()));
 CREATE POLICY eixo_obras_delete ON public.obras FOR DELETE TO authenticated
     USING ((SELECT private.can_write_obra(id)));
 
