@@ -50,6 +50,11 @@ describe('papel da sessao', () => {
     expect(buildSessionUser(user, { id: 'u1', email: 'a@b.com', nome: 'F', role: 'construtor' }).role).toBe('construtor');
   });
 
+  it('normaliza capitalizacao do papel (ex.: Construtor)', () => {
+    expect(buildSessionUser(user, { id: 'u1', email: 'a@b.com', nome: 'F', role: 'Construtor' as 'construtor' }).role).toBe('construtor');
+    expect(buildSessionUser(user, { id: 'u1', email: 'a@b.com', nome: 'F', role: 'CLIENTE' as 'cliente' }).role).toBe('cliente');
+  });
+
   it('sem perfil carregado assume o menor privilegio (cliente) mesmo com metadado construtor', () => {
     expect(buildSessionUser(user, null).role).toBe('cliente');
   });

@@ -28,6 +28,8 @@ interface ObraListProps {
   onOpenCreateModal: () => void;
   onDeleteObra: (obraId: string) => void;
   perfilAtivo?: PerfilUsuario;
+  /** Papel real da conta (profiles.role). Cliente nunca cria/exclui obras. */
+  accountRole?: PerfilUsuario;
   /** A URL apontava para uma obra que não existe ou que a conta não pode ver. */
   obraNaoEncontrada?: boolean;
   onDismissAviso?: () => void;
@@ -52,11 +54,13 @@ export const ObraList: React.FC<ObraListProps> = ({
   onOpenCreateModal,
   onDeleteObra,
   perfilAtivo = 'construtor',
+  accountRole = 'construtor',
   obraNaoEncontrada = false,
   onDismissAviso,
 }) => {
   const isMobile = useIsMobile();
-  const podeEditar = perfilAtivo !== 'cliente';
+  // Exige perfil de visualização E papel real da conta (evita criar obra com role mal normalizado).
+  const podeEditar = perfilAtivo !== 'cliente' && accountRole !== 'cliente';
   const [deleteObraTarget, setDeleteObraTarget] = useState<{ id: string; nome: string } | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [copiado, setCopiado] = useState(false);

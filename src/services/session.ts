@@ -29,7 +29,9 @@ interface AuthUserLike {
 export const buildSessionUser = (user: AuthUserLike, profile: ProfileRow | null): SessionUser => {
   const meta = user.user_metadata || {};
   const email = normalizeEmail(user.email || profile?.email);
-  const role: PerfilUsuario = profile?.role === 'construtor' ? 'construtor' : 'cliente';
+  // Normaliza maiúsculas/espaços (ex.: 'Construtor') para não cair em 'cliente' por case-sensitive.
+  const rawRole = (profile?.role || '').toString().toLowerCase().trim();
+  const role: PerfilUsuario = rawRole === 'construtor' ? 'construtor' : 'cliente';
   return {
     id: user.id,
     email,

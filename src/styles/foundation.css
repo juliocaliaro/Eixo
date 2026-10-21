@@ -266,6 +266,13 @@ button.list-row, a.list-row { width: 100%; text-align: left; }
     align-items: flex-end !important;
     justify-content: center !important;
   }
+  /* Lightbox: centraliza a foto (não herda bottom-sheet do modal-backdrop). */
+  .lightbox-backdrop,
+  .modal-backdrop.lightbox-backdrop {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
   .modal-card {
     width: 100% !important;
     max-width: 100% !important;

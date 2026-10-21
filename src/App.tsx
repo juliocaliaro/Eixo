@@ -567,6 +567,7 @@ const AppShell: React.FC = () => {
               onOpenCreateModal={() => setIsCreateObraOpen(true)}
               onDeleteObra={handleDeleteObra}
               perfilAtivo={perfilAtivo}
+              accountRole={accountRole}
               obraNaoEncontrada={!!currentObraId}
               onDismissAviso={() => navigate({ obraId: null, tab: null }, 'replace')}
             />
