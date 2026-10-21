@@ -101,11 +101,14 @@ export const createSupabaseObraRepository = (client: SupabaseClient | null = sup
           const { degradedColumns } = await upsertTolerant(
             table,
             prepared,
-            (batch) => {
+            async (batch) => {
               const conflict = CONFLICT_TARGET[table];
-              return Promise.resolve(
-                db.from(table).upsert(batch, conflict ? { onConflict: conflict } : undefined)
-              ) as Promise<{ error: { code?: string; message?: string } | null }>;
+              const res = await (db.from(table).upsert(batch, conflict ? { onConflict: conflict } : undefined) as any);
+              if (res.error && (res.error.code === '42501' || (res.error.message && res.error.message.includes('policy')))) {
+                const insertRes = await (db.from(table).insert(batch) as any);
+                if (!insertRes.error) return { error: null };
+              }
+              return res;
             },
             TOLERATED_COLUMNS[table]
           );

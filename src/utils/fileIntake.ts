@@ -8,7 +8,7 @@
  *
  * Política de compressão em um só lugar: INTAKE_POLICY.
  */
-import { isPdfFile } from './fileUtils';
+import { isPdfFile, isHeicFile } from './fileUtils';
 import { storageApi } from '../services/api';
 
 export const INTAKE_POLICY = {
@@ -66,6 +66,44 @@ const EXT_BY_MIME: Record<string, string> = {
 
 export function extensionForMime(mime: string, fallback = 'bin'): string {
   return EXT_BY_MIME[mime] || fallback;
+}
+
+/**
+ * Converte arquivos no formato HEIC / HEIF (comuns em iOS/iPhones) para JPEG.
+ * Usa importação dinâmica de heic2any para compatibilidade com navegadores e bundlers,
+ * convertendo o arquivo antes de passar pela rotina de compressão padrão.
+ */
+export async function convertHeicToJpeg(file: File | Blob): Promise<File | Blob> {
+  try {
+    const heic2anyModule = await import('heic2any');
+    const heic2any = (heic2anyModule.default || heic2anyModule) as (options: {
+      blob: Blob;
+      toType?: string;
+      quality?: number;
+    }) => Promise<Blob | Blob[]>;
+
+    const result = await heic2any({
+      blob: file,
+      toType: INTAKE_POLICY.imageMime,
+      quality: INTAKE_POLICY.quality,
+    });
+
+    const convertedBlob = Array.isArray(result) ? result[0] : result;
+    if (!convertedBlob) return file;
+
+    const originalName = 'name' in file && typeof (file as any).name === 'string' ? (file as any).name : 'foto.heic';
+    const newName = originalName.replace(/\.(heic|heif)$/i, '.jpg');
+
+    if (typeof File !== 'undefined') {
+      return new File([convertedBlob], newName, { type: INTAKE_POLICY.imageMime });
+    }
+    return convertedBlob;
+  } catch (err) {
+    console.warn('[fileIntake] Falha ao converter arquivo HEIC com heic2any:', err);
+    throw new ImageProcessingError(
+      'Não foi possível converter a foto no formato HEIC/HEIF do iPhone. Tente selecionar outra foto ou alterar o formato nas configurações da câmera para "Mais Compatível".'
+    );
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number): Promise<Blob | null> {
@@ -280,6 +318,7 @@ async function compressImageResilient(file: File): Promise<Blob | null> {
 /**
  * Normaliza um arquivo: PDFs e tipos não-imagem passam intactos; imagens são
  * reduzidas (maxDim) e recodificadas em JPEG.
+ * Arquivos HEIC/HEIF são automaticamente convertidos para JPEG antes da normalização.
  *
  * Se a compressão falhar:
  * - Se o arquivo for pequeno/moderado (<= 1.5MB), aceita com aviso.
@@ -287,8 +326,8 @@ async function compressImageResilient(file: File): Promise<Blob | null> {
  *   quebrar o preview ou estourar a memória/payload da requisição.
  */
 export async function normalizeFile(file: File): Promise<NormalizedFile> {
-  const name = file.name || 'arquivo';
   if (isPdfFile(file)) {
+    const name = file.name || 'arquivo';
     return {
       blob: file,
       previewUrl: URL.createObjectURL(file),
@@ -298,15 +337,33 @@ export async function normalizeFile(file: File): Promise<NormalizedFile> {
     };
   }
 
-  let blob: Blob = file;
-  if (file.type.startsWith('image/')) {
-    const compressed = await compressImageResilient(file);
+  let processedFile = file;
+
+  // Detecta se é arquivo HEIC/HEIF (iOS) e converte previamente para JPEG
+  if (isHeicFile(file)) {
+    const converted = await convertHeicToJpeg(file);
+    if (converted instanceof File) {
+      processedFile = converted;
+    } else {
+      const origName = file.name || 'foto.heic';
+      processedFile = new File([converted], origName.replace(/\.(heic|heif)$/i, '.jpg'), {
+        type: INTAKE_POLICY.imageMime,
+      });
+    }
+  }
+
+  const name = processedFile.name || 'arquivo';
+  let blob: Blob = processedFile;
+  const isImage = processedFile.type.startsWith('image/') || isHeicFile(file);
+
+  if (isImage) {
+    const compressed = await compressImageResilient(processedFile);
     if (compressed) {
       blob = compressed;
     } else {
-      if (file.size > INTAKE_POLICY.maxAllowedFileSize) {
+      if (processedFile.size > INTAKE_POLICY.maxAllowedFileSize) {
         console.error(
-          `[fileIntake] Compressão falhou e a imagem "${name}" (${(file.size / (1024 * 1024)).toFixed(
+          `[fileIntake] Compressão falhou e a imagem "${name}" (${(processedFile.size / (1024 * 1024)).toFixed(
             2
           )}MB) excede o limite permitido.`
         );
@@ -323,7 +380,7 @@ export async function normalizeFile(file: File): Promise<NormalizedFile> {
     previewUrl: URL.createObjectURL(blob),
     name,
     isPdf: false,
-    mimeType: blob.type || file.type || INTAKE_POLICY.imageMime,
+    mimeType: blob.type || processedFile.type || INTAKE_POLICY.imageMime,
   };
 }
 
