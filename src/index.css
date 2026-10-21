@@ -1503,6 +1503,13 @@ input, textarea, select {
     overscroll-behavior: contain;
   }
 
+  .lightbox-backdrop,
+  .modal-backdrop.lightbox-backdrop {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
+
   .modal-card {
     max-height: 92dvh;
     max-height: 92vh;
@@ -2611,6 +2618,13 @@ input, textarea, select {
   .modal-backdrop {
     padding: 0 !important;
     align-items: flex-end !important;  /* modal ancora na base da tela */
+  }
+  /* Lightbox: foto centralizada (não ancora na base como bottom-sheet). */
+  .lightbox-backdrop,
+  .modal-backdrop.lightbox-backdrop {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
   }
 
   /* Modal vira bottom-sheet, crescendo a partir da base */

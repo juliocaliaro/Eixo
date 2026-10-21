@@ -26,7 +26,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ src, onClose, alt = '', titu
   if (titulo) {
     return (
       <div
-        className="modal-backdrop"
+        className="modal-backdrop lightbox-backdrop"
         onClick={onClose}
         style={{ background: 'rgba(0,0,0,0.85)', padding: 16, zIndex: 'var(--z-lightbox)' }}
         role="dialog"
@@ -61,7 +61,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ src, onClose, alt = '', titu
   }
 
   return (
-    <div className="modal-backdrop" style={{ zIndex: 'var(--z-lightbox)', background: 'rgba(15, 12, 4, 0.92)' }} onClick={onClose}>
+    <div className="modal-backdrop lightbox-backdrop" style={{ zIndex: 'var(--z-lightbox)', background: 'rgba(15, 12, 4, 0.92)' }} onClick={onClose}>
       <div
         style={{ position: 'relative', maxWidth: '92vw', maxHeight: '90vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         onClick={(e) => e.stopPropagation()}

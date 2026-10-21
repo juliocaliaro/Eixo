@@ -341,7 +341,11 @@ $$;
 -- Conta com papel de construtor (profiles.role, imutavel para o usuario).
 CREATE OR REPLACE FUNCTION private.is_construtor()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
-    SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = (SELECT auth.uid()) AND p.role = 'construtor');
+    SELECT EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = (SELECT auth.uid())
+        AND lower(coalesce(p.role, '')) = 'construtor'
+    );
 $$;
 
 -- Obra de cada nivel filho (evita recursao de RLS entre tabelas).

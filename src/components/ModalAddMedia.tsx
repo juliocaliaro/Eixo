@@ -95,11 +95,24 @@ export const ModalAddMedia: React.FC<ModalAddMediaProps> = ({
               onChange={handleFilesChange}
               style={{ display: 'none' }}
             />
-            {fotosPreview.length > 0 ? (
+            {fotoItems.length > 0 ? (
               <div className="media-thumbs">
-                {fotosPreview.map((foto, idx) => (
+                {fotoItems.map((item, idx) => (
                   <div key={idx} className="media-thumb">
-                    <img src={foto} alt={`Foto ${idx + 1}`} />
+                    <img
+                      src={item.previewUrl}
+                      alt={`Foto ${idx + 1}`}
+                      loading="eager"
+                      decoding="sync"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (img.dataset.fallback === '1') return;
+                        img.dataset.fallback = '1';
+                        void blobToDataUrl(item.blob).then((url) => {
+                          img.src = url;
+                        });
+                      }}
+                    />
                     <button
                       type="button"
                       className="media-thumb-remove"
