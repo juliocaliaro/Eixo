@@ -163,19 +163,91 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 
 ## 10. Listas Padrão Oficiais de Construção e Reforma
 
-### 10.1 Construção (12 Etapas Técnicas)
-1. **Projetos e Legalização**: Levantamento topográfico/sondagem, elaboração de projetos arquitetônicos e complementares, aprovação em prefeitura/alvará, ligações provisórias de água e energia.
-2. **Terreno e Canteiro**: Limpeza e nivelamento do terreno, montagem de tapume/portões, canteiro de obras (banheiro, almoxarifado, refeitório), locação da obra (gabarito).
-3. **Fundação e Contenção**: Cortes, aterros e muros de arrimo, escavação das fundações, concretagem de sapatas/estacas e vigas baldrame, impermeabilização das fundações.
-4. **Estrutura**: Fôrmas e ferragens para pilares e vigas, concretagem de pilares, vigas e lajes, desforma e cura do concreto.
-5. **Alvenaria e Vedação**: Elevação de paredes, vergas e contravergas, chumbamento de contramarcos.
-6. **Cobertura e Aquecimento**: Estrutura do telhado, boiler e caixas d'água, telhas e subcobertura (manta térmica), calhas, rufos e condutores pluviais.
-7. **Infraestrutura e Instalações Brutas**: Rasgos nas paredes, eletrodutos, quadros e fotovoltaica, cabeamento de rede/automação/CFTV, tubulações hidráulicas (água fria/quente/esgoto), infraestrutura de ar-condicionado, fechamento de rasgos.
-8. **Revestimentos Brutos**: Chapisco, emboço e reboco, execução de contrapiso, impermeabilização de áreas molhadas e varandas.
-9. **Revestimentos e Gesso**: Forros de gesso, assentamento de pisos e revestimentos, bancadas, soleiras e nichos.
-10. **Acabamentos e Pintura**: Preparação, emassamento e lixamento, pintura, pisos quentes (laminado/vinílico) e rodapés, portas e esquadrias finais (vidro/alumínio).
-11. **Área Externa e Paisagismo**: Piscina (escavação/revestimento), pavimentação externa, portões e grades, preparo de solo e plantio.
-12. **Finalização**: Placas solares/inversor, aquecimento solar de boiler, louças/metais/espelhos, luminárias e tomadas, ar-condicionado, limpeza fina, desmobilização de canteiro, Habite-se e entrega de chaves. *(Nota: Testes operacionais e vistorias de acabamento foram migrados para o Checklist de Vistoria Final / Punch List de Entrega).*
+### 10.1 Construção (12 Etapas Técnicas, 6 Tarefas Cada - 72 Tarefas no Total)
+1. **Projetos e Legalização**:
+   - Levantamento topográfico planialtimétrico e sondagem do solo (SPT)
+   - Projetos executivos (arquitetônico, estrutural, hidrossanitário e elétrico)
+   - Aprovação na prefeitura, condomínio (se aplicável) e alvará de construção
+   - Registro de ARTs/RRTs de responsabilidade técnica e matrícula CNO na Receita Federal
+   - Montagem do padrão de entrada de energia e cavalete de água da concessionária
+   - Solicitação e ligação provisória de água e luz para início do canteiro
+2. **Terreno e Canteiro**:
+   - Limpeza do terreno, destocamento e bota-fora de entulhos e vegetação
+   - Terraplenagem, corte, aterro e compactação do platô da construção
+   - Montagem do tapume perimetral e portão de acesso com tranca
+   - Instalação do barracão de canteiro (almoxarifado trancado, sanitário e refeitório)
+   - Distribuição de pontos elétricos provisórios (quadro de obra) e torneiras de apoio
+   - Locação da obra e marcação do gabarito de madeira com eixos estruturais
+3. **Fundação e Contenção**:
+   - Execução de contenções de talude, cortes e muros de arrimo (se aplicável)
+   - Perfuração mecânica de estacas ou escavação de sapatas e blocos
+   - Concretagem de estacas/sapatas e posicionamento dos arranques de pilares
+   - Instalação prévia de passagens de esgoto sob as vigas baldrames
+   - Armação, fôrmas e concretagem das vigas baldrames
+   - Impermeabilização asfáltica das vigas baldrames e reaterro compactado
+4. **Estrutura**:
+   - Montagem das armaduras dos pilares com espaçadores plásticos para cobrimento
+   - Montagem de fôrmas, escoramento e concretagem vibrada dos pilares
+   - Montagem do escoramento e fôrmas das vigas e lajes
+   - Posicionamento de vigotas, lajotas/EPS, malhas de aço e caixas elétricas de teto
+   - Concretagem usinada de vigas, lajes e escadas estruturais
+   - Cura úmida diária do concreto e desforma técnica no prazo correto
+5. **Alvenaria e Vedação**:
+   - Marcação e assentamento da primeira fiada com argamassa impermeabilizante
+   - Elevação das paredes de alvenaria com controle rigoroso de prumo e alinhamento
+   - Instalação de vergas e contravergas de concreto sobre vãos de portas e janelas
+   - Amarração da alvenaria na estrutura de concreto e encunhamento sob as vigas
+   - Chumbamento de contramarcos de esquadrias e requadro de vãos
+   - Fechamento de platibandas de telhado, oitões e shafts de tubulações
+6. **Cobertura e Telhado**:
+   - Montagem da estrutura de apoio do telhado (madeiramento ou perfis metálicos)
+   - Içamento e assentamento das caixas d'água e reservatório do boiler no sótão
+   - Instalação de subcobertura com manta térmica de isolamento
+   - Assentamento e fixação de telhas, cumeeiras e arremates
+   - Instalação de calhas metálicas com teste de caimento e rufos contra platibandas
+   - Instalação e descida dos condutores de águas pluviais até o solo
+7. **Infraestrutura e Instalações Brutas**:
+   - Abertura de cortes e rasgos nas paredes com máquina riscadora de alvenaria
+   - Chumbamento de caixas de tomada (4x2/4x4), eletrodutos e quadros (QDG e VDI)
+   - Passagem de tubulações de água fria e água quente (PPR, CPVC ou PEX)
+   - Instalação de ramais de esgoto, caixas sifonadas e colunas de ventilação
+   - Teste hidrostático de pressão das tubulações de água (estanqueidade)
+   - Linhas frigorígenas de ar-condicionado e fechamento de rasgos com argamassa antifissura
+8. **Revestimentos Brutos**:
+   - Aplicação de chapisco com aditivo de aderência em alvenarias e concreto
+   - Mesteamento, emboço e reboco desempenado nas paredes internas
+   - Execução de reboco nas paredes externas e fachadas com aditivo impermeabilizante
+   - Execução e regularização de contrapiso com caimentos adequados para ralos
+   - Impermeabilização de banheiros, lavanderias, varandas e lajes expostas
+   - Teste de estanqueidade por lâmina d'água durante 72 horas com laudo
+9. **Revestimentos e Gesso**:
+   - Estruturação e fechamento do forro de gesso acartonado (drywall)
+   - Execução de cortineiros, sancas e juntas de dilatação tabicadas
+   - Tratamento de juntas e parafusos do gesso com fita e massa para drywall
+   - Assentamento de porcelanatos e pisos com argamassa AC e niveladores
+   - Assentamento de azulejos e revestimentos de parede em áreas molhadas
+   - Rejuntamento geral e instalação de bancadas de pedra, soleiras e nichos
+10. **Acabamentos e Pintura**:
+    - Proteção de pisos e bancadas instalados com papelão ondulado ou salva-piso
+    - Emassamento de paredes e forros com massa corrida e massa acrílica
+    - Lixamento com luz rasante e aplicação de fundo preparador
+    - Pintura de acabamento de tetos e paredes (selador e demãos finais de tinta)
+    - Instalação de pisos vinílicos, laminados ou madeira nas áreas secas
+    - Montagem de portas internas com fechaduras, rodapés e esquadrias de alumínio
+11. **Área Externa e Paisagismo**:
+    - Estrutura, impermeabilização e revestimento da piscina e casa de máquinas
+    - Pavimentação externa de garagens, rampas de acesso e calçadas perimetrais
+    - Muros divisórios com pingadeiras, reboco/textura externa e portões
+    - Instalação de rede de drenagem pluvial do quintal, grelhas e caixas de inspeção
+    - Preparação da terra vegetal, adubação e plantio de grama e paisagismo
+    - Instalação de iluminação externa de jardim, postes e balizadores
+12. **Finalização e Entrega**:
+    - Montagem do quadro de disjuntores, tomadas, interruptores e luminárias
+    - Instalação de louças sanitárias, torneiras, registros, cubas e sifões
+    - Instalação das condensadoras de ar-condicionado e testes de funcionamento
+    - Instalação de módulos fotovoltaicos, inversores e teste do aquecimento solar
+    - Limpeza pesada pós-obra e limpeza fina de entrega com remoção de películas
+    - Checklist de vistoria técnica (punch list), Habite-se e entrega formal das chaves
 
 ### 10.2 Reforma (6 Etapas Técnicas)
 1. **Isolamento e Preparação**: Proteção de elevadores e áreas comuns, proteção de pisos existentes, isolamento de móveis, desmontagem e armazenamento de itens reutilizáveis.
@@ -606,7 +678,7 @@ Referência técnica: `docs/design/PADROES-MOBILE.md` (tokens, componentes, chec
 - **Calendário (§22.1, §22.8)**: no mobile é uma segunda sheet com dias de 44px e atalhos; no desktop é popover (abre para baixo quando cabe).
 - **Lista de obras (§22.4)**: linhas com divisor fino (sem cartões), endereço completo, progresso, e um único `⋯` (Copiar endereço, Excluir) só para o construtor; título "Obras" para os dois perfis; home vazia sem hero nem cartões de passos.
 - **Cabeçalho da obra (§3.2, §5.2, §22.2, §22.3)**: no mobile: voltar, título, uma linha de metadados e barra de progresso; menu `⋮` com "Editar obra" (construtor) e o relatório. Sem a pílula "Acompanhamento do Cliente". O rótulo do relatório é "Relatório parcial" abaixo de 100% e "Relatório final" a 100% (`rotuloRelatorio`).
-- **Etapas (§2.2, §6, §15)**: linhas com divisor fino, título de etapa com até 2 linhas, ações no menu `⋯`; "Inserir etapa aqui" só no desktop (no mobile é item de menu); sem "Adicionar próxima etapa". Vistoria sem texto de ajuda nem cartões aninhados.
+- **Etapas (§2.2, §6, §15)**: linhas com divisor fino, título de etapa com até 2 linhas, ações no menu `⋯`; "Inserir etapa aqui" só no desktop (no mobile é item de menu); sem "Adicionar próxima etapa". Vistoria sem texto de ajuda nem cartões aninhados. **Etapas e agrupamentos por ambiente nascem estritamente fechados por padrão** (tanto no mobile quanto no desktop); ao abrir uma etapa, todos os agrupamentos por ambiente dentro dela nascem recolhidos; ao trocar de obra, todas as etapas e agrupamentos são resetados para fechados.
 - **Arquivos (§9)**: um projeto = uma linha tocável com `⋯` (Visualizar, Baixar, Excluir); "Link de envio" fica no menu; sem estouro horizontal.
 - **Decisões (§4, §12, §22.9, §22.13)**: "Nova proposta" no cabeçalho; resumo financeiro como acordeão fechado no mobile (lista de números, sem caixas); cada decisão é uma linha (recolhida: título, status e valor); WhatsApp vira ícone no mobile; modal com seletores "Sem valor | Aditivo | Supressivo" e "Sem alteração | Mais dias | Menos dias" mais "Nova data prevista"; termo de assinatura sem UUID.
 - **Diário (§16)**: "Novo registro" no cabeçalho; busca e filtro como popovers dentro da tela; cabeçalho do dia em texto simples (pílula de saldo some no mobile); H2 "Diário".

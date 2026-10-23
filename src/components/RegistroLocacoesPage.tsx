@@ -41,6 +41,7 @@ import {
   alternarDevolucao,
   atualizarLocacaoNaLista,
   resumoKpisTexto,
+  formatarPeriodoLocacao,
   type FiltroStatusLocacao,
 } from '../utils/locacao';
 import '../styles/registros-modelos.css';
@@ -505,6 +506,7 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
         <ul className="rg-list">
           {locacoesFiltradas.map(({ locacao, obra }) => {
             const st = apresentarStatus(locacao);
+            const periodoInfo = formatarPeriodoLocacao(locacao, formatarData);
             const primeiraFoto = locacao.fotos && locacao.fotos.length > 0 ? locacao.fotos[0] : null;
             const StIcon = st.Icon;
             const devolvido = locacao.status === 'devolvido';
@@ -540,6 +542,11 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
                     {locacao.quantidade && locacao.quantidade > 0 ? (
                       <span className="badge badge--accent" title={`Quantidade: ${locacao.quantidade}`}>
                         {locacao.quantidade}×
+                      </span>
+                    ) : null}
+                    {periodoInfo.rotulo ? (
+                      <span className="badge badge--neutral" title={`Período: ${periodoInfo.rotulo}`}>
+                        {periodoInfo.rotulo}
                       </span>
                     ) : null}
                   </div>

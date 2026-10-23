@@ -33,6 +33,13 @@ export const DIAS_POR_PERIODO: Record<TipoPeriodoLocacao, number> = {
   mensal: 30,
 };
 
+export const ROTULOS_PERIODO: Record<TipoPeriodoLocacao, string> = {
+  diaria: 'Diária',
+  semanal: 'Semanal',
+  quinzenal: 'Quinzenal',
+  mensal: 'Mensal',
+};
+
 /** Data de hoje (YYYY-MM-DD) no calendário local. */
 export function hojeLocal(agora: Date = new Date()): string {
   const y = agora.getFullYear();
@@ -211,4 +218,26 @@ export function resumoKpisTexto(kpis: LocacaoKpis): ParteResumoLocacao[] {
     });
   }
   return partes;
+}
+
+export function formatarPeriodoLocacao(
+  locacao: Pick<RegistroLocacao, 'periodo' | 'criadoEm' | 'dataVencimento'>,
+  formatarData: (d?: string) => string
+): { rotulo: string | null; intervalo: string; textoCompleto: string | null } {
+  const rotulo = locacao.periodo ? ROTULOS_PERIODO[locacao.periodo] || locacao.periodo : null;
+  const dtInicio = formatarData(locacao.criadoEm);
+  const dtFim = formatarData(locacao.dataVencimento);
+  const intervalo = dtInicio && dtFim && dtInicio !== dtFim
+    ? `${dtInicio} a ${dtFim}`
+    : dtFim || dtInicio || '';
+
+  const textoCompleto = rotulo && intervalo
+    ? `Período: ${rotulo} (${intervalo})`
+    : rotulo
+    ? `Período: ${rotulo}`
+    : intervalo
+    ? `Período: ${intervalo}`
+    : null;
+
+  return { rotulo, intervalo, textoCompleto };
 }

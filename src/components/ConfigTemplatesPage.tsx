@@ -44,8 +44,8 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     templates.length > 0 ? templates[0].id : ''
   );
 
-  // Etapas abertas (aberta por padrão no desktop; fechada no mobile para reduzir a rolagem)
-  const [openAccordions, setOpenAccordions] = useState<{ [etapaId: string]: boolean }>({});
+  // Apenas uma etapa aberta por vez; todas nascem fechadas
+  const [openEtapaId, setOpenEtapaId] = useState<string | null>(null);
 
   // Seletor de modelo (mobile)
   const [isSeletorOpen, setIsSeletorOpen] = useState(false);
@@ -89,12 +89,8 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) || templates[0];
 
-  const isAccordionOpen = (etapaId: string) => {
-    const v = openAccordions[etapaId];
-    return v === undefined ? !isMobile : v;
-  };
-  const toggleAccordion = (etapaId: string) =>
-    setOpenAccordions((prev) => ({ ...prev, [etapaId]: !isAccordionOpen(etapaId) }));
+  const isAccordionOpen = (etapaId: string) => openEtapaId === etapaId;
+  const toggleAccordion = (etapaId: string) => setOpenEtapaId((prev) => (prev === etapaId ? null : etapaId));
 
   const atualizarAtivo = (fn: (t: PresetTipoObra) => PresetTipoObra) => {
     if (!activeTemplate) return;
@@ -151,6 +147,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
 
     onUpdateTemplates([...templates, novoTemplate]);
     setActiveTemplateId(novoId);
+    setOpenEtapaId(null);
     setIsAddTemplateOpen(false);
     setNovoModeloNome('');
     setNovoModeloClonarDe('blank');
@@ -166,6 +163,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     onUpdateTemplates(updated);
     if (activeTemplateId === id) {
       setActiveTemplateId(updated[0].id);
+      setOpenEtapaId(null);
     }
     showToast('Modelo removido', 'O modelo foi excluído.');
   };
@@ -182,6 +180,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     };
 
     atualizarAtivo((t) => ({ ...t, etapas: [...t.etapas, novaEtapa] }));
+    setOpenEtapaId(novaEtapa.id);
     setIsAddEtapaOpen(false);
     setNovaEtapaNome('');
     showToast('Etapa adicionada', `"${novaEtapa.nome}" foi incluída no modelo.`);
@@ -283,6 +282,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
     onUpdateTemplates(PRESET_TIPOS_OBRA);
     if (PRESET_TIPOS_OBRA.length > 0) {
       setActiveTemplateId(PRESET_TIPOS_OBRA[0].id);
+      setOpenEtapaId(null);
     }
     setIsResetConfirmOpen(false);
     showToast('Modelos restaurados', 'Construção e Reforma voltaram ao padrão de fábrica.', 'info');
@@ -389,6 +389,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                       aria-checked={tpl.id === activeTemplate.id}
                       onClick={() => {
                         setActiveTemplateId(tpl.id);
+                        setOpenEtapaId(null);
                         setIsSeletorOpen(false);
                         setReordenandoEtapas(false);
                         setReordenandoTarefasDe(null);
@@ -412,6 +413,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                   className="rg-model-chip"
                   onClick={() => {
                     setActiveTemplateId(tpl.id);
+                    setOpenEtapaId(null);
                     setReordenandoEtapas(false);
                     setReordenandoTarefasDe(null);
                   }}
@@ -489,7 +491,7 @@ export const ConfigTemplatesPage: React.FC<ConfigTemplatesPageProps> = ({
                   icon: <ArrowsDownUp size={18} aria-hidden="true" />,
                   disabled: etapa.tarefas.length < 2,
                   onSelect: () => {
-                    setOpenAccordions((prev) => ({ ...prev, [etapa.id]: true }));
+                    setOpenEtapaId(etapa.id);
                     setReordenandoTarefasDe(etapa.id);
                   },
                 },

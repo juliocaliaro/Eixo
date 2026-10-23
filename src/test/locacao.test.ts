@@ -11,6 +11,8 @@ import {
   renovarLocacao,
   desfazerRenovacao,
   alternarDevolucao,
+  formatarPeriodoLocacao,
+  ROTULOS_PERIODO,
 } from '../utils/locacao';
 import { RegistroLocacao } from '../types/obra';
 
@@ -167,3 +169,108 @@ describe('resumoKpisTexto', () => {
     expect(resumoKpisTexto({ total: 1, ativos: 1, vencidos: 1, devolvidos: 0 })[0].alerta).toBe(true);
   });
 });
+
+describe('formatarPeriodoLocacao', () => {
+  const formatarData = (d?: string) => {
+    if (!d) return '';
+    const dateOnly = d.split('T')[0];
+    const [y, m, dia] = dateOnly.split('-');
+    return `${dia}/${m}/${y}`;
+  };
+
+  it('formata periodos padrao: diaria, semanal, quinzenal e mensal com intervalo', () => {
+    const tipos = ['diaria', 'semanal', 'quinzenal', 'mensal'] as const;
+    const rotulosEsperados = ['Diária', 'Semanal', 'Quinzenal', 'Mensal'];
+
+    tipos.forEach((periodo, idx) => {
+      const res = formatarPeriodoLocacao(
+        {
+          periodo,
+          criadoEm: '2026-03-01T10:00:00.000Z',
+          dataVencimento: '2026-03-15',
+        },
+        formatarData
+      );
+
+      expect(res.rotulo).toBe(rotulosEsperados[idx]);
+      expect(res.intervalo).toBe('01/03/2026 a 15/03/2026');
+      expect(res.textoCompleto).toBe(`Período: ${rotulosEsperados[idx]} (01/03/2026 a 15/03/2026)`);
+    });
+  });
+
+  it('quando inicio e fim sao iguais, intervalo exibe apenas uma data', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        periodo: 'diaria',
+        criadoEm: '2026-03-01T08:00:00.000Z',
+        dataVencimento: '2026-03-01',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBe('Diária');
+    expect(res.intervalo).toBe('01/03/2026');
+    expect(res.textoCompleto).toBe('Período: Diária (01/03/2026)');
+  });
+
+  it('quando nao ha periodo definido, rotulo e null e exibe apenas o intervalo no textoCompleto', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        periodo: undefined,
+        criadoEm: '2026-03-01T10:00:00.000Z',
+        dataVencimento: '2026-03-10',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBeNull();
+    expect(res.intervalo).toBe('01/03/2026 a 10/03/2026');
+    expect(res.textoCompleto).toBe('Período: 01/03/2026 a 10/03/2026');
+  });
+
+  it('quando so ha data de vencimento sem data de inicio', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        periodo: 'semanal',
+        dataVencimento: '2026-03-20',
+        criadoEm: '',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBe('Semanal');
+    expect(res.intervalo).toBe('20/03/2026');
+    expect(res.textoCompleto).toBe('Período: Semanal (20/03/2026)');
+  });
+
+  it('quando nao ha datas nem periodo, textoCompleto e null', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        periodo: undefined,
+        criadoEm: '',
+        dataVencimento: '',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBeNull();
+    expect(res.intervalo).toBe('');
+    expect(res.textoCompleto).toBeNull();
+  });
+
+  it('quando so ha periodo e nenhuma data', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        periodo: 'mensal',
+        criadoEm: '',
+        dataVencimento: '',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBe('Mensal');
+    expect(res.intervalo).toBe('');
+    expect(res.textoCompleto).toBe('Período: Mensal');
+  });
+});
+

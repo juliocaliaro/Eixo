@@ -32,7 +32,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   const n = (nome || '').toLowerCase().trim();
 
   // 1. Projetos e Legalização
-  if (n.includes('projeto') || n.includes('legalização') || n.includes('alvará') || n.includes('topografia')) {
+  if (n.includes('projeto') || n.includes('legalização') || n.includes('legalizacao') || n.includes('alvará') || n.includes('alvara') || n.includes('topografia')) {
     return {
       Icon: FileText,
       color: '#0284c7',
@@ -50,7 +50,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 3. Isolamento e Preparação (Reforma)
-  if (n.includes('isolamento') || n.includes('preparação') || n.includes('proteção')) {
+  if (n.includes('isolamento') || n.includes('preparação') || n.includes('preparacao') || n.includes('proteção') || n.includes('protecao')) {
     return {
       Icon: ShieldCheck,
       color: 'var(--dark-coffee-800)',
@@ -59,7 +59,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 4. Demolição (Reforma)
-  if (n.includes('demolição') || n.includes('descarte') || n.includes('entulho') || n.includes('demolir')) {
+  if (n.includes('demolição') || n.includes('demolicao') || n.includes('descarte') || n.includes('entulho') || n.includes('demolir')) {
     return {
       Icon: Hammer,
       color: '#dc2626',
@@ -68,7 +68,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 5. Fundação e Contenção (Construção)
-  if (n.includes('fundação') || n.includes('contenção') || n.includes('arrimo') || n.includes('sapata') || n.includes('baldrame')) {
+  if (n.includes('fundação') || n.includes('fundacao') || n.includes('contenção') || n.includes('contencao') || n.includes('arrimo') || n.includes('sapata') || n.includes('baldrame')) {
     return {
       Icon: Shovel,
       color: 'var(--cinnamon-wood-700)',
@@ -86,7 +86,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 7. Alvenaria e Vedação / Construção
-  if (n.includes('alvenaria') || n.includes('vedação') || n.includes('parede') || n.includes('construção')) {
+  if (n.includes('alvenaria') || n.includes('vedação') || n.includes('vedacao') || n.includes('parede') || n.includes('construção') || n.includes('construcao')) {
     return {
       Icon: Wall,
       color: 'var(--mauve-bark-700)',
@@ -94,7 +94,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
     };
   }
 
-  // 8. Cobertura e Aquecimento
+  // 8. Cobertura e Telhado / Aquecimento
   if (n.includes('cobertura') || n.includes('telhad') || n.includes('aquecimento') || n.includes('boiler') || n.includes('telha') || n.includes('calha')) {
     return {
       Icon: HouseLine,
@@ -104,7 +104,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 9. Infraestrutura e Instalações (Elétrica, Hidráulica, Ar condicionado)
-  if (n.includes('infraestrutura') || n.includes('instalaç') || n.includes('elétrica') || n.includes('hidráulica') || n.includes('fotovoltaica') || n.includes('esgoto')) {
+  if (n.includes('infraestrutura') || n.includes('instalaç') || n.includes('instalac') || n.includes('elétrica') || n.includes('eletrica') || n.includes('hidráulica') || n.includes('hidraulica') || n.includes('fotovoltaica') || n.includes('esgoto')) {
     return {
       Icon: Lightning,
       color: '#d97706',
@@ -113,7 +113,7 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
   }
 
   // 10. Revestimentos Brutos
-  if (n.includes('bruto') || n.includes('chapisco') || n.includes('emboço') || n.includes('reboco') || n.includes('contrapiso')) {
+  if (n.includes('bruto') || n.includes('chapisco') || n.includes('emboço') || n.includes('emboco') || n.includes('reboco') || n.includes('contrapiso')) {
     return {
       Icon: Wrench,
       color: 'var(--cinnamon-wood-800)',
@@ -148,21 +148,21 @@ export function getEtapaIcon(nome: string, _etapaId?: string): EtapaIconConfig {
     };
   }
 
-  // 14. Finalização
-  if (n.includes('finalização') || n.includes('limpeza')) {
-    return {
-      Icon: Sparkle,
-      color: '#7c3aed',
-      bg: '#ede9fe',
-    };
-  }
-
-  // 15. Testes, Desmobilização e Entrega
-  if (n.includes('teste') || n.includes('desmobilização') || n.includes('entrega') || n.includes('chave') || n.includes('habite-se') || n.includes('vistoria')) {
+  // 14. Entrega e Finalização da Obra (Chaves, Habite-se, Vistoria)
+  if (n.includes('entrega') || n.includes('chave') || n.includes('habite-se') || n.includes('habitese') || n.includes('vistoria') || n.includes('teste') || n.includes('desmobilização') || n.includes('desmobilizacao')) {
     return {
       Icon: SealCheck,
       color: '#16a34a',
       bg: '#dcfce7',
+    };
+  }
+
+  // 15. Finalização e Limpeza
+  if (n.includes('finalização') || n.includes('finalizacao') || n.includes('limpeza')) {
+    return {
+      Icon: Sparkle,
+      color: '#7c3aed',
+      bg: '#ede9fe',
     };
   }
 

@@ -74,9 +74,8 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   targetTaskNavigation,
 }) => {
   const isMobile = useIsMobile();
-
-  // Vazio = padrão responsivo: no mobile as etapas iniciam recolhidas; no desktop, abertas.
-  const [openAccordions, setOpenAccordions] = useState<{ [key: string]: boolean }>({});
+  // Todas as etapas nascem fechadas por padrão (null). Apenas a etapa clicada é aberta.
+  const [openEtapaId, setOpenEtapaId] = useState<string | null>(null);
 
   const [editingEtapa, setEditingEtapa] = useState<{ id: string; nome: string } | null>(null);
   const [addingTaskEtapa, setAddingTaskEtapa] = useState<{
@@ -139,10 +138,22 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     const { etapaId, tarefaId } = targetTaskNavigation;
 
     // 1. Garante que o accordion da etapa está aberto
-    setOpenAccordions((prev) => ({
-      ...prev,
-      [etapaId]: true,
-    }));
+    setOpenEtapaId(etapaId);
+
+    // Se a tarefa pertencer a um ambiente/agrupamento, garante que ele também esteja aberto
+    const targetEtapa = obra.etapas.find((e) => e.id === etapaId);
+    const targetTask = targetEtapa?.tarefas.find((t) => t.id === tarefaId);
+    if (targetTask?.ambiente) {
+      setOpenAgrupamentos((prev) => ({
+        ...prev,
+        [`${etapaId}__${targetTask.ambiente}`]: true,
+      }));
+    } else if (targetEtapa && (targetEtapa.ambientes?.length ?? 0) > 0) {
+      setOpenAgrupamentos((prev) => ({
+        ...prev,
+        [`${etapaId}____SEM_GRUPO__`]: true,
+      }));
+    }
 
     // 2. Scroll suave e destaque visual temporário da linha (pulse)
     const timer = setTimeout(() => {
@@ -157,7 +168,13 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     }, 180);
 
     return () => clearTimeout(timer);
-  }, [targetTaskNavigation]);
+  }, [targetTaskNavigation, obra.etapas]);
+
+  // Ao trocar de obra, garante que todas as etapas e agrupamentos nasçam 100% fechados
+  useEffect(() => {
+    setOpenEtapaId(null);
+    setOpenAgrupamentos({});
+  }, [obra.id]);
 
   // Estados de confirmação (substitutos de alert/confirm)
   const [deleteEtapaTarget, setDeleteEtapaTarget] = useState<{ id: string; nome: string } | null>(null);
@@ -174,13 +191,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
   const formatarDataHora = formatarDataHoraBR;
 
   const toggleAccordion = (etapaId: string) => {
-    setOpenAccordions((prev) => {
-      const current = prev[etapaId] ?? (!isMobile);
-      return {
-        ...prev,
-        [etapaId]: !current,
-      };
-    });
+    setOpenEtapaId((prev) => (prev === etapaId ? null : etapaId));
   };
 
   // Drag handlers de Etapa
@@ -204,17 +215,17 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
     setDragOverEtapaIndex(null);
   };
 
-  // Accordion de Agrupamento por Ambiente (padrao: aberto)
+  // Accordion de Agrupamento por Ambiente (padrão: fechado)
   const isAgrupamentoOpen = (etapaId: string, groupKey: string) => {
     const fullKey = `${etapaId}__${groupKey}`;
-    return openAgrupamentos[fullKey] !== false;
+    return Boolean(openAgrupamentos[fullKey]);
   };
 
   const toggleAgrupamento = (etapaId: string, groupKey: string) => {
     const fullKey = `${etapaId}__${groupKey}`;
     setOpenAgrupamentos((prev) => ({
       ...prev,
-      [fullKey]: prev[fullKey] === false ? true : false,
+      [fullKey]: !Boolean(prev[fullKey]),
     }));
   };
 
@@ -327,7 +338,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
 
         <div className="timeline-items-flow">
           {obra.etapas.map((etapa, etapaIndex) => {
-            const isOpen = openAccordions[etapa.id] ?? (!isMobile);
+            const isOpen = openEtapaId === etapa.id;
             const totalTarefas = etapa.tarefas.length;
 
             const { concluidas, percentual: percEtapa, concluida: todasConcluidas } = progressoDeEtapa(etapa);
@@ -470,7 +481,7 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
                                   label: 'Novo agrupamento por ambiente',
                                   icon: <SquaresFour size={18} weight="bold" />,
                                   onSelect: () => {
-                                    setOpenAccordions((prev) => ({ ...prev, [etapa.id]: true }));
+                                    setOpenEtapaId(etapa.id);
                                     setCreatingGroupEtapaId(etapa.id);
                                   },
                                 },
@@ -1048,6 +1059,12 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
           onClose={() => setAddingTaskEtapa(null)}
           onSave={(nome, ambiente) => {
             onAddTaskToEtapa(addingTaskEtapa.etapaId, nome, undefined, ambiente);
+            if (ambiente) {
+              setOpenAgrupamentos((prev) => ({
+                ...prev,
+                [`${addingTaskEtapa.etapaId}__${ambiente}`]: true,
+              }));
+            }
             setAddingTaskEtapa(null);
           }}
         />
@@ -1065,6 +1082,10 @@ export const TimelineEtapas: React.FC<TimelineEtapasProps> = ({
             if (onCreateAgrupamento) {
               onCreateAgrupamento(creatingGroupEtapaId, novoNome);
             }
+            setOpenAgrupamentos((prev) => ({
+              ...prev,
+              [`${creatingGroupEtapaId}__${novoNome}`]: true,
+            }));
             setCreatingGroupEtapaId(null);
           }}
         />
