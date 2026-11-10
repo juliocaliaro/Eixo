@@ -3,8 +3,8 @@
  * Todas as datas são strings 'YYYY-MM-DD' interpretadas no calendário LOCAL do usuário
  * (nunca via toISOString, que é UTC e vira "amanhã" à noite no Brasil).
  */
-import { RegistroLocacao, TipoPeriodoLocacao } from '../types/obra';
-import { somarDiasData } from './data';
+import { RegistroLocacao, TipoPeriodoLocacao, TipoUnidadePrazoLocacao } from '../types/obra';
+import { somarDiasData, somarMesesData } from './data';
 
 export type LocacaoTipoStatus = 'devolvido' | 'ativo' | 'vencido' | 'hoje' | 'urgente' | 'em_dia';
 
@@ -26,18 +26,51 @@ export interface LocacaoKpis {
 
 export const DIAS_URGENTE = 3;
 
-export const DIAS_POR_PERIODO: Record<TipoPeriodoLocacao, number> = {
+export const DIAS_POR_PERIODO: Record<string, number> = {
+  dia: 1,
+  semana: 7,
+  mes: 30,
+  ano: 365,
   diaria: 1,
+  diario: 1,
   semanal: 7,
   quinzenal: 15,
   mensal: 30,
+  bimestral: 60,
+  trimestral: 90,
+  semestral: 180,
+  anual: 365,
 };
 
-export const ROTULOS_PERIODO: Record<TipoPeriodoLocacao, string> = {
+export const ROTULOS_UNIDADE_PRAZO: Record<TipoUnidadePrazoLocacao, { singular: string; plural: string }> = {
+  dia: { singular: 'Dia', plural: 'Dias' },
+  semana: { singular: 'Semana', plural: 'Semanas' },
+  mes: { singular: 'Mês', plural: 'Meses' },
+  ano: { singular: 'Ano', plural: 'Anos' },
+  diario: { singular: 'Diário', plural: 'Diários' },
+  semanal: { singular: 'Semanal', plural: 'Semanais' },
+  quinzenal: { singular: 'Quinzenal', plural: 'Quinzenais' },
+  mensal: { singular: 'Mensal', plural: 'Mensais' },
+  bimestral: { singular: 'Bimestral', plural: 'Bimestrais' },
+  trimestral: { singular: 'Trimestral', plural: 'Trimestrais' },
+  semestral: { singular: 'Semestral', plural: 'Semestrais' },
+  anual: { singular: 'Anual', plural: 'Anuais' },
+};
+
+export const ROTULOS_PERIODO: Record<string, string> = {
+  dia: 'Dia',
+  semana: 'Semana',
+  mes: 'Mês',
+  ano: 'Ano',
   diaria: 'Diária',
+  diario: 'Diário',
   semanal: 'Semanal',
   quinzenal: 'Quinzenal',
   mensal: 'Mensal',
+  bimestral: 'Bimestral',
+  trimestral: 'Trimestral',
+  semestral: 'Semestral',
+  anual: 'Anual',
 };
 
 /** Data de hoje (YYYY-MM-DD) no calendário local. */
@@ -140,9 +173,64 @@ export function filtrarLocacoes<T extends { locacao: RegistroLocacao; obra: { id
   });
 }
 
-/** Vencimento calculado a partir do período escolhido, contando de `hoje`. */
-export function calcularVencimentoPeriodo(periodo: TipoPeriodoLocacao, hoje: string): string {
-  return somarDiasData(hoje, DIAS_POR_PERIODO[periodo] ?? 0);
+/** Vencimento calculado a partir do período escolhido, contando a partir de `dataInicio`. */
+export function calcularVencimentoPeriodo(periodo: TipoPeriodoLocacao, dataInicio: string): string {
+  switch (periodo) {
+    case 'diaria':
+    case 'diario':
+    case 'dia':
+      return somarDiasData(dataInicio, 1);
+    case 'semanal':
+    case 'semana':
+      return somarDiasData(dataInicio, 7);
+    case 'quinzenal':
+      return somarDiasData(dataInicio, 15);
+    case 'mensal':
+    case 'mes':
+      return somarMesesData(dataInicio, 1);
+    case 'anual':
+    case 'ano':
+      return somarMesesData(dataInicio, 12);
+    default:
+      return somarDiasData(dataInicio, DIAS_POR_PERIODO[periodo as keyof typeof DIAS_POR_PERIODO] ?? 0);
+  }
+}
+
+/**
+ * Calcula a data de vencimento somando a quantidade de intervalos à data de início informada.
+ * Trata corretamente dias (diário, semanal, quinzenal) e meses civis (mensal, bimestral, etc.).
+ * Exemplo: 01/01/2026 + 2 mensais = 01/03/2026.
+ */
+export function calcularVencimentoComIntervalo(
+  dataInicio: string,
+  quantidade: number,
+  unidade: TipoUnidadePrazoLocacao
+): string {
+  const qtd = Math.max(1, Math.floor(quantidade || 1));
+  switch (unidade) {
+    case 'dia':
+    case 'diario':
+      return somarDiasData(dataInicio, qtd * 1);
+    case 'semana':
+    case 'semanal':
+      return somarDiasData(dataInicio, qtd * 7);
+    case 'quinzenal':
+      return somarDiasData(dataInicio, qtd * 15);
+    case 'mes':
+    case 'mensal':
+      return somarMesesData(dataInicio, qtd * 1);
+    case 'bimestral':
+      return somarMesesData(dataInicio, qtd * 2);
+    case 'trimestral':
+      return somarMesesData(dataInicio, qtd * 3);
+    case 'semestral':
+      return somarMesesData(dataInicio, qtd * 6);
+    case 'ano':
+    case 'anual':
+      return somarMesesData(dataInicio, qtd * 12);
+    default:
+      return somarDiasData(dataInicio, qtd * 30);
+  }
 }
 
 /** Sugestão de nova data ao renovar: +30 dias a partir do vencimento atual (ou de hoje). */
@@ -221,11 +309,26 @@ export function resumoKpisTexto(kpis: LocacaoKpis): ParteResumoLocacao[] {
 }
 
 export function formatarPeriodoLocacao(
-  locacao: Pick<RegistroLocacao, 'periodo' | 'criadoEm' | 'dataVencimento'>,
+  locacao: {
+    periodo?: TipoPeriodoLocacao;
+    criadoEm?: string;
+    dataVencimento?: string;
+    dataInicio?: string;
+    prazoQuantidade?: number;
+    prazoUnidade?: TipoUnidadePrazoLocacao;
+  },
   formatarData: (d?: string) => string
 ): { rotulo: string | null; intervalo: string; textoCompleto: string | null } {
-  const rotulo = locacao.periodo ? ROTULOS_PERIODO[locacao.periodo] || locacao.periodo : null;
-  const dtInicio = formatarData(locacao.criadoEm);
+  let rotulo: string | null = null;
+  if (locacao.prazoUnidade) {
+    const info = ROTULOS_UNIDADE_PRAZO[locacao.prazoUnidade];
+    const qtd = locacao.prazoQuantidade ?? 1;
+    rotulo = qtd > 1 ? `${qtd} ${info?.plural || locacao.prazoUnidade}` : info?.singular || locacao.prazoUnidade;
+  } else if (locacao.periodo) {
+    rotulo = ROTULOS_PERIODO[locacao.periodo] || locacao.periodo;
+  }
+
+  const dtInicio = formatarData(locacao.dataInicio || locacao.criadoEm);
   const dtFim = formatarData(locacao.dataVencimento);
   const intervalo = dtInicio && dtFim && dtInicio !== dtFim
     ? `${dtInicio} a ${dtFim}`

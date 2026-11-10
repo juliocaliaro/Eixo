@@ -30,6 +30,38 @@ export function somarDiasData(dataStr: string, dias: number): string {
 }
 
 /**
+ * Soma meses no calendário civil de forma pura em 'YYYY-MM-DD',
+ * evitando desvios de fuso e garantindo que dias no final de mês não ultrapassem
+ * o último dia do mês de destino (ex: 31/01 + 1 mês = 28/02).
+ */
+export function somarMesesData(dataStr: string, meses: number): string {
+  if (!dataStr) {
+    const d = new Date();
+    return somarMesesData(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`, meses);
+  }
+
+  const parts = dataStr.split('T')[0].split('-').map(Number);
+  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) {
+    return dataStr;
+  }
+
+  const [ano, mes, dia] = parts;
+  const totalMeses = (mes - 1) + meses;
+  const novoAno = ano + Math.floor(totalMeses / 12);
+  const novoMesZeroIndexed = ((totalMeses % 12) + 12) % 12;
+  const novoMes = novoMesZeroIndexed + 1;
+
+  // Último dia do novo mês (passar dia 0 do mês seguinte devolve o total de dias)
+  const maxDiasNoMes = new Date(novoAno, novoMes, 0).getDate();
+  const novoDia = Math.min(dia, maxDiasNoMes);
+
+  const y = String(novoAno).padStart(4, '0');
+  const m = String(novoMes).padStart(2, '0');
+  const d = String(novoDia).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
  * Formata 'YYYY-MM-DD' (ou um timestamp ISO) como 'DD/MM/AAAA'.
  * `fallback` é o texto exibido quando a data está ausente.
  */

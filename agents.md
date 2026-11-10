@@ -620,7 +620,9 @@ A aplicação implementa dois perfis com níveis de permissão transparentes:
 - **Formulário de Cadastro (`ModalRegistroLocacao.tsx`)**:
   - **Upload de foto**: foto do maquinário, ferramenta ou comprovante/recibo com compressão inteligente via `<canvas>` e upload para bucket de armazenamento.
   - **O que foi locado & Quantidade na mesma linha**: o campo descritivo livre ("O que foi locado?", ex: *Escora metálica*, *Andaime Fachadeiro 12m*) e o campo numérico pequeno ("Qtd.", aceitando estritamente números inteiros com teclado numérico em mobile) dispostos lado a lado na mesma linha.
-  - **Disposição Lado a Lado**: `Fornecedor / Locadora` e `Data de Vencimento` dispostos em 2 colunas horizontais harmoniosas, otimizando o fluxo visual.
+  - **Data de Locação com Bloqueio de Dias Futuros**: Campo de data limitado ao dia atual (`max={dataHoje}` e validação defensiva), impedindo a seleção de datas futuras tanto no seletor de calendário nativo quanto por digitação manual.
+  - **Período e Cálculo Automático de Vencimento**: Campo dropdown com as opções oficiais (*Diária*, *Semanal*, *Quinzenal* e *Mensal*), calculando dinamicamente a data final prevista a partir da data de locação com cálculo civil de meses e exibindo o indicador em tempo real (`Vence em DD/MM/AAAA`).
+  - **Fornecedor**: Campo opcional para nome da locadora ou fornecedor.
   - **Remoção de Campos Desnecessários ("Menos é mais")**: Campos de valor em R$ e observações foram removidos da criação para acelerar o registro operacional no canteiro. O formulário de criação foca estritamente nos dados de entrada da locação.
 - **Painel Executivo e Mecânica de Renovação no Registro Criado (`RegistroLocacoesPage.tsx`)**:
   - **Input Clicável de Renovação no Registro já Criado**: Cada cartão de locação possui o checkbox interativo:

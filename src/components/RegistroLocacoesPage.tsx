@@ -191,12 +191,13 @@ export const RegistroLocacoesPage: React.FC<RegistroLocacoesPageProps> = ({
       itemLocado: dados.itemLocado,
       quantidade: dados.quantidade,
       periodo: dados.periodo,
+      dataInicio: dados.dataLocacao,
       dataVencimento: dados.dataVencimento,
       fotos: dados.fotos,
       fornecedor: dados.fornecedor,
       status: 'ativo',
       renovado: false,
-      criadoEm: new Date().toISOString(),
+      criadoEm: dados.dataLocacao ? `${dados.dataLocacao}T12:00:00.000Z` : new Date().toISOString(),
     };
 
     onUpdateObra({

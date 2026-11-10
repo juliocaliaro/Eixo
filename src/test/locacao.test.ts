@@ -7,13 +7,16 @@ import {
   contarKpis,
   filtrarLocacoes,
   calcularVencimentoPeriodo,
+  calcularVencimentoComIntervalo,
   sugerirNovoVencimento,
   renovarLocacao,
   desfazerRenovacao,
   alternarDevolucao,
   formatarPeriodoLocacao,
   ROTULOS_PERIODO,
+  ROTULOS_UNIDADE_PRAZO,
 } from '../utils/locacao';
+import { somarMesesData } from '../utils/data';
 import { RegistroLocacao } from '../types/obra';
 
 const HOJE = '2026-03-10';
@@ -102,15 +105,59 @@ describe('kpis e filtros', () => {
 });
 
 describe('vencimento por periodo', () => {
-  it('soma dias a partir de hoje local', () => {
+  it('soma prazo a partir da data de locação', () => {
     expect(calcularVencimentoPeriodo('diaria', '2026-03-10')).toBe('2026-03-11');
     expect(calcularVencimentoPeriodo('semanal', '2026-03-10')).toBe('2026-03-17');
     expect(calcularVencimentoPeriodo('quinzenal', '2026-03-10')).toBe('2026-03-25');
-    expect(calcularVencimentoPeriodo('mensal', '2026-03-10')).toBe('2026-04-09');
+    expect(calcularVencimentoPeriodo('mensal', '2026-03-10')).toBe('2026-04-10');
+    expect(calcularVencimentoPeriodo('mensal', '2026-01-01')).toBe('2026-02-01');
   });
   it('sugere +30 dias do vencimento atual', () => {
     expect(sugerirNovoVencimento({ dataVencimento: '2026-03-10' }, HOJE)).toBe('2026-04-09');
     expect(sugerirNovoVencimento({ dataVencimento: '' }, HOJE)).toBe('2026-04-09');
+  });
+});
+
+describe('somarMesesData e calcularVencimentoComIntervalo', () => {
+  it('soma meses no calendário civil conforme o exemplo do usuário: 01/01/2026 + 2 mensais = 01/03/2026', () => {
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'mensal')).toBe('2026-03-01');
+  });
+
+  it('calcula corretamente todos os intervalos de prazo', () => {
+    // Opções oficiais: Dia, Semana, Mês, Ano
+    expect(calcularVencimentoComIntervalo('2026-01-01', 5, 'dia')).toBe('2026-01-06');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'semana')).toBe('2026-01-15');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'mes')).toBe('2026-03-01');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'ano')).toBe('2027-01-01');
+
+    // Diário (1 dia * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 5, 'diario')).toBe('2026-01-06');
+    // Semanal (7 dias * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'semanal')).toBe('2026-01-15');
+    // Quinzenal (15 dias * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'quinzenal')).toBe('2026-01-16');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'quinzenal')).toBe('2026-01-31');
+    // Mensal (1 mês * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'mensal')).toBe('2026-02-01');
+    // Bimestral (2 meses * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'bimestral')).toBe('2026-03-01');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'bimestral')).toBe('2026-05-01');
+    // Trimestral (3 meses * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'trimestral')).toBe('2026-04-01');
+    // Semestral (6 meses * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'semestral')).toBe('2026-07-01');
+    // Anual (12 meses * Q)
+    expect(calcularVencimentoComIntervalo('2026-01-01', 1, 'anual')).toBe('2027-01-01');
+    expect(calcularVencimentoComIntervalo('2026-01-01', 2, 'anual')).toBe('2028-01-01');
+  });
+
+  it('trata fim de mês e anos bissextos em somarMesesData sem transbordamento acidental', () => {
+    // 31 de janeiro + 1 mês em ano não-bissexto (2026) -> 28 de fevereiro
+    expect(somarMesesData('2026-01-31', 1)).toBe('2026-02-28');
+    // 31 de janeiro + 1 mês em ano bissexto (2024) -> 29 de fevereiro
+    expect(somarMesesData('2024-01-31', 1)).toBe('2024-02-29');
+    // 31 de março + 1 mês -> 30 de abril
+    expect(somarMesesData('2026-03-31', 1)).toBe('2026-04-30');
   });
 });
 
@@ -271,6 +318,48 @@ describe('formatarPeriodoLocacao', () => {
     expect(res.rotulo).toBe('Mensal');
     expect(res.intervalo).toBe('');
     expect(res.textoCompleto).toBe('Período: Mensal');
+  });
+
+  it('formata adequadamente quando prazoUnidade e prazoQuantidade são informados', () => {
+    const res = formatarPeriodoLocacao(
+      {
+        prazoUnidade: 'mensal',
+        prazoQuantidade: 2,
+        dataInicio: '2026-01-01',
+        dataVencimento: '2026-03-01',
+      },
+      formatarData
+    );
+
+    expect(res.rotulo).toBe('2 Mensais');
+    expect(res.intervalo).toBe('01/01/2026 a 01/03/2026');
+  });
+});
+
+describe('ModalRegistroLocacao - Validações de integridade', () => {
+  it('garante que o campo Data de Locação possui limitação para não permitir dias futuros', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const modalPath = path.resolve(__dirname, '../components/ModalRegistroLocacao.tsx');
+    const modalCode = fs.readFileSync(modalPath, 'utf-8');
+
+    // Limitação via atributo max no input nativo
+    expect(modalCode).toContain('max={dataHoje}');
+    expect(modalCode).toContain('type="date"');
+
+    // Validação defensiva em onChange e handleSubmit
+    expect(modalCode).toContain('dataLocacao > dataHoje');
+    expect(modalCode).toContain('A data de locação não pode ser uma data futura.');
+
+    // Campo Período com as 4 opções oficiais
+    expect(modalCode).toContain('value="diaria">Diária</option>');
+    expect(modalCode).toContain('value="semanal">Semanal</option>');
+    expect(modalCode).toContain('value="quinzenal">Quinzenal</option>');
+    expect(modalCode).toContain('value="mensal">Mensal</option>');
+
+    // Remoção do input group Prazo
+    expect(modalCode).not.toContain('rg-prazo-qty');
+    expect(modalCode).not.toContain('id="locacao-prazo-qtd"');
   });
 });
 

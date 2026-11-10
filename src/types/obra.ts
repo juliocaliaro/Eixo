@@ -107,14 +107,41 @@ export interface RegistroNota {
   criadoEm: string;
 }
 
-export type TipoPeriodoLocacao = 'diaria' | 'semanal' | 'quinzenal' | 'mensal';
+export type TipoUnidadePrazoLocacao =
+  | 'dia'
+  | 'semana'
+  | 'mes'
+  | 'ano'
+  | 'diario'
+  | 'semanal'
+  | 'quinzenal'
+  | 'mensal'
+  | 'bimestral'
+  | 'trimestral'
+  | 'semestral'
+  | 'anual';
+
+export type TipoPeriodoLocacao =
+  | 'diaria'
+  | 'diario'
+  | 'semanal'
+  | 'quinzenal'
+  | 'mensal'
+  | 'bimestral'
+  | 'trimestral'
+  | 'semestral'
+  | 'anual'
+  | (string & {});
 
 export interface RegistroLocacao {
   id: string;
   obraId: string;
   itemLocado: string; // Descrição livre do que foi locado
   quantidade?: number; // Quantidade de itens locados (ex: 1, 10, 50)
-  periodo?: TipoPeriodoLocacao; // Diária, Semanal, Quinzenal ou Mensal
+  periodo?: TipoPeriodoLocacao; // Diária, Semanal, Quinzenal, Mensal, etc.
+  dataInicio?: string; // Data de Início/Locação (YYYY-MM-DD)
+  prazoQuantidade?: number; // Quantidade do intervalo do prazo (ex: 1, 2)
+  prazoUnidade?: TipoUnidadePrazoLocacao; // Unidade do intervalo do prazo
   dataVencimento: string; // Data de vencimento/devolução (YYYY-MM-DD)
   fotos: string[]; // Upload de fotos do equipamento/comprovante
   fornecedor?: string; // Nome da locadora ou fornecedor (opcional)

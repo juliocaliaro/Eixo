@@ -15,6 +15,7 @@ export interface NovaLocacaoData {
   obraId: string;
   itemLocado: string;
   quantidade?: number;
+  dataLocacao?: string;
   periodo: TipoPeriodoLocacao;
   dataVencimento: string;
   fotos: string[];
@@ -40,6 +41,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   const [itemLocado, setItemLocado] = useState<string>('');
   const [quantidade, setQuantidade] = useState<number | ''>('');
   const [fornecedor, setFornecedor] = useState<string>('');
+  const [dataLocacao, setDataLocacao] = useState<string>(hojeLocal());
   const [periodo, setPeriodo] = useState<TipoPeriodoLocacao | ''>('');
   const [erro, setErro] = useState<string>('');
   const {
@@ -61,6 +63,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setItemLocado('');
       setQuantidade('');
       setFornecedor('');
+      setDataLocacao(hojeLocal());
       setPeriodo('');
       clearFotos();
       setErro('');
@@ -71,6 +74,9 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
   useEscapeKey(onClose, isOpen);
 
   if (!isOpen) return null;
+
+  const dataHoje = hojeLocal();
+  const dataFinalCalculada = periodo && dataLocacao ? calcularVencimentoPeriodo(periodo, dataLocacao) : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,12 +91,22 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       return;
     }
 
+    if (!dataLocacao.trim()) {
+      setErro('Informe a data de locação.');
+      return;
+    }
+
+    if (dataLocacao > dataHoje) {
+      setErro('A data de locação não pode ser uma data futura.');
+      return;
+    }
+
     if (!periodo) {
       setErro('Selecione o período da locação (Diária, Semanal, Quinzenal ou Mensal).');
       return;
     }
 
-    const dataVencimento = calcularVencimentoPeriodo(periodo, hojeLocal());
+    const dataVencimento = calcularVencimentoPeriodo(periodo, dataLocacao);
 
     setIsSaving(true);
     setErro('');
@@ -116,6 +132,7 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
         obraId,
         itemLocado: itemLocado.trim(),
         quantidade: quantidade ? Number(quantidade) : undefined,
+        dataLocacao,
         periodo,
         dataVencimento,
         fotos: urlsUpload,
@@ -130,8 +147,6 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
       setIsSaving(false);
     }
   };
-
-  const vencimentoPrevisto = periodo ? calcularVencimentoPeriodo(periodo, hojeLocal()) : '';
 
   return (
     <div
@@ -236,18 +251,42 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
               </div>
             </div>
 
+            <div className="rg-field">
+              <label className="form-label" htmlFor="locacao-fornecedor">
+                Fornecedor <span className="rg-optional">(opcional)</span>
+              </label>
+              <input
+                id="locacao-fornecedor"
+                type="text"
+                value={fornecedor}
+                onChange={(e) => setFornecedor(e.target.value)}
+                placeholder="Ex.: LocaMais"
+                className="form-input"
+              />
+            </div>
+
             <div className="rg-field-row">
               <div className="rg-field">
-                <label className="form-label" htmlFor="locacao-fornecedor">
-                  Fornecedor <span className="rg-optional">(opcional)</span>
+                <label className="form-label" htmlFor="locacao-data-inicio">
+                  Data de Locação
                 </label>
                 <input
-                  id="locacao-fornecedor"
-                  type="text"
-                  value={fornecedor}
-                  onChange={(e) => setFornecedor(e.target.value)}
-                  placeholder="Ex.: LocaMais"
+                  id="locacao-data-inicio"
+                  type="date"
+                  max={dataHoje}
+                  value={dataLocacao}
+                  onChange={(e) => {
+                    const valor = e.target.value;
+                    if (valor && valor > dataHoje) {
+                      setDataLocacao(dataHoje);
+                      setErro('A data de locação não pode ser uma data futura.');
+                      return;
+                    }
+                    setDataLocacao(valor);
+                    setErro('');
+                  }}
                   className="form-input"
+                  required
                 />
               </div>
 
@@ -271,7 +310,11 @@ export const ModalRegistroLocacao: React.FC<ModalRegistroLocacaoProps> = ({
                   <option value="quinzenal">Quinzenal</option>
                   <option value="mensal">Mensal</option>
                 </select>
-                {vencimentoPrevisto && <span className="form-hint">Vence em {formatarDataBR(vencimentoPrevisto)}</span>}
+                {dataFinalCalculada && (
+                  <span className="form-hint">
+                    Vence em <strong>{formatarDataBR(dataFinalCalculada)}</strong>
+                  </span>
+                )}
               </div>
             </div>
 
